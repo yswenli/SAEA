@@ -234,6 +234,28 @@ ActionResult ──┬── JsonActionResult ──► JSON Serialization Outpu
 
 ## Performance Comparison 📊
 
+### Measured on one machine (reference)
+
+The table below is one snapshot from a loopback load test. The site under test is a SAEA.MVC application assembled on top of SAEA.Http; SAEA.Http as a standalone server has not been benchmarked separately.
+
+| Scenario | Result |
+|---|---:|
+| HTTP serial (5,000 requests, short connections) | 943 RPS |
+| HTTP 16 concurrent (10 s) | 4,140 RPS |
+| HTTP 64 concurrent (10 s) | 3,529 RPS |
+| HTTPS serial (2,000 requests, short connections) | 220 RPS |
+| Static 100 KB serial (memory cache hit) | 529 RPS / 51.7 MiB/s |
+| WebSocket single-connection echo | 7,078 msg/s |
+
+How to read these numbers:
+
+- Client and server ran on the same machine in the same process over IPv4 loopback; under concurrency the load generator is itself a bottleneck (in this run 64-concurrent RPS is 0.85x the 16-concurrent figure), so it does not indicate the server's scaling limit.
+- Ordinary responses are fixed to `Connection: close`, so every request pays a TCP connect and teardown and HTTPS adds a TLS handshake; RPS is dominated by connection setup rather than business processing.
+- Self-signed certificate with TLS 1.2 fixed and certificate validation skipped; static files are served from the in-memory cache, so this is not the first-read or large-file chunked path.
+- Single-run snapshot: the same probe varies 20%–35% between runs (another run on this machine measured 749 RPS HTTP serial, 183 RPS HTTPS serial, 515 RPS static 100 KB serial and 5,782 msg/s WebSocket single connection). Use it only for relative comparison within one run, never as a production absolute value or for cross-framework comparison.
+
+Full data, failure rates and resource usage: [MVC / TLS acceptance record](../../docs/superpowers/plans/2026-11-13-mvc-tls-acceptance.md).
+
 ### Comparison with Other Web Frameworks
 
 | Metric | SAEA.MVC | ASP.NET Core | NancyFX | HttpListener |
