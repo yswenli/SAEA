@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 13:56:00
+*修改时间：2026/11/16 10:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：整理 using 顺序，移除未使用的引用
+*描述：新增 byte[] 解码重载并抽出公共解码循环，去掉接收路径的整段复制
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -37,6 +37,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace SAEA.WebSocket.Model
 {
@@ -88,11 +89,53 @@ namespace SAEA.WebSocket.Model
         /// <param name="onHeart">心跳回调</param>
         /// <param name="onFile">文件回调</param>
         /// <returns>本次解出的帧集合，其中的池化缓冲由调用方负责释放；协议错误时先释放已解出的帧再抛出异常</returns>
+        public SAEA.Sockets.Base.DecodedFrames Decode(byte[] data,
+            Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
+        {
+            if (data == null)
+                throw new ArgumentNullException(nameof(data));
+
+            // byte[] 走 ICollection<byte> 快路径，只复制一次进缓冲。
+            _buffer.AddRange(data);
+            return DecodeBuffered();
+        }
+
+        /// <summary>
+        /// 解码数据
+        /// </summary>
+        /// <param name="data">接收到的数据</param>
+        /// <param name="onHeart">心跳回调</param>
+        /// <param name="onFile">文件回调</param>
+        /// <returns>本次解出的帧集合，其中的池化缓冲由调用方负责释放；协议错误时先释放已解出的帧再抛出异常</returns>
         public SAEA.Sockets.Base.DecodedFrames Decode(System.Buffers.ReadOnlySequence<byte> data,
             Action<DateTime> onHeart = null, Action<ReadOnlyMemory<byte>> onFile = null)
         {
+            if (data.IsSingleSegment)
+            {
+                ArraySegment<byte> segment;
+                if (MemoryMarshal.TryGetArray(data.First, out segment))
+                {
+                    // 单段且底层是数组时按段追加，省掉 ToArray 的整段复制。
+                    _buffer.AddRange(segment);
+                    return DecodeBuffered();
+                }
+            }
+
+            foreach (var segment in data)
+            {
+                _buffer.AddRange(segment.Span.ToArray());
+            }
+
+            return DecodeBuffered();
+        }
+
+        /// <summary>
+        /// 在缓冲已补齐后执行解码循环；协议错误时统一释放已解出的帧并丢弃半成品分片
+        /// </summary>
+        /// <returns>本次解出的帧集合</returns>
+        SAEA.Sockets.Base.DecodedFrames DecodeBuffered()
+        {
             var frames = new SAEA.Sockets.Base.DecodedFrames();
-            _buffer.AddRange(data.ToArray());
             try
             {
                 while (TryDecodeFrame(frames)) { }

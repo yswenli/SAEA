@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 11:30:00
+*修改时间：2026/11/16 10:20:00
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：断开通知改由 WebConfig.ConnectionClosed 触发，同步更新相关注释
+*描述：接收解码改走 WSCoder 的 byte[] 重载，去掉一次整段复制
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -38,7 +38,6 @@ using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;
 
 using System;
-using System.Buffers;
 using System.Collections.Concurrent;
 using System.Text;
 using System.Threading;
@@ -118,7 +117,7 @@ namespace SAEA.MVC
 
             try
             {
-                frames = _coder.Decode(new ReadOnlySequence<byte>(data));
+                frames = _coder.Decode(data);
 
                 var span = frames.Frames;
 
