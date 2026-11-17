@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/12/25 17:36:47
+*修改时间：2026/11/17 17:50:00
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：APISdkCodeGenerator接口
+*版本号： v26.11.16.1
+*描述：地址按 Routing.Template 输出，未声明模板时维持两段式地址不变
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -128,6 +128,7 @@ namespace SAEA.MVC.Tool
                     methodStr = methodStr.Replace("[[Inputs1]]", inputStr1);
                     methodStr = methodStr.Replace("[[Inputs2]]", inputStr2);
                 }
+                methodStr = methodStr.Replace("[[Path]]", GetPath(routing, false));
                 methodStr = methodStr.Replace("[[Controller]]", routing.ControllerName.Replace("Controller", ""));
                 methodStr = methodStr.Replace("[[Action]]", routing.ActionName);
                 methodStr = methodStr.Replace("[[Type]]", (routing.IsPost ? "Post" : "Get"));
@@ -190,6 +191,7 @@ namespace SAEA.MVC.Tool
                     methodStr = methodStr.Replace("[[Inputs1]]", inputStr1);
                     methodStr = methodStr.Replace("[[Inputs2]]", inputStr2);
                 }
+                methodStr = methodStr.Replace("[[Path]]", GetPath(routing, true));
                 methodStr = methodStr.Replace("[[Controller]]", routing.ControllerName.Replace("Controller", ""));
                 methodStr = methodStr.Replace("[[Action]]", routing.ActionName);
                 methodStr = methodStr.Replace("[[Type]]", (routing.IsPost ? "Post" : "Get"));
@@ -199,6 +201,25 @@ namespace SAEA.MVC.Tool
             jsStr = jsStr.Replace("[[Method]]", sb.ToString());
 
             FileHelper.WriteString(fileName, jsStr);
+        }
+
+        /// <summary>
+        /// 取 SDK 方法中的地址片段：属性路由按模板输出，未声明模板时回落两段式
+        /// </summary>
+        /// <param name="routing">路由信息</param>
+        /// <param name="leadingSlash">是否保留前导 /。JS 模板的 url 不带结尾 /，需保留；C# 模板的 _url 自带结尾 /，需去掉</param>
+        /// <returns>地址片段，模板中的 {name} 占位符原样保留</returns>
+        static string GetPath(Routing routing, bool leadingSlash)
+        {
+            if (string.IsNullOrEmpty(routing.Template))
+                return (leadingSlash ? "/" : string.Empty) + "api/[[Controller]]/[[Action]]";
+
+            var template = routing.Template;
+
+            if (leadingSlash) return template;
+
+            // 归一化模板自带单个前导 /，而 _url 已以 / 结尾，去掉它才不会被拼成 //
+            return template[0] == '/' ? template.Substring(1) : template;
         }
     }
 }

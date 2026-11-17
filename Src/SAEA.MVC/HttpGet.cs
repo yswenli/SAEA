@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:32
+*修改时间：2026/11/17 16:35:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.16.1
+*描述：新增可选路由模板构造与 Template 属性，供属性路由读取
 *
 *****************************************************************************/
 using System;
@@ -39,6 +39,27 @@ namespace SAEA.MVC
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
     public sealed class HttpGet : Attribute, IFilter
     {
+        /// <summary>
+        /// 不声明路径，仅限定 GET
+        /// </summary>
+        public HttpGet()
+        {
+        }
+
+        /// <summary>
+        /// 以路由模板限定 GET
+        /// </summary>
+        /// <param name="template">路由模板，如 users/{id}</param>
+        public HttpGet(string template)
+        {
+            Template = template;
+        }
+
+        /// <summary>
+        /// 声明的路由模板，未声明时为 null
+        /// </summary>
+        public string Template { get; }
+
         /// <summary>
         /// 过滤器执行顺序
         /// </summary>

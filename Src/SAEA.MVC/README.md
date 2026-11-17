@@ -14,6 +14,7 @@
 | 章节                    | 内容            |
 | --------------------- | ------------- |
 | [⚡ 30秒快速开始](#30秒快速开始) | 最简单的上手示例      |
+| [🛣️ 路由](#路由)          | 两段式约定与属性路由    |
 | [🎯 核心特性](#核心特性)      | 框架的主要功能       |
 | [📐 架构设计](#架构设计)      | 组件关系与工作流程     |
 | [💡 应用场景](#应用场景)      | 何时选择 SAEA.MVC |
@@ -59,6 +60,124 @@ public class HomeController : Controller
 ```
 
 **就这么简单！** 🎉 访问 `http://localhost:28080/home/index` 即可看到结果。
+
+***
+
+## 路由 🛣️
+
+默认约定按 URL 末尾两段定位：`/{任何前缀}/{Controller}/{Action}`，控制器名是「类名 + Controller」，比较忽略大小写，所以 `/home/index` 与 `/api/v1/home/index` 都命中 `HomeController.Index`。这只是默认约定，不是限制：声明了属性路由的 action 按模板优先匹配，模板可以完全替换两段式地址。
+
+### 属性路由写法
+
+```csharp
+using SAEA.MVC;
+
+[Route("api/v1/users")]              // 类级前缀
+public class UserController : Controller
+{
+    [HttpGet]                        // GET /api/v1/users
+    public ActionResult List()
+    {
+        return Json(new { Total = 2 });
+    }
+
+    [HttpGet("{id}")]                // GET /api/v1/users/{id}
+    public ActionResult Get(string id)
+    {
+        return Json(new { Id = id });
+    }
+
+    [HttpPost]                       // POST /api/v1/users
+    public ActionResult Create(string name)
+    {
+        return Json(new { Created = name });
+    }
+}
+
+public class OrderController : Controller
+{
+    [Route("api/v1/orders/{id}")]    // 类上没有 [Route]：方法模板即绝对路径；[Route] 不限动词
+    public ActionResult Get(string id)
+    {
+        return Json(new { Id = id });
+    }
+}
+
+public class HealthController : Controller
+{
+    [Route("health")]                // 单段路径同样可用
+    public ActionResult Ping()
+    {
+        return Content("ok");
+    }
+}
+```
+
+- `[Route(template)]` 只声明路径，不限定请求方法，GET/POST/PUT/DELETE 都接受。
+- `[HttpGet(template)]` / `[HttpPost(template)]` 既声明路径又限定动词。
+- 类上的 `[Route]` 与方法模板按 `/` 拼接；方法上只有 `[HttpGet]` / `[HttpPost]`（无模板）时，类级模板本身就是路径。
+- 类上只有 `[Route]`、方法上没有任何路由特性的 action 不进入属性路由，继续走两段式，避免类级模板吞掉全部 action。
+
+### 模板语义
+
+| 规则 | 说明 |
+| --- | --- |
+| 静态段 | `api/v1/users`，逐段比较，忽略大小写 |
+| 路径参数 | `{id}`，必选且只占一个段；参数名只允许字母、数字、下划线 |
+| 占位符位置 | 必须独占一段，`user-{id}` 这类混写非法 |
+| 首尾 `/` | 忽略；连续 `//` 合并为一个 |
+| 尾斜杠 | `/users/5/` 与 `/users/5` 等价 |
+| query | 不参与匹配，`/users/5?x=1` 只按 `/users/5` 匹配 |
+
+匹配顺序：
+
+1. 静态模板（无参数）按归一化路径直接命中，字典查找。
+2. 参数模板按段数分桶后匹配，静态段多的模板优先。
+3. 两段式约定。
+4. 静态文件。
+5. 404。
+
+属性路由先于静态文件判断，声明了与静态文件同名的路径会遮蔽该文件，需要更具体的模板或换一个前缀。
+
+命中的路径参数先写入 `Request.Parmas`，覆盖同名 query 与表单值；action 形参按名字取值，数值等基础类型会自动转换，与两段式的绑定方式一致。
+
+### 请求方法
+
+- `[Route]` 不限动词；`[HttpGet]` / `[HttpPost]` 限定为对应动词。
+- 属性路由路径命中但动词不符时返回 **405 Method Not Allowed**，响应头 `Allow` 列出该路径声明的动词，不会回落到两段式。
+- 该路径完全没有属性路由条目时不算冲突，继续走两段式。
+- 两段式 action 用同一口径判定：action 上一个 `[HttpGet]` / `[HttpPost]` 都没有时不限动词，GET/POST/PUT/DELETE 照旧全部放行；声明了其中之一或两者时，允许动词取声明的并集（两者都声明即 GET 与 POST），请求方法与允许集合忽略大小写比较，不符时返回 **405 Method Not Allowed** 并带 `Allow`，action、过滤器与 WebSocket 入口都不执行。`WebConfig.DefaultRoute` 默认路由与 `/{Controller}/{Action}` 两条两段式分支都生效。
+- `OPTIONS` 请求在进入路由前直接返回空响应，不参与这项判定。
+
+### 启动期校验
+
+属性路由表在 `SAEAMvcApplication` 构造时构建并校验，有问题直接启动失败：
+
+- 模板非法（`{id?}`、`{*path}`、`{id:int}`、占位名含非法字符）抛 `ArgumentException`。
+- 同一 action 声明了多个带模板的路由特性（如 `[Route("x")]` 与 `[HttpGet("y")]`）抛 `ArgumentException`。
+- 同一路径形状 + 同一动词被两个 action 声明抛 `InvalidOperationException`；`{id}` 与 `{uid}` 视为同一形状，同路径不同动词合法。
+
+### 不支持的能力
+
+- 可选参数 `{id?}`、通配 `{*path}`、类型约束 `{id:int}` / `{id:guid}`。
+- `~/` 绝对前缀语法。
+- 一个 action 声明多条路径：一个 action 只能有一个模板来源。
+
+### 地址对照表
+
+| 请求 | 命中 | 说明 |
+| --- | --- | --- |
+| `GET /api/v1/users` | `UserController.List` | 类级前缀 + 方法级无参 |
+| `GET /api/v1/users/5` | `UserController.Get`，`id = "5"` | 路径参数绑定同名形参 |
+| `GET /API/V1/Users/5/` | 同上 | 忽略大小写与尾斜杠 |
+| `GET /api/v1/users/5?x=1` | 同上 | query 不参与匹配 |
+| `POST /api/v1/users` | `UserController.Create` | 同路径不同动词 |
+| `DELETE /api/v1/users` | 405，`Allow: GET, POST` | 路径命中但动词不符 |
+| `GET /api/v1/orders/9` | `OrderController.Get` | 方法级模板即绝对路径 |
+| `POST /api/v1/orders/9` | 同上 | `[Route]` 不限动词 |
+| `GET /health` | `HealthController.Ping` | 单段属性路由 |
+| `GET /home/index` | `HomeController.Index` | 未声明属性路由，走两段式 |
+| `POST /home/index` | 405，`Allow: GET` | 两段式 action 只标了 `[HttpGet]`，同样拦截 |
 
 ***
 
@@ -315,6 +434,8 @@ public ActionResult GetList()
 }
 ```
 
+缓存键由「请求动词 + 实际命中路径 + 规范化 query」组成：无 query 时为 `GET:/home/list`，有 query 时为 `GET:/home/list?a=1&b=2`。query 按键名 `Ordinal` 升序排序后用 `&` 连接，因此 `?a=1&b=2` 与 `?b=2&a=1` 是同一条缓存；同一路径不同动词、同一路径不同路径参数各自独立。表单体（`Request.Forms`）不参与缓存键。
+
 ### Q3: 如何处理文件上传？
 
 **A**: 通过 `HttpContext.Request.PostFiles` 获取：
@@ -335,44 +456,43 @@ public ActionResult Upload()
 
 ### Q4: 如何实现全局异常处理？
 
-**A**: 创建全局异常过滤器：
+**A**: 挂 `SAEAMvcApplication.OnException`：action 抛出的异常会连同一份上下文交给它，返回值直接作为响应。
 
 ```csharp
-public class GlobalExceptionFilter : ActionFilterAttribute
-{
-    public override void OnActionExecuted(HttpContext httpContext)
-    {
-        if (httpContext.Exception != null)
-        {
-            httpContext.Response.StatusCode = 500;
-            httpContext.Response.Write(JsonConvert.SerializeObject(new
-            {
-                Error = httpContext.Exception.Message
-            }));
-            httpContext.Exception = null;
-        }
-        base.OnActionExecuted(httpContext);
-    }
-}
+using SAEA.Common.Serialization;
+using SAEA.MVC;
 
-// 应用全局过滤器
-[GlobalExceptionFilter]
-public class BaseController : Controller { }
+var app = new SAEAMvcApplication(config);
+
+app.OnException += (httpContext, ex) =>
+{
+    var json = SerializeHelper.Serialize(new { Error = ex.Message });
+    return new ContentResult(json, System.Net.HttpStatusCode.InternalServerError);
+};
 ```
+
+`ActionFilterAttribute` 不是异常通道：`OnActionExecuted` 只在 action 正常返回之后执行，看不到抛出的异常；过滤器适合日志、鉴权、改写结果这类横向逻辑。
 
 ### Q5: 如何配置跨域 (CORS)？
 
-**A**: 在配置中设置 CORS 头：
+**A**: 用过滤器给响应补 CORS 头：
 
 ```csharp
 public class CorsFilter : ActionFilterAttribute
 {
-    public override void OnActionExecuting(HttpContext httpContext)
+    public override ActionResult OnActionExecuting()
     {
-        httpContext.Response.Headers["Access-Control-Allow-Origin"] = "*";
-        httpContext.Response.Headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE";
-        httpContext.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type";
-        base.OnActionExecuting(httpContext);
+        var headers = HttpContext.Current.Response.Headers;
+        headers["Access-Control-Allow-Origin"] = "*";
+        headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE";
+        headers["Access-Control-Allow-Headers"] = "Content-Type";
+
+        // 返回 EmptyResult 表示放行，继续执行 action
+        return EmptyResult.Default;
+    }
+
+    public override void OnActionExecuted(ref ActionResult result)
+    {
     }
 }
 ```
@@ -451,6 +571,7 @@ sc create SAEAMvc binPath="path/to/your/app.exe" start=auto
 | `BigDataResult`            | 大文件流式传输结果             |
 | `SSEActionResult`          | Server-Sent Events 结果 |
 | `HttpGet` / `HttpPost`     | HTTP 方法特性             |
+| `RouteAttribute`           | 路由模板特性                |
 | `ActionFilterAttribute`    | AOP 过滤器基类             |
 | `OutputCacheAttribute`     | 输出缓存特性                |
 | `RouteTable`               | 路由表                   |
@@ -599,31 +720,34 @@ public ActionResult StreamEvents()
 ### AOP 过滤器
 
 ```csharp
-using SAEA.MVC.Model;
+using SAEA.MVC;
 
 // 自定义过滤器
 public class LogAttribute : ActionFilterAttribute
 {
-    public override void OnActionExecuting(HttpContext httpContext)
+    public override ActionResult OnActionExecuting()
     {
-        Console.WriteLine($"请求: {httpContext.Request.Url}");
+        Console.WriteLine($"请求: {HttpContext.Current.Request.Url}");
+
+        // 返回 EmptyResult 表示放行，继续执行 action；返回其它结果则直接作为响应
+        return EmptyResult.Default;
     }
 
-    public override void OnActionExecuted(HttpContext httpContext)
+    public override void OnActionExecuted(ref ActionResult result)
     {
-        Console.WriteLine($"响应完成");
+        Console.WriteLine("响应完成");
     }
 }
 
 // 应用过滤器
-[LogAttribute]
+[LogAttribute]                       // 类级别过滤器：作用于该控制器全部 action
 public class UserController : Controller
 {
     [HttpGet]
-    [Log2Attribute]  // 方法级别过滤器
+    [OutputCache(Duration = 60)]     // 方法级别过滤器：只作用于 List
     public ActionResult List()
     {
-        return Json(GetUsers());
+        return Json(new { Total = 2 });
     }
 }
 ```
@@ -748,7 +872,7 @@ public class AsyncController : Controller
 
 ### WebSocket 长连接
 
-WebSocket 复用同一个端口和 `/{controller}/{action}` 路由，不需要额外监听端口：继承 `WSController`，在 `OpenAsync` 上标记 `[WebSocket]` 即可。
+WebSocket 复用同一个端口和同一套路由，不需要额外监听端口：继承 `WSController`，在 `OpenAsync` 上标记 `[WebSocket]` 即可。入口默认是 `/{controller}/open`，也可以在 `OpenAsync` 上加 `[Route]` / `[HttpGet]` 声明任意路径。
 
 ```csharp
 using SAEA.MVC;
@@ -797,7 +921,7 @@ ws.send("hello");
 
 要点：
 
-- 入口固定为 `/{controller}/open`（`OpenAsync` 的 `Async` 后缀在路由中会被忽略）；`/chat/message` 之类的地址，以及 `POST/PUT/DELETE /chat/open` 这类非 GET 请求，都会被握手校验拒绝并返回 400。
+- 入口默认是 `/{controller}/open`（`OpenAsync` 的 `Async` 后缀在路由中会被忽略），属性路由同样生效：给 `OpenAsync` 加 `[Route("ws/chat")]` 后客户端连 `ws://host/ws/chat` 即可。未指向入口的 `/chat/message` 之类地址会被拒绝并返回 400；`POST/PUT/DELETE` 等非 GET 请求即使路由命中了入口，握手校验也只放行 GET，同样返回 400（没命中任何 action 的地址仍是 404）。
 - `OpenAsync` 必须调用 `AcceptWebSocketAsync()` 显式接受连接，并尽快返回：它会先写 101 响应，再把连接切到原始字节模式。
 - `MessageAsync` 只会收到完整的 Text/Binary 消息（分片已重组）；Ping 由框架自动回 Pong。
 - 每条连接都有独立的上下文，`WebSockets.Current` 返回当前连接的 `IWebSocketConnection`，`ws.Id` 可作为连接标识。

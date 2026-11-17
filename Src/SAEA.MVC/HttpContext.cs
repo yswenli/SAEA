@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 12:03:00
+*修改时间：2026/11/17 17:30:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：静态文件映射结果为 null 时直接返回 404，不再用越界路径访问文件
+*版本号： v26.11.16.1
+*描述：属性路由匹配入口、RoutingPath 改存归一化实际路径、路径参数绑定与 405 处理
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -49,6 +49,8 @@ namespace SAEA.MVC
     {
         RouteTable _routeTable = null;
 
+        AttributeRouteTable _attributeRoutes = null;
+
         /// <summary>
         /// 以宿主服务创建上下文并绑定其路由表
         /// </summary>
@@ -56,7 +58,14 @@ namespace SAEA.MVC
         public HttpContext(IWebHost webHost) : base(webHost)
         {
             _routeTable = _webHost.RouteParam as RouteTable;
+
+            _attributeRoutes = AttributeRouteTable.From(_routeTable);
         }
+
+        /// <summary>
+        /// 本次属性路由命中的归一化实际路径，未命中属性路由时为 null
+        /// </summary>
+        public string RoutingPath { get; internal set; }
 
         WebSocketsFeature _webSockets;
 
@@ -194,6 +203,36 @@ namespace SAEA.MVC
                     {
                         return new ContentResult("o_o，当前内容禁止访问！url:" + url, System.Net.HttpStatusCode.Forbidden);
                     }
+                }
+            }
+
+            // 属性路由先于两段式约定解析，命中即执行，未声明属性路由时走原有逻辑
+            if (_attributeRoutes != null)
+            {
+                var match = _attributeRoutes.Match(Request.RelativeUrl, Request.Method);
+
+                if (match != null)
+                {
+                    if (match.IsFound)
+                    {
+                        if (match.Values != null)
+                        {
+                            foreach (var item in match.Values)
+                            {
+                                // 路径参数优先于同名 query 与表单值
+                                Request.Parmas[item.Key] = item.Value;
+                            }
+                        }
+
+                        RoutingPath = match.Path;
+
+                        return MvcInvoker.InvokeResult(_routeTable, match.ControllerType, match.ActionName, Request.Parmas.ToNameValueCollection(), isPost);
+                    }
+
+                    // 路径已被属性路由声明但请求动词不符：返回 405 并告知可用动词
+                    Response.Headers["Allow"] = match.AllowHeader ?? string.Empty;
+
+                    return new ContentResult("o_o，当前请求方式不被允许 url:" + url + "，允许的方式：" + match.AllowHeader, System.Net.HttpStatusCode.MethodNotAllowed);
                 }
             }
 

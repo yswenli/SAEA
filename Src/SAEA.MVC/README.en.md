@@ -14,6 +14,7 @@
 | Section | Content |
 | --------------------- | ------------- |
 | [⚡ 30-Second Quick Start](#30-second-quick-start) | Simplest getting started example |
+| [🛣️ Routing](#routing) | Two-segment convention and attribute routing |
 | [🎯 Core Features](#core-features) | Main features of the framework |
 | [📐 Architecture Design](#architecture-design) | Component relationships and workflow |
 | [💡 Use Cases](#use-cases) | When to choose SAEA.MVC |
@@ -59,6 +60,124 @@ public class HomeController : Controller
 ```
 
 **That's it!** 🎉 Visit `http://localhost:28080/home/index` to see the result.
+
+***
+
+## Routing 🛣️
+
+By default an address is resolved from the last two segments of the URL: `/{any-prefix}/{Controller}/{Action}`, where the controller name is the class name plus `Controller` and the comparison ignores case, so both `/home/index` and `/api/v1/home/index` reach `HomeController.Index`. That is only the default convention, not a limit: an action that declares an attribute route is matched by its template first, and the template can replace the two-segment address entirely.
+
+### Attribute routing
+
+```csharp
+using SAEA.MVC;
+
+[Route("api/v1/users")]              // class-level prefix
+public class UserController : Controller
+{
+    [HttpGet]                        // GET /api/v1/users
+    public ActionResult List()
+    {
+        return Json(new { Total = 2 });
+    }
+
+    [HttpGet("{id}")]                // GET /api/v1/users/{id}
+    public ActionResult Get(string id)
+    {
+        return Json(new { Id = id });
+    }
+
+    [HttpPost]                       // POST /api/v1/users
+    public ActionResult Create(string name)
+    {
+        return Json(new { Created = name });
+    }
+}
+
+public class OrderController : Controller
+{
+    [Route("api/v1/orders/{id}")]    // no class-level [Route]: the method template is the absolute path; [Route] accepts any verb
+    public ActionResult Get(string id)
+    {
+        return Json(new { Id = id });
+    }
+}
+
+public class HealthController : Controller
+{
+    [Route("health")]                // a single-segment path works too
+    public ActionResult Ping()
+    {
+        return Content("ok");
+    }
+}
+```
+
+- `[Route(template)]` declares a path only and accepts GET/POST/PUT/DELETE.
+- `[HttpGet(template)]` / `[HttpPost(template)]` declare a path and restrict the verb.
+- A class-level `[Route]` is joined with the method template by `/`; when the method only carries `[HttpGet]` / `[HttpPost]` without a template, the class template alone is the path.
+- An action whose class carries `[Route]` but which has no routing attribute of its own stays on two-segment routing, so a class prefix never swallows every action.
+
+### Template semantics
+
+| Rule | Description |
+| --- | --- |
+| Static segments | `api/v1/users`, compared segment by segment, case-insensitive |
+| Path parameters | `{id}`, required and exactly one segment; the name allows only letters, digits and underscores |
+| Placeholder placement | must occupy a whole segment; `user-{id}` is invalid |
+| Leading/trailing `/` | ignored; repeated `//` collapses into one |
+| Trailing slash | `/users/5/` is equivalent to `/users/5` |
+| Query string | not part of matching; `/users/5?x=1` matches `/users/5` |
+
+Matching order:
+
+1. Static templates (no parameters) are looked up directly by normalized path.
+2. Parameter templates are matched inside their segment-count bucket, templates with more static segments first.
+3. Two-segment convention.
+4. Static files.
+5. 404.
+
+Attribute routes are checked before static files, so declaring the same path as a static file shadows that file; pick a more specific template or a different prefix.
+
+Matched path parameters are written to `Request.Parmas` and override same-named query and form values; action parameters are bound by name, and numeric and other basic types are converted automatically, exactly like two-segment binding.
+
+### HTTP methods
+
+- `[Route]` does not restrict the verb; `[HttpGet]` / `[HttpPost]` restrict it.
+- When an attribute-route path matches but the verb does not, the response is **405 Method Not Allowed** with an `Allow` header listing the verbs declared for that path, and it does not fall back to two-segment routing.
+- A path with no attribute-route entry at all is not a conflict and continues to two-segment routing.
+- A two-segment action is judged the same way: with no `[HttpGet]` / `[HttpPost]` on the action, no verb is restricted and GET/POST/PUT/DELETE all run as before; with one or both declared, the allowed set is their union (both declared means GET and POST), compared with the request method case-insensitively, and a mismatch returns **405 Method Not Allowed** with `Allow` without running the action, the filters or the WebSocket entry. Both the `WebConfig.DefaultRoute` default route and the `/{Controller}/{Action}` branch are covered.
+- An `OPTIONS` request returns an empty response before routing and is not subject to this check.
+
+### Startup validation
+
+The attribute route table is built and validated in the `SAEAMvcApplication` constructor, so problems fail startup:
+
+- An invalid template (`{id?}`, `{*path}`, `{id:int}`, an invalid placeholder name) throws `ArgumentException`.
+- An action declaring more than one templated routing attribute (for example `[Route("x")]` together with `[HttpGet("y")]`) throws `ArgumentException`.
+- The same path shape plus the same verb declared by two actions throws `InvalidOperationException`; `{id}` and `{uid}` count as the same shape, while the same path with different verbs is legal.
+
+### Not supported
+
+- Optional parameters `{id?}`, catch-all `{*path}`, type constraints `{id:int}` / `{id:guid}`.
+- The `~/` absolute-prefix syntax.
+- Multiple paths per action: an action has exactly one template source.
+
+### Address map
+
+| Request | Match | Notes |
+| --- | --- | --- |
+| `GET /api/v1/users` | `UserController.List` | class prefix plus a parameterless method |
+| `GET /api/v1/users/5` | `UserController.Get`, `id = "5"` | path parameter bound to the same-named parameter |
+| `GET /API/V1/Users/5/` | same as above | case and trailing slash ignored |
+| `GET /api/v1/users/5?x=1` | same as above | query string is not matched |
+| `POST /api/v1/users` | `UserController.Create` | same path, different verb |
+| `DELETE /api/v1/users` | 405 with `Allow: GET, POST` | path matched but verb differs |
+| `GET /api/v1/orders/9` | `OrderController.Get` | method template is the absolute path |
+| `POST /api/v1/orders/9` | same as above | `[Route]` accepts any verb |
+| `GET /health` | `HealthController.Ping` | single-segment attribute route |
+| `GET /home/index` | `HomeController.Index` | no attribute route, two-segment routing |
+| `POST /home/index` | 405 with `Allow: GET` | two-segment action that only carries `[HttpGet]`, blocked as well |
 
 ***
 
@@ -315,6 +434,8 @@ public ActionResult GetList()
 }
 ```
 
+The cache key is the request verb plus the actual hit path plus the normalized query: `GET:/home/list` without a query, `GET:/home/list?a=1&b=2` with one. Query keys are sorted with `Ordinal` and joined by `&`, so `?a=1&b=2` and `?b=2&a=1` share one cache entry; the same path with different verbs and the same path with different path parameters are cached separately. The form body (`Request.Forms`) is not part of the key.
+
 ### Q3: How to handle file uploads?
 
 **A**: Access via `HttpContext.Request.PostFiles`:
@@ -335,44 +456,43 @@ public ActionResult Upload()
 
 ### Q4: How to implement global exception handling?
 
-**A**: Create a global exception filter:
+**A**: Subscribe to `SAEAMvcApplication.OnException`: an exception thrown by an action is handed to it together with the current context, and the returned value becomes the response.
 
 ```csharp
-public class GlobalExceptionFilter : ActionFilterAttribute
-{
-    public override void OnActionExecuted(HttpContext httpContext)
-    {
-        if (httpContext.Exception != null)
-        {
-            httpContext.Response.StatusCode = 500;
-            httpContext.Response.Write(JsonConvert.SerializeObject(new
-            {
-                Error = httpContext.Exception.Message
-            }));
-            httpContext.Exception = null;
-        }
-        base.OnActionExecuted(httpContext);
-    }
-}
+using SAEA.Common.Serialization;
+using SAEA.MVC;
 
-// Apply global filter
-[GlobalExceptionFilter]
-public class BaseController : Controller { }
+var app = new SAEAMvcApplication(config);
+
+app.OnException += (httpContext, ex) =>
+{
+    var json = SerializeHelper.Serialize(new { Error = ex.Message });
+    return new ContentResult(json, System.Net.HttpStatusCode.InternalServerError);
+};
 ```
+
+`ActionFilterAttribute` is not an exception channel: `OnActionExecuted` runs only after an action returns normally and never sees a thrown exception; filters are for cross-cutting work such as logging, authorization and rewriting results.
 
 ### Q5: How to configure CORS?
 
-**A**: Set CORS headers in configuration:
+**A**: Use a filter to add the CORS headers to the response:
 
 ```csharp
 public class CorsFilter : ActionFilterAttribute
 {
-    public override void OnActionExecuting(HttpContext httpContext)
+    public override ActionResult OnActionExecuting()
     {
-        httpContext.Response.Headers["Access-Control-Allow-Origin"] = "*";
-        httpContext.Response.Headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE";
-        httpContext.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type";
-        base.OnActionExecuting(httpContext);
+        var headers = HttpContext.Current.Response.Headers;
+        headers["Access-Control-Allow-Origin"] = "*";
+        headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE";
+        headers["Access-Control-Allow-Headers"] = "Content-Type";
+
+        // Returning EmptyResult lets the action run
+        return EmptyResult.Default;
+    }
+
+    public override void OnActionExecuted(ref ActionResult result)
+    {
     }
 }
 ```
@@ -451,6 +571,7 @@ sc create SAEAMvc binPath="path/to/your/app.exe" start=auto
 | `BigDataResult` | Large File Streaming Result |
 | `SSEActionResult` | Server-Sent Events Result |
 | `HttpGet` / `HttpPost` | HTTP Method Attributes |
+| `RouteAttribute` | Route template attribute |
 | `ActionFilterAttribute` | AOP Filter Base Class |
 | `OutputCacheAttribute` | Output Cache Attribute |
 | `RouteTable` | Route Table |
@@ -599,31 +720,34 @@ public ActionResult StreamEvents()
 ### AOP Filters
 
 ```csharp
-using SAEA.MVC.Model;
+using SAEA.MVC;
 
 // Custom filter
 public class LogAttribute : ActionFilterAttribute
 {
-    public override void OnActionExecuting(HttpContext httpContext)
+    public override ActionResult OnActionExecuting()
     {
-        Console.WriteLine($"Request: {httpContext.Request.Url}");
+        Console.WriteLine($"Request: {HttpContext.Current.Request.Url}");
+
+        // Returning EmptyResult lets the action run; any other result becomes the response
+        return EmptyResult.Default;
     }
 
-    public override void OnActionExecuted(HttpContext httpContext)
+    public override void OnActionExecuted(ref ActionResult result)
     {
-        Console.WriteLine($"Response completed");
+        Console.WriteLine("Response completed");
     }
 }
 
-// Apply filter
-[LogAttribute]
+// Apply the filter
+[LogAttribute]                       // class-level filter: applies to every action of this controller
 public class UserController : Controller
 {
     [HttpGet]
-    [Log2Attribute]  // Method-level filter
+    [OutputCache(Duration = 60)]     // method-level filter: applies to List only
     public ActionResult List()
     {
-        return Json(GetUsers());
+        return Json(new { Total = 2 });
     }
 }
 ```
@@ -748,7 +872,7 @@ public class AsyncController : Controller
 
 ### WebSocket Long-Lived Connections
 
-WebSocket shares the same port and the same `/{controller}/{action}` routing, so no extra listener is needed: inherit from `WSController` and mark `OpenAsync` with `[WebSocket]`.
+WebSocket shares the same port and the same routing, so no extra listener is needed: inherit from `WSController` and mark `OpenAsync` with `[WebSocket]`. The entry point defaults to `/{controller}/open`, and `[Route]` / `[HttpGet]` on `OpenAsync` can declare any path you want.
 
 ```csharp
 using SAEA.MVC;
@@ -797,7 +921,7 @@ ws.send("hello");
 
 Notes:
 
-- The entry point is always `/{controller}/open` (the `Async` suffix of `OpenAsync` is ignored by routing). Addresses such as `/chat/message`, as well as non-GET requests such as `POST/PUT/DELETE /chat/open`, are rejected by the handshake checks with 400.
+- The entry point defaults to `/{controller}/open` (the `Async` suffix of `OpenAsync` is ignored by routing), and attribute routing applies here too: add `[Route("ws/chat")]` to `OpenAsync` and clients connect to `ws://host/ws/chat`. Addresses that do not lead to the entry, such as `/chat/message`, are rejected with 400; a non-GET request such as `POST/PUT/DELETE` is also rejected with 400 even when routing reaches the entry, because the handshake only accepts GET (an address that matches no action at all still returns 404).
 - `OpenAsync` must call `AcceptWebSocketAsync()` to accept the connection and return quickly: it writes the 101 response first, then switches the connection to raw byte mode.
 - `MessageAsync` only receives complete Text/Binary messages (fragments are reassembled); Ping frames are answered with Pong automatically.
 - Each connection has its own context. `WebSockets.Current` returns the current `IWebSocketConnection`, and `ws.Id` can be used as a connection identifier.

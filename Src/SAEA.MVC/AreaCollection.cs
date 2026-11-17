@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/28 14:19:50
+*修改时间：2026/11/17 16:35:00
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：AreaCollection接口
+*版本号： v26.11.16.1
+*描述：记录本次 RegistAll 发现的控制器类型，供属性路由构建使用
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -45,6 +45,11 @@ namespace SAEA.MVC
     internal class AreaCollection
     {
         public RouteTable RouteTable { get; set; } = new RouteTable();
+
+        /// <summary>
+        /// 本次 RegistAll 发现的控制器类型，供属性路由构建使用
+        /// </summary>
+        public List<Type> DiscoveredTypes { get; private set; } = new List<Type>();
 
         /// <summary>
         /// 记录用户自定义的Controller
@@ -69,6 +74,9 @@ namespace SAEA.MVC
 
             RouteTable.Types.AddRange(tt);
             RouteTable.Types = RouteTable.Types.Distinct().ToList();
+
+            // 属性路由只按本次发现的类型构建，静态 Types 会跨应用累加并误报冲突
+            DiscoveredTypes = tt.Distinct().ToList();
         }
 
         /// <summary>
@@ -107,6 +115,13 @@ namespace SAEA.MVC
                 RouteTable.Types.AddRange(tt2);
 
             RouteTable.Types = RouteTable.Types.Distinct().ToList();
+
+            var discovered = new List<Type>();
+
+            if (tt != null) discovered.AddRange(tt);
+            if (tt2 != null) discovered.AddRange(tt2);
+
+            DiscoveredTypes = discovered.Distinct().ToList();
         }
 
 

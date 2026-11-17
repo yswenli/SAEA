@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 17:58:57
+*修改时间：2026/11/17 16:35:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：新增 UseSsl 透传方法，配合 WebHost 在同一端口承载 HTTPS 与 WSS
+*版本号： v26.11.16.1
+*描述：构造期构建属性路由表并挂到路由表实例
 *
 *****************************************************************************/
 using System;
@@ -123,6 +123,9 @@ namespace SAEA.MVC
             {
                 throw new Exception("当前代码无任何Controller或者不符合MVC 命名规范！ err:" + ex.Message);
             }
+
+            // 冲突必须在启动期暴露，且不能落在上面那段异常包装里，否则异常类型与消息都会被覆盖
+            AttributeRouteTable.Build(AreaCollection.RouteTable, AreaCollection.DiscoveredTypes);
 
             _webHost = new WebHost(typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, maxCounnects, timeout, connectTimeout, isDebug);
 

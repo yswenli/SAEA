@@ -109,6 +109,36 @@
 
     <a href="sdktest.html">APISdkCodeGenerator 生成SDK代码测试页</a>
 
+    <div>
+        <p>
+            属性路由演示（类级前缀 /routedemo）
+        </p>
+        <a href="/routedemo/api/v1/users/list" target="_blank">多段静态路径：/routedemo/api/v1/users/list</a><br />
+        <a href="/routedemo/users/abc?id=999" target="_blank">路径参数：/routedemo/users/abc?id=999（回显 abc，query 的 id=999 被覆盖）</a><br />
+        <a href="/routedemo/any" target="_blank">不限动词：/routedemo/any（GET/POST/PUT/DELETE 均可）</a><br />
+        <a href="/routedemo/only-get" target="_blank">仅 GET：/routedemo/only-get（POST 返回 405 + Allow: GET）</a>
+    </div>
+
+    <p>
+        form get（属性路由同一路径的 GET 分支）
+    </p>
+    <form action="/routedemo/same" method="get">
+        <input type="submit" value="GET /routedemo/same" />
+    </form>
+    <p>
+        form post（属性路由同一路径的 POST 分支）
+    </p>
+    <form action="/routedemo/same" method="post">
+        <p>note: <input type="text" name="note" /></p>
+        <input type="submit" value="POST /routedemo/same" />
+    </form>
+    <p>
+        form post（仅 GET 的路径，观察 405 响应）
+    </p>
+    <form action="/routedemo/only-get" method="post">
+        <input type="submit" value="POST /routedemo/only-get" />
+    </form>
+
     <script src="jquery.min.js"></script>
     <script type="text/javascript">
         $(function () {

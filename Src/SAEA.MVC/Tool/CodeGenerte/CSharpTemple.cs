@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:32
+*修改时间：2026/11/17 17:50:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.16.1
+*描述：地址片段改用 [[Path]] 占位，由生成器按属性路由模板或两段式填充
 *
 *****************************************************************************/
 using System;
@@ -82,7 +82,7 @@ namespace SAEA.MVC.Tool.CodeGenerte
         {
             try
             {
-                var txt = ApiHelper.Request($""{_url}api/[[Controller]]/[[Action]]"","""",""[[Type]]"");
+                var txt = ApiHelper.Request($""{_url}[[Path]]"","""",""[[Type]]"");
                 sucess?.Invoke(txt);
             }
             catch (Exception ex)
@@ -103,7 +103,7 @@ namespace SAEA.MVC.Tool.CodeGenerte
         {
             try
             {
-                var txt = ApiHelper.Request($""{_url}api/[[Controller]]/[[Action]]"",[[Inputs2]],""[[Type]]"");
+                var txt = ApiHelper.Request($""{_url}[[Path]]"",[[Inputs2]],""[[Type]]"");
                 sucess?.Invoke(txt);
             }
             catch (Exception ex)
@@ -125,7 +125,7 @@ namespace SAEA.MVC.Tool.CodeGenerte
         {
             try
             {
-                var txt = ApiHelper.Request($""{_url}api/[[Controller]]/[[Action]]"",[[Inputs2]],""[[Type]]"",headers);
+                var txt = ApiHelper.Request($""{_url}[[Path]]"",[[Inputs2]],""[[Type]]"",headers);
                 sucess?.Invoke(txt);
             }
             catch (Exception ex)

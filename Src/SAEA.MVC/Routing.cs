@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:32
+*修改时间：2026/11/17 22:00:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.16.1
+*描述：HttpMethods 注释改为限定动词，两段式 action 也可带限定动词
 *
 *****************************************************************************/
 using System;
@@ -105,6 +105,22 @@ namespace SAEA.MVC
         /// action 参数名到参数类型的映射
         /// </summary>
         public Dictionary<string, Type> ParmaTypes
+        {
+            get; set;
+        }
+
+        /// <summary>
+        /// 归一化后的属性路由模板，含 {name} 占位符；两段式路由为 null
+        /// </summary>
+        public string Template
+        {
+            get; set;
+        }
+
+        /// <summary>
+        /// 限定动词；null 表示不限动词
+        /// </summary>
+        public string[] HttpMethods
         {
             get; set;
         }

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:23:31
+*修改时间：2026/11/17 22:00:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补齐英文与乱码注释的中文说明
+*版本号： v26.11.16.1
+*描述：按属性路由限定的动词过滤产出的 GET / POST 方法；两段式 action 同样按 [HttpGet]/[HttpPost] 限定动词；带过滤器但无动词特性的 action 不再被吞掉
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -106,6 +106,29 @@ namespace SAEA.MVC.Tool.CodeGenerte
                         IsPost = true
                     };
 
+                    //属性路由声明：模板与限定动词，与运行期建表共用同一套解析与归一化
+                    string routeTemplate;
+                    string[] routeMethods;
+
+                    if (AttributeRouteTable.TryGetDeclaredRoute(item, action, out routeTemplate, out routeMethods))
+                    {
+                        getRouting.Template = postRouting.Template = routeTemplate;
+                    }
+                    else
+                    {
+                        // 两段式也受动词特性限定：运行期对只声明 [HttpGet] 的 action 收到 POST 会返回 405，
+                        // 这里再生成一条 POST 方法等于给调用方一个必然失败的接口。模板保持 null，地址形态不变
+                        routeMethods = GetDeclaredVerbs(action);
+                    }
+
+                    getRouting.HttpMethods = postRouting.HttpMethods = routeMethods;
+
+                    // 是否产出某条 sdk 方法只看限定的动词：IsPost 只是两条路由的固定标识（false / true），
+                    // 不能拿它判断动词是否被允许。两个 bool 在此算好后所有插入点复用
+                    var produceGet = AllowsMethod(routeMethods, ConstHelper.GET);
+
+                    var producePost = AllowsMethod(routeMethods, ConstHelper.POST);
+
                     var pas = action.GetParameters();
 
                     if (pas != null && pas.Any())
@@ -129,43 +152,88 @@ namespace SAEA.MVC.Tool.CodeGenerte
 
                         if (filterAttrs != null && filterAttrs.Count > 0)
                         {
-                            var ifilters = actionAttrs.ToList().ConvertAll(b => b as IFilter);
+                            // 只转换已过滤的列表：action 上可能挂着 [Route]、[WebSocket] 等非过滤器特性，
+                            // 全量转换会得到 null 元素并在下面的 OrderBy 里空引用
+                            var ifilters = filterAttrs.ConvertAll(b => b as IFilter);
 
                             if (ifilters != null && ifilters.Any())
-                            {
                                 getRouting.ActionFilterAtrrs = postRouting.ActionFilterAtrrs = ifilters.OrderBy(b => b.Order).ToList();
+                        }
+                    }
 
-                                var dPost = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPPOST).FirstOrDefault();
-                                if (dPost != null)
-                                {
-                                    dic[postRouting.ControllerName + postRouting.ActionName + (postRouting.IsPost ? "POST" : "GET")] = postRouting;
-                                }
-                                var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
-                                if (dGet != null)
-                                {
-                                    dic[getRouting.ControllerName + getRouting.ActionName + (getRouting.IsPost ? "POST" : "GET")] = getRouting;
-                                }
-                            }
-                            else
-                            {
-                                dic[getRouting.ControllerName + getRouting.ActionName + (getRouting.IsPost ? "POST" : "GET")] = getRouting;
-                                dic[postRouting.ControllerName + postRouting.ActionName + (postRouting.IsPost ? "POST" : "GET")] = postRouting;
-                            }
-                        }
-                        else
-                        {
-                            dic[getRouting.ControllerName + getRouting.ActionName + (getRouting.IsPost ? "POST" : "GET")] = getRouting;
-                            dic[postRouting.ControllerName + postRouting.ActionName + (postRouting.IsPost ? "POST" : "GET")] = postRouting;
-                        }
-                    }
-                    else
-                    {
-                        dic[getRouting.ControllerName + getRouting.ActionName + (getRouting.IsPost ? "POST" : "GET")] = getRouting;
-                        dic[postRouting.ControllerName + postRouting.ActionName + (postRouting.IsPost ? "POST" : "GET")] = postRouting;
-                    }
+                    // 过滤器不影响是否产出：带 ActionFilterAttribute 但没有动词特性的 action 与无特性时一致，
+                    // 按上面算出的 produceGet / producePost 产出
+                    AddRouting(dic, getRouting, produceGet);
+
+                    AddRouting(dic, postRouting, producePost);
                 }
             }
             return dic.Values.ToList();
+        }
+
+        /// <summary>
+        /// 判断限定的动词是否允许指定请求方法
+        /// </summary>
+        /// <param name="httpMethods">限定的请求方法；null 表示不限动词</param>
+        /// <param name="method">待判断的请求方法</param>
+        /// <returns>允许该方法或未限定动词时返回 true</returns>
+        static bool AllowsMethod(string[] httpMethods, string method)
+        {
+            if (httpMethods == null) return true;
+
+            for (var i = 0; i < httpMethods.Length; i++)
+            {
+                if (string.Compare(httpMethods[i], method, true) == 0) return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 取 action 上声明的动词特性，供两段式路由判定允许的请求方法
+        /// </summary>
+        /// <param name="action">action 方法</param>
+        /// <returns>声明的动词数组；未声明动词特性时为 null，表示不限动词</returns>
+        static string[] GetDeclaredVerbs(MethodInfo action)
+        {
+            var attrs = action.GetCustomAttributes(true);
+
+            if (attrs == null || attrs.Length == 0) return null;
+
+            var isGet = false;
+            var isPost = false;
+
+            // 与属性路由同一口径：按特性类型名匹配，取并集
+            for (var i = 0; i < attrs.Length; i++)
+            {
+                var name = attrs[i].GetType().Name;
+
+                if (string.Compare(name, ConstHelper.HTTPGET, true) == 0)
+                    isGet = true;
+                else if (string.Compare(name, ConstHelper.HTTPPOST, true) == 0)
+                    isPost = true;
+            }
+
+            if (isGet && isPost) return new[] { ConstHelper.GET, ConstHelper.POST };
+
+            if (isGet) return new[] { ConstHelper.GET };
+
+            if (isPost) return new[] { ConstHelper.POST };
+
+            return null;
+        }
+
+        /// <summary>
+        /// 按动词过滤结果把路由写入映射表
+        /// </summary>
+        /// <param name="dic">映射表，键为控制器名 + action 名 + 动词</param>
+        /// <param name="routing">待写入的路由</param>
+        /// <param name="allowed">是否允许产出该条路由</param>
+        static void AddRouting(Dictionary<string, Routing> dic, Routing routing, bool allowed)
+        {
+            if (!allowed) return;
+
+            dic[routing.ControllerName + routing.ActionName + (routing.IsPost ? "POST" : "GET")] = routing;
         }
     }
 }

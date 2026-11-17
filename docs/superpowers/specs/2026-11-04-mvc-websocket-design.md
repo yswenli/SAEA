@@ -10,7 +10,8 @@
 
 - `WSController` 基类 + `[WebSocket]` attribute，四个可 override 的生命周期方法：`OpenAsync` / `MessageAsync` / `CloseAsync` / `ErrorAsync`。
 - `HttpContext.Current.WebSockets.AcceptWebSocketAsync()`，像 ASP.NET Core 一样显式接受连接。
-- 升级请求走普通 MVC 路由（`/chat/open`），参数绑定、过滤器、Session、异常处理照常可用。
+- 升级请求走普通 MVC 路由（默认 `/chat/open`，也可用属性路由声明任意握手地址），参数绑定、过滤器、Session、异常处理照常可用。
+- WS 入口支持属性路由：路径模板可以包含静态段与 `{name}` 路径参数，参数值从 `Request.Parmas` 读取，模板语法与匹配规则见 `2026-11-17-mvc-attribute-routing-design.md` 的属性路由设计。
 - 复用 SAEA.WebSocket 的帧编解码（`WSCoder` / `WSProtocal`），不重复实现协议。
 - 普通 HTTP action、SSE（`IEventStream`）、大文件（`IBigDataResult`）行为不变。
 
@@ -20,13 +21,12 @@
 - 不做 `permessage-deflate` 扩展协商。
 - 不做同端口 TLS（`wss://` 交给反向代理或继续用独立 `WSSServer`）。
 - 不做多端点共享一个连接。
-- 不做 WS 的路径参数（`/chat/{room}` 不支持，只有 `/controller/open` 一种入口）。
 - 不做主动心跳与重连（客户端负责；协议层 Ping/Pong 自动应答）。
 
 ## 用户可见 API
 
 ```csharp
-// 路由照旧：GET /chat/open
+// 默认入口：GET /chat/open（在 OpenAsync 上加 [Route] / [HttpGet] 可改写路径）
 public class ChatController : WSController
 {
     // 不 override 时基类默认实现就是 Accept 并立即返回

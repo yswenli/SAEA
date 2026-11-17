@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/28 14:19:50
+*修改时间：2026/11/17 21:00:00
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：MVCInvoker接口
+*版本号： v26.11.16.1
+*描述：两段式路由按 action 上声明的 [HttpGet]/[HttpPost] 严格拦截动词，未声明则全部放行
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -65,6 +65,19 @@ namespace SAEA.MVC
             if (routing == null)
             {
                 return new ContentResult($"o_o，找不到：{controller.Name}/{actionName} 当前请求为:{(isPost ? ConstHelper.HTTPPOST : ConstHelper.HTTPGET)}", System.Net.HttpStatusCode.NotFound);
+            }
+
+            // 两段式路由表只按 GET/POST 分键，PUT、DELETE 也走 GET 分支，isPost 不足以判定真实动词；
+            // 这里以请求行里的方法为准，按 action 声明的动词拦截，未声明则保持原有全部放行
+            var allowedMethods = GetAllowedMethods(routing.Action);
+
+            if (allowedMethods != null && !IsMethodAllowed(allowedMethods, HttpContext.Current.Request.Method))
+            {
+                var allow = string.Join(", ", allowedMethods);
+
+                HttpContext.Current.Response.Headers["Allow"] = allow;
+
+                return new ContentResult("o_o，当前请求方式不被允许 url:" + HttpContext.Current.Request.Url + "，允许的方式：" + allow, System.Net.HttpStatusCode.MethodNotAllowed);
             }
 
             var websockets = HttpContext.Current.WebSockets as WebSocketsFeature;
@@ -248,6 +261,56 @@ namespace SAEA.MVC
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// 读取 action 上声明的 [HttpGet] / [HttpPost]，返回允许的请求方法
+        /// </summary>
+        /// <param name="action">目标 action 方法</param>
+        /// <returns>按 GET、POST 顺序排列的允许方法；两者都未声明时返回 null，表示不限制</returns>
+        static string[] GetAllowedMethods(MethodInfo action)
+        {
+            if (action == null) return null;
+
+            var attributes = action.GetCustomAttributes(true);
+
+            if (attributes == null || attributes.Length == 0) return null;
+
+            var allowGet = false;
+
+            var allowPost = false;
+
+            for (var i = 0; i < attributes.Length; i++)
+            {
+                var name = attributes[i].GetType().Name;
+
+                if (name == ConstHelper.HTTPGET)
+                    allowGet = true;
+                else if (name == ConstHelper.HTTPPOST)
+                    allowPost = true;
+            }
+
+            if (!allowGet && !allowPost) return null;
+
+            if (allowGet && allowPost) return new[] { ConstHelper.GET, ConstHelper.POST };
+
+            return allowGet ? new[] { ConstHelper.GET } : new[] { ConstHelper.POST };
+        }
+
+        /// <summary>
+        /// 判断请求方法是否在允许集合内，比较忽略大小写
+        /// </summary>
+        /// <param name="allowedMethods">允许的请求方法集合，不能为 null</param>
+        /// <param name="method">请求行中的方法</param>
+        /// <returns>命中任一允许方法时返回 true</returns>
+        static bool IsMethodAllowed(string[] allowedMethods, string method)
+        {
+            for (var i = 0; i < allowedMethods.Length; i++)
+            {
+                if (string.Compare(allowedMethods[i], method, StringComparison.OrdinalIgnoreCase) == 0) return true;
+            }
+
+            return false;
         }
 
         /// <summary>

@@ -19,7 +19,7 @@
 
 - 唯一解决方案：`Src/SAEA.Sockets.sln`；`Src/<组件>/` 一个目录一个 NuGet 包。
 - 现代 NuGet 库项目统一 `netstandard2.0`，语言版本不超过 C# 8 → 库代码不要用 C# 9+ 语法（record、file-scoped namespace、init 等）；历史 `SAEA.Audio.Net` 为 net48 类库，属例外。
-- `Src/*Test/` 是可运行的控制台/窗口演示与自测程序（`SAEA.FTPTest`、`SAEA.Audio.Test`、`SAEA.Mvc.ServiceTest` 为 WinExe），不是单元测试工程。真正的 MSTest 有四个：`SAEA.Common.Tests`、`SAEA.MQTT.Tests`、`SAEA.FTP.Tests`、`SAEA.P2P.Tests`（均 `net10.0`），且**都不在 sln 里**。
+- `Src/*Test/` 是可运行的控制台/窗口演示与自测程序（`SAEA.FTPTest`、`SAEA.Audio.Test`、`SAEA.Mvc.ServiceTest` 为 WinExe），不是单元测试工程。真正的 MSTest 有十一个：`SAEA.Common.Tests`、`SAEA.FileSocket.Tests`、`SAEA.FTP.Tests`、`SAEA.Http.Tests`、`SAEA.MessageSocket.Tests`、`SAEA.MQTT.Tests`、`SAEA.MVC.Tests`、`SAEA.P2P.Tests`、`SAEA.QueueSocket.Tests`、`SAEA.RPC.Tests`、`SAEA.WebSocket.Tests`（均 `net10.0`），且**都不在 sln 里**。
 - 依赖链：`SAEA.Common` → `SAEA.Sockets` / `SAEA.Sockets.Pipeline`；`SAEA.Sockets` → Http / WebSocket / MQTT / RPC / RedisSocket / FTP / FileSocket / QueueSocket / DNS / MessageSocket / P2P / Socket5；`Common` + Http + Sockets + WebSocket → MVC。
 - `SAEA.Common/Newtonsoft.Json/` 是内嵌第三方源码（MIT），不要把它的 API 当本项目约定去改。
 - 少数历史演示工程仍是 .NET Framework 4.6.2/4.8（`SAEA.MVCTest`、`SAEA.FTPTest`、`SAEA.Sockets.TcpTest`、`SAEA.Mvc.ServiceTest` 为 4.6.2，`SAEA.Audio.Net`、`SAEA.Audio.Test` 为 4.8）；它们在 Windows 上可随 sln 构建，缺 targeting pack 时只构建目标库即可。
@@ -32,11 +32,12 @@
 # 全量构建：0 errors；警告数随增量/全量重建与 SDK 变化（clean rebuild 实测约 3.8k，主体为 CS1591 缺失 XML 注释）
 dotnet build Src/SAEA.Sockets.sln -c Debug
 
-# 单元测试：四个 MSTest 工程不在 sln 中，必须单独指定
+# 单元测试：MSTest 工程不在 sln 中，必须单独指定（下列为已实测的五个）
 dotnet test Src/SAEA.Common.Tests/SAEA.Common.Tests.csproj -c Release                     # 59 passed
 dotnet test Src/SAEA.MQTT.Tests/SAEA.MQTT.Tests.csproj -c Release                         # 153 passed
 dotnet test Src/SAEA.FTP.Tests/SAEA.FTP.Tests.csproj -c Release                           # 13 passed
 dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release                           # 243 passed / 2 skipped
+dotnet test Src/SAEA.MVC.Tests/SAEA.MVC.Tests.csproj -c Release                           # 46 passed
 
 # 跑单个用例：--filter "FullyQualifiedName~MemoryPoolManagerTests"
 ```
@@ -120,4 +121,4 @@ dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release                 
 
 - 根目录与每个组件都维护 `README.md` + `README.en.md` 双份，改一份必须同步另一份（`SAEA.Audio.Net` 目前只有 `README.md`，属历史例外，改动时补英文版）。
 - 新设计与计划放 `docs/superpowers/specs/`、`docs/superpowers/plans/`，文件名以 `YYYY-MM-DD-` 开头。`docs/plans/` 已被 `.gitignore` 忽略，新文件不会进版本库。
-- 仓库无 CI / `.editorconfig` / `global.json`，质量把关靠上述手动构建 + 四个单测工程。
+- 仓库无 CI / `.editorconfig` / `global.json`，质量把关靠上述手动构建 + 单测工程。

@@ -23,14 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:23:31
+*修改时间：2026/11/17 22:00:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补齐英文与乱码注释的中文说明
+*版本号： v26.11.16.1
+*描述：缓存键加入规范化 query（按键 Ordinal 升序拼接），避免同路径不同 query 串号；纠正缓存键注释
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
 using System;
+using System.Collections.Generic;
+using System.Text;
 
 namespace SAEA.MVC
 {
@@ -54,12 +56,65 @@ namespace SAEA.MVC
 
 
         /// <summary>
+        /// 计算输出缓存键：请求动词 + 规范路径 + 规范化 query
+        /// </summary>
+        /// <returns>如 GET:/users/5?a=1&amp;b=2，无 query 时为 GET:/users/5</returns>
+        string GetCacheKey()
+        {
+            var context = HttpContext.Current;
+
+            // 属性路由命中时 RoutingPath 是本次实际命中的请求路径（不是模板），否则 /users/5 与 /users/7
+            // 会得到同一个键、路径参数场景仍会串号；非 MVC 上下文时回退到 Request.Url
+            var path = (context as HttpContext)?.RoutingPath;
+
+            if (string.IsNullOrEmpty(path))
+                path = context.Request.Url;
+
+            if (string.IsNullOrEmpty(path))
+                path = "/";
+
+            // 尾斜杠不影响语义，统一去掉；根路径本身保留
+            if (path.Length > 1)
+                path = path.TrimEnd('/');
+
+            if (path.Length == 0)
+                path = "/";
+
+            // 过滤器实例被 RouteTable 缓存并跨线程复用，键只做即时计算，不能存到实例字段上
+            var key = context.Request.Method + ":" + path;
+
+            var query = context.Request.Query;
+
+            // 无 query 时键保持原有形态，避免影响既有缓存行为
+            if (query == null || query.Count == 0)
+                return key;
+
+            // 键字典不区分大小写，但排序用 Ordinal 保证同一组参数无论请求顺序如何都得到相同串
+            var names = new List<string>(query.Keys);
+
+            names.Sort(StringComparer.Ordinal);
+
+            var builder = new StringBuilder();
+
+            for (var i = 0; i < names.Count; i++)
+            {
+                if (builder.Length > 0)
+                    builder.Append('&');
+
+                // 值为 null 时按空串拼接，与 k= 的语义一致
+                builder.Append(names[i]).Append('=').Append(query[names[i]] ?? string.Empty);
+            }
+
+            return key + "?" + builder.ToString();
+        }
+
+        /// <summary>
         /// 执行 action 前尝试命中缓存
         /// </summary>
         /// <returns>命中的缓存结果，未命中返回 null</returns>
         public override ActionResult OnActionExecuting()
         {
-            return OutputCacheManager.Get(HttpContext.Current.Request.Url);            
+            return OutputCacheManager.Get(GetCacheKey());
         }
 
         /// <summary>
@@ -69,14 +124,14 @@ namespace SAEA.MVC
         public override void OnActionExecuted(ref ActionResult result)
         {
             if (result.Content == null)
-                result = OutputCacheManager.Get(HttpContext.Current.Request.Url);
+                result = OutputCacheManager.Get(GetCacheKey());
             else
-                OutputCacheManager.Set(HttpContext.Current.Request.Url, result, _duration);
+                OutputCacheManager.Set(GetCacheKey(), result, _duration);
         }
     }
 
     /// <summary>
-    /// 输出缓存管理器，按请求地址缓存响应结果
+    /// 输出缓存管理器，按请求动词、规范路径与规范化 query 缓存响应结果
     /// </summary>
     internal static class OutputCacheManager
     {

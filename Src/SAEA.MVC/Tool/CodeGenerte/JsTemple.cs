@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:32
+*修改时间：2026/11/17 17:50:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.16.1
+*描述：地址片段改用 [[Path]] 占位，由生成器按属性路由模板或两段式填充
 *
 *****************************************************************************/
 namespace SAEA.MVC.Tool.CodeGenerte
@@ -90,7 +90,7 @@ function SaeaApiSdk(url) {
         public const string MethodTemple1 = @"    // [[Controller]]/[[Action]]
     this.[[Controller]][[Action]][[Type]]= function (sucess, error) {
         request({
-            url: `${url}/api/[[Controller]]/[[Action]]`,
+            url: `${url}[[Path]]`,
             type: '[[Type]]',
             timeout: 3000,
             success: function (data) {
@@ -108,7 +108,7 @@ function SaeaApiSdk(url) {
         public const string MethodTemple2 = @"    // [[Controller]]/[[Action]]
     this.[[Controller]][[Action]][[Type]]= function ([[Inputs1]]sucess, error) {
         request({
-            url: `${url}/api/[[Controller]]/[[Action]]`,
+            url: `${url}[[Path]]`,
             type: '[[Type]]',
             data: {
                 [[Inputs2]]
@@ -129,7 +129,7 @@ function SaeaApiSdk(url) {
         public const string MethodTemple3 = @"    // [[Controller]]/[[Action]]
     this.[[Controller]][[Action]][[Type]]= function ([[Header1]],[[Inputs1]]sucess, error) {
         request({
-            url: `${url}/api/[[Controller]]/[[Action]]`,
+            url: `${url}[[Path]]`,
             type: '[[Type]]',
             headers:{
                 [[Header2]]

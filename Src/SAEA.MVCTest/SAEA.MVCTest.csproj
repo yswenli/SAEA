@@ -166,6 +166,7 @@
     <Compile Include="Controllers\FileController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\OrmController.cs" />
+    <Compile Include="Controllers\RouteDemoController.cs" />
     <Compile Include="Controllers\SaeaSdkTestController.cs" />
     <Compile Include="Controllers\TestController.cs" />
     <Compile Include="Entities\ServerConfigLog.cs" />
