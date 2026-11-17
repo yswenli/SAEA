@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:32
+*修改时间：2026/11/17 17:43:19
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.16.1
+*描述：构造参数默认内容类型改为 text/plain
 *
 *****************************************************************************/
 using System.Net;
@@ -70,7 +70,7 @@ namespace SAEA.MVC
         /// <param name="str">响应正文</param>
         /// <param name="encoding">正文编码</param>
         /// <param name="contentType">响应内容类型</param>
-        public ContentResult(string str, Encoding encoding, string contentType = "text/plane; charset=utf-8")
+        public ContentResult(string str, Encoding encoding, string contentType = "text/plain; charset=utf-8")
         {
             if (!string.IsNullOrEmpty(str))
                 this.Content = encoding.GetBytes(str);

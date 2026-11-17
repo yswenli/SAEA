@@ -67,6 +67,8 @@ public class HomeController : Controller
 
 By default an address is resolved from the last two segments of the URL: `/{any-prefix}/{Controller}/{Action}`, where the controller name is the class name plus `Controller` and the comparison ignores case, so both `/home/index` and `/api/v1/home/index` reach `HomeController.Index`. That is only the default convention, not a limit: an action that declares an attribute route is matched by its template first, and the template can replace the two-segment address entirely.
 
+The two-segment route and the `WebConfig.DefaultRoute` default route both ignore the `Async` suffix when resolving an action: writing `/test/sleep` in the address reaches `TestController.SleepAsync`. An exact name wins, so when both `Foo` and `FooAsync` exist, `/controller/foo` reaches `Foo`; this fallback only affects method-name resolution in two-segment routing, while attribute routes always match by template and never look at the method name.
+
 ### Attribute routing
 
 ```csharp
@@ -177,6 +179,7 @@ The attribute route table is built and validated in the `SAEAMvcApplication` con
 | `POST /api/v1/orders/9` | same as above | `[Route]` accepts any verb |
 | `GET /health` | `HealthController.Ping` | single-segment attribute route |
 | `GET /home/index` | `HomeController.Index` | no attribute route, two-segment routing |
+| `GET /test/sleep` | `TestController.SleepAsync` | two-segment route omits the `Async` suffix |
 | `POST /home/index` | 405 with `Allow: GET` | two-segment action that only carries `[HttpGet]`, blocked as well |
 
 ***
@@ -767,7 +770,8 @@ var config = new SAEAMvcApplicationConfig
     MaxConnects = 1000,         // Maximum connections
     DefaultPage = "index.html", // Default homepage
     IsDebug = false,            // Debug mode
-    Timeout = 180,              // Interface timeout (seconds)
+    Timeout = 180,              // Idle connection reclamation time (seconds)
+    ActionTimeout = 0,          // Action execution timeout (seconds); 0 falls back to Timeout
     ConnectTimeout = 6          // Connection timeout (seconds)
 };
 
@@ -870,6 +874,36 @@ public class AsyncController : Controller
 }
 ```
 
+When an action should exit early on timeout, add a `CancellationToken` parameter:
+
+```csharp
+using System.Threading;
+
+public class ExportController : Controller
+{
+    [HttpGet]
+    public async Task<ActionResult> Export(CancellationToken token)
+    {
+        var rows = await QueryAsync(token);
+
+        return Json(rows);
+    }
+
+    private async Task<List<Row>> QueryAsync(CancellationToken token)
+    {
+        await Task.Delay(100, token);
+
+        return new List<Row>();
+    }
+}
+```
+
+- When the action declares a `CancellationToken` parameter, the framework injects the token per request.
+- When it does not, read it from `((SAEA.MVC.HttpContext)HttpContext.Current).RequestAborted`; the static type of `HttpContext.Current` is `SAEA.Http.Model.IHttpContext`, so cast or type-check it first.
+- If a single invocation does not finish within the action timeout in seconds (`ActionTimeout > 0 ? ActionTimeout : Timeout`), the framework returns **408 Request Timeout** and calls `Cancel()` on that token. `Timeout` only governs idle connection reclamation; lowering it alone does not change the action timeout but reclaims idle connections sooner. Do not lower `Timeout` just to shorten the action timeout — the connection can be reclaimed before the 408 is written; set `ActionTimeout` instead.
+- The token is valid only for the current action invocation: the source is released once the action returns, so do not register callbacks afterwards or hand the token to a long-lived background task. Requests that never enter an action (404, 405, static files, `RequestDelegate`) see a default token that cannot be cancelled.
+- This is **cooperative cancellation**: only code that observes the token stops, for example `token.ThrowIfCancellationRequested()`, `Task.Delay(..., token)` or a callback registered on the token. Synchronous code that never observes the token cannot be terminated; it keeps running to completion in the background, and the framework observes and discards its later exceptions without writing another response.
+
 ### WebSocket Long-Lived Connections
 
 WebSocket shares the same port and the same routing, so no extra listener is needed: inherit from `WSController` and mark `OpenAsync` with `[WebSocket]`. The entry point defaults to `/{controller}/open`, and `[Route]` / `[HttpGet]` on `OpenAsync` can declare any path you want.
@@ -921,7 +955,7 @@ ws.send("hello");
 
 Notes:
 
-- The entry point defaults to `/{controller}/open` (the `Async` suffix of `OpenAsync` is ignored by routing), and attribute routing applies here too: add `[Route("ws/chat")]` to `OpenAsync` and clients connect to `ws://host/ws/chat`. Addresses that do not lead to the entry, such as `/chat/message`, are rejected with 400; a non-GET request such as `POST/PUT/DELETE` is also rejected with 400 even when routing reaches the entry, because the handshake only accepts GET (an address that matches no action at all still returns 404).
+- The entry point defaults to `/{controller}/open` (two-segment routing omits the `Async` suffix, so `OpenAsync` maps to `open` in the address), and attribute routing applies here too: add `[Route("ws/chat")]` to `OpenAsync` and clients connect to `ws://host/ws/chat`. Addresses that do not lead to the entry, such as `/chat/message`, are rejected with 400; a non-GET request such as `POST/PUT/DELETE` is also rejected with 400 even when routing reaches the entry, because the handshake only accepts GET (an address that matches no action at all still returns 404).
 - `OpenAsync` must call `AcceptWebSocketAsync()` to accept the connection and return quickly: it writes the 101 response first, then switches the connection to raw byte mode.
 - `MessageAsync` only receives complete Text/Binary messages (fragments are reassembled); Ping frames are answered with Pong automatically.
 - Each connection has its own context. `WebSockets.Current` returns the current `IWebSocketConnection`, and `ws.Id` can be used as a connection identifier.
@@ -937,7 +971,7 @@ Known limitations:
 - `Request` and `Session` are snapshots taken at handshake time: WS messages do not refresh the sliding expiration of `Session`. Keep long-lived session state in connection-scoped fields or a dictionary.
 - Controller instances are shared per route, so **never store connection state in Controller fields**. Use `WebSockets.Current` or your own dictionary keyed by connection id.
 - Every long-lived connection permanently occupies one `MaxConnects` slot; increase the configured limit according to your concurrency.
-- `OpenAsync` must return quickly after accepting the connection: `MvcInvoker` waits synchronously on that Task for `WebConfig.Timeout` (180 seconds by default). On timeout an already-upgraded connection does not get an HTTP 408 (that would corrupt the WebSocket stream); instead `ErrorAsync` is invoked and the connection is closed with `ServerShutdown`. A receive loop inside `OpenAsync` will hit this path. Put long-running logic in `MessageAsync`.
+- `OpenAsync` must return quickly after accepting the connection: `MvcInvoker` waits synchronously on that Task for the action timeout (`ActionTimeout > 0 ? ActionTimeout : Timeout`, 180 seconds by default). On timeout an already-upgraded connection does not get an HTTP 408 (that would corrupt the WebSocket stream); instead `ErrorAsync` is invoked and the connection is closed with `ServerShutdown`. A receive loop inside `OpenAsync` will hit this path. Put long-running logic in `MessageAsync`. The timeout also cancels the cancellation token for that entry (read it from `RequestAborted` when the entry has no `CancellationToken` parameter), so token-observing work such as `Task.Delay(..., token)` inside the entry is aborted as well.
 - `IsDebug = true` only adds request debug logging; it does not change idle reclamation. Idle reclamation for long-lived connections follows `WebConfig.Timeout` (180 seconds by default), and upgraded WebSocket connections are exempt.
 - `UseSsl` enables HTTPS and WSS; the `permessage-deflate` extension is still not supported, and terminating TLS at a reverse proxy remains a valid option.
 - Each connection has a pending queue limit of 1024 frames / 4MB (including a single message). Exceeding it closes the connection with `ServerShutdown`; split large payloads yourself.

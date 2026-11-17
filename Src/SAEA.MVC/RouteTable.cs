@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 19:40:12
+*修改时间：2026/11/17 17:55:17
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：未知 action 由抛异常改为返回 null，交由上层返回 404，并更新 GetOrAdd 注释
+*版本号： v26.11.16.1
+*描述：ResolveActions 的 Async 后缀回退放开到所有 Controller，精确名仍优先，WSController 基类声明层兜底仅保留给其派生类
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -271,10 +271,19 @@ namespace SAEA.MVC
         }
 
         /// <summary>
-        /// 解析 action 方法。WSController 的入口方法名带 Async 后缀（OpenAsync），
-        /// 路由地址保持 /{controller}/open；GET 与 POST 必须用同一套回退规则，
-        /// 否则 POST /chat/open 会查不到 action 而抛 500
+        /// 解析 action 方法：先按 action 名精确匹配；未命中时再尝试 action 名加 Async 后缀回退，
+        /// 使两段式地址 /{controller}/{action} 与 WebConfig.DefaultRoute 都能省略 Async 后缀。
+        /// 精确名优先，Foo 与 FooAsync 同时声明时 /controller/foo 命中 Foo；回退不限定返回类型。
+        /// 属性路由按声明模板匹配，与 action 方法名无关，不走本方法。
+        /// WSController 的入口方法声明为 OpenAsync 而地址保持 /chat/open，派生类未 override 时还要
+        /// 回落到基类声明的那一层；该回落只对 WSController 派生类生效，否则基类的 OpenAsync、
+        /// MessageAsync 等会被误挂到普通控制器上。
+        /// GET 与 POST 必须用同一套回退规则，否则 POST /chat/open 会查不到 action 而返回 404
         /// </summary>
+        /// <param name="controllerType">控制器类型</param>
+        /// <param name="actionName">路由地址里的 action 段原文</param>
+        /// <param name="flags">反射取方法的范围，GET 分支声明层限定，POST 分支包含继承成员</param>
+        /// <returns>匹配到的 action 方法；精确名与 Async 后缀都未命中时返回空列表</returns>
         static List<MethodInfo> ResolveActions(Type controllerType, string actionName, BindingFlags flags)
         {
             var actions = controllerType.GetMethods(flags)
@@ -282,15 +291,15 @@ namespace SAEA.MVC
 
             if (actions.Count > 0) return actions;
 
-            if (!typeof(WSController).IsAssignableFrom(controllerType)) return actions;
-
             var asyncName = actionName + "Async";
 
             actions = controllerType.GetMethods(flags)
                 .Where(b => string.Compare(b.Name, asyncName, true) == 0).ToList();
 
+            if (actions.Count > 0) return actions;
+
             // WSController 派生类未 override OpenAsync 时，回落到基类声明的那一层
-            if (actions.Count == 0)
+            if (typeof(WSController).IsAssignableFrom(controllerType))
             {
                 actions = typeof(WSController)
                     .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)

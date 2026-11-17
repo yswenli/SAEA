@@ -67,6 +67,8 @@ public class HomeController : Controller
 
 默认约定按 URL 末尾两段定位：`/{任何前缀}/{Controller}/{Action}`，控制器名是「类名 + Controller」，比较忽略大小写，所以 `/home/index` 与 `/api/v1/home/index` 都命中 `HomeController.Index`。这只是默认约定，不是限制：声明了属性路由的 action 按模板优先匹配，模板可以完全替换两段式地址。
 
+两段式地址与 `WebConfig.DefaultRoute` 默认路由在定位 action 时都省略 `Async` 后缀：地址里写 `/test/sleep` 就会命中 `TestController.SleepAsync`。精确名优先，`Foo` 与 `FooAsync` 同时存在时 `/controller/foo` 命中 `Foo`；这条回退只作用于按方法名匹配的两段式，属性路由始终按模板匹配，与方法名无关。
+
 ### 属性路由写法
 
 ```csharp
@@ -177,6 +179,7 @@ public class HealthController : Controller
 | `POST /api/v1/orders/9` | 同上 | `[Route]` 不限动词 |
 | `GET /health` | `HealthController.Ping` | 单段属性路由 |
 | `GET /home/index` | `HomeController.Index` | 未声明属性路由，走两段式 |
+| `GET /test/sleep` | `TestController.SleepAsync` | 两段式省略 `Async` 后缀 |
 | `POST /home/index` | 405，`Allow: GET` | 两段式 action 只标了 `[HttpGet]`，同样拦截 |
 
 ***
@@ -767,7 +770,8 @@ var config = new SAEAMvcApplicationConfig
     MaxConnects = 1000,         // 最大连接数
     DefaultPage = "index.html", // 默认首页
     IsDebug = false,            // 调试模式
-    Timeout = 180,              // 接口超时(秒)
+    Timeout = 180,              // 连接空闲回收时间(秒)
+    ActionTimeout = 0,          // action 执行超时(秒)，0 表示沿用 Timeout
     ConnectTimeout = 6          // 连接超时(秒)
 };
 
@@ -870,6 +874,36 @@ public class AsyncController : Controller
 }
 ```
 
+需要在超时后提前退出时，给 action 加一个 `CancellationToken` 形参：
+
+```csharp
+using System.Threading;
+
+public class ExportController : Controller
+{
+    [HttpGet]
+    public async Task<ActionResult> Export(CancellationToken token)
+    {
+        var rows = await QueryAsync(token);
+
+        return Json(rows);
+    }
+
+    private async Task<List<Row>> QueryAsync(CancellationToken token)
+    {
+        await Task.Delay(100, token);
+
+        return new List<Row>();
+    }
+}
+```
+
+- 声明了 `CancellationToken` 形参时，令牌由框架按每次请求注入。
+- 不声明形参时，从 `((SAEA.MVC.HttpContext)HttpContext.Current).RequestAborted` 读取；`HttpContext.Current` 的静态类型是 `SAEA.Http.Model.IHttpContext`，取用前需要判型或强转。
+- 单次调用超过动作超时秒数（`ActionTimeout > 0 ? ActionTimeout : Timeout`）仍未完成时，框架返回 **408 Request Timeout**，并 `Cancel()` 该令牌。`Timeout` 只负责连接空闲回收，单独调小它不会改变动作超时，但会提前回收空闲连接；只为缩短动作超时而调小 `Timeout` 会先回收连接、导致 408 写不出去，应改用 `ActionTimeout`。
+- 令牌只在本次 action 调用期间有效：action 返回后取消源即释放，不要继续注册回调或交给后台任务长期持有。未进入 action 的请求（404、405、静态文件、`RequestDelegate`）读到的是不可取消的默认令牌。
+- 这是**协作式取消**：只有观察令牌的代码才会停止，比如 `token.ThrowIfCancellationRequested()`、`Task.Delay(..., token)`、向令牌注册的回调。没有观察令牌的同步代码无法被强制终止，会继续在后台跑完，其后续异常由框架观察并丢弃，不会再写响应。
+
 ### WebSocket 长连接
 
 WebSocket 复用同一个端口和同一套路由，不需要额外监听端口：继承 `WSController`，在 `OpenAsync` 上标记 `[WebSocket]` 即可。入口默认是 `/{controller}/open`，也可以在 `OpenAsync` 上加 `[Route]` / `[HttpGet]` 声明任意路径。
@@ -921,7 +955,7 @@ ws.send("hello");
 
 要点：
 
-- 入口默认是 `/{controller}/open`（`OpenAsync` 的 `Async` 后缀在路由中会被忽略），属性路由同样生效：给 `OpenAsync` 加 `[Route("ws/chat")]` 后客户端连 `ws://host/ws/chat` 即可。未指向入口的 `/chat/message` 之类地址会被拒绝并返回 400；`POST/PUT/DELETE` 等非 GET 请求即使路由命中了入口，握手校验也只放行 GET，同样返回 400（没命中任何 action 的地址仍是 404）。
+- 入口默认是 `/{controller}/open`（两段式路由省略 `Async` 后缀，`OpenAsync` 因此对应地址里的 `open`），属性路由同样生效：给 `OpenAsync` 加 `[Route("ws/chat")]` 后客户端连 `ws://host/ws/chat` 即可。未指向入口的 `/chat/message` 之类地址会被拒绝并返回 400；`POST/PUT/DELETE` 等非 GET 请求即使路由命中了入口，握手校验也只放行 GET，同样返回 400（没命中任何 action 的地址仍是 404）。
 - `OpenAsync` 必须调用 `AcceptWebSocketAsync()` 显式接受连接，并尽快返回：它会先写 101 响应，再把连接切到原始字节模式。
 - `MessageAsync` 只会收到完整的 Text/Binary 消息（分片已重组）；Ping 由框架自动回 Pong。
 - 每条连接都有独立的上下文，`WebSockets.Current` 返回当前连接的 `IWebSocketConnection`，`ws.Id` 可作为连接标识。
@@ -937,7 +971,7 @@ ws.send("hello");
 - `Request` 与 `Session` 是握手那一刻的快照：WS 消息不会刷新 `Session` 的滑动过期，需要长会话状态请放到连接对象自己的字段/字典里。
 - Controller 实例按路由共享，**连接相关的状态不能放在 Controller 字段上**，请用 `WebSockets.Current` 或自建字典按连接 id 管理。
 - 每条长连接会一直占用一个 `MaxConnects` 配额，需要按实际并发调大配置。
-- `OpenAsync` 必须接受连接后尽快返回：`MvcInvoker` 会以 `WebConfig.Timeout`（默认 180 秒）同步等待该 Task。超时后已升级的连接不会再写 HTTP 408（那样会污染 WebSocket 流），而是回调 `ErrorAsync` 并以 `ServerShutdown` 关闭；在 `OpenAsync` 里跑接收长循环就会走到这个分支。长活逻辑请放 `MessageAsync`。
+- `OpenAsync` 必须接受连接后尽快返回：`MvcInvoker` 会以动作超时（`ActionTimeout > 0 ? ActionTimeout : Timeout`，默认 180 秒）同步等待该 Task。超时后已升级的连接不会再写 HTTP 408（那样会污染 WebSocket 流），而是回调 `ErrorAsync` 并以 `ServerShutdown` 关闭；在 `OpenAsync` 里跑接收长循环就会走到这个分支。长活逻辑请放 `MessageAsync`。超时同样会取消该次入口的取消令牌（入口没有 `CancellationToken` 形参时用 `RequestAborted` 读取），在入口里等 `Task.Delay(..., token)` 这类观察令牌的操作会被一并中止。
 - `IsDebug = true` 只额外打开请求调试日志，不改变空闲清理策略：长连接的空闲回收统一按 `WebConfig.Timeout`（默认 180 秒）判断，WebSocket 连接在升级后被豁免。
 - 配置 `UseSsl` 后支持 HTTPS 与 WSS；`permessage-deflate` 扩展仍不支持；也可以继续在反向代理层终止 TLS。
 - 每条连接有 1024 帧 / 4MB 的待处理队列上限（含单条消息），超过会以 `ServerShutdown` 主动关闭连接；超大消息请自行分片。

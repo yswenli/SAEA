@@ -37,7 +37,7 @@ dotnet test Src/SAEA.Common.Tests/SAEA.Common.Tests.csproj -c Release           
 dotnet test Src/SAEA.MQTT.Tests/SAEA.MQTT.Tests.csproj -c Release                         # 153 passed
 dotnet test Src/SAEA.FTP.Tests/SAEA.FTP.Tests.csproj -c Release                           # 13 passed
 dotnet test Src/SAEA.P2P.Tests/SAEA.P2P.Tests.csproj -c Release                           # 243 passed / 2 skipped
-dotnet test Src/SAEA.MVC.Tests/SAEA.MVC.Tests.csproj -c Release                           # 46 passed
+dotnet test Src/SAEA.MVC.Tests/SAEA.MVC.Tests.csproj -c Release                           # 69 passed
 
 # 跑单个用例：--filter "FullyQualifiedName~MemoryPoolManagerTests"
 ```

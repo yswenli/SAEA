@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 21:00:00
+*修改时间：2026/11/17 18:40:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：两段式路由按 action 上声明的 [HttpGet]/[HttpPost] 严格拦截动词，未声明则全部放行
+*描述：404 文案输出请求行真实方法并对 actionName 做 HTML 编码；405 文案改用 Request.RelativeUrl 保留完整路径并做 HTML 编码；action 注入 CancellationToken，超时改在线程池取消并对未完成任务观察兜底；动作超时改读 WebConfig.ActionTimeout，为 0 时沿用 Timeout
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -64,7 +64,14 @@ namespace SAEA.MVC
 
             if (routing == null)
             {
-                return new ContentResult($"o_o，找不到：{controller.Name}/{actionName} 当前请求为:{(isPost ? ConstHelper.HTTPPOST : ConstHelper.HTTPGET)}", System.Net.HttpStatusCode.NotFound);
+                // 两段式路由表只按 GET/POST 分键，PUT、DELETE 也走 GET 分支，isPost 不足以代表真实动词，以请求行为准
+                var requestMethod = HttpContext.Current.Request.Method;
+
+                if (string.IsNullOrEmpty(requestMethod))
+                    requestMethod = isPost ? ConstHelper.POST : ConstHelper.GET;
+
+                // 正文按 text/html 输出，actionName 来自请求路径，必须编码后再拼进文案
+                return new ContentResult($"o_o，找不到：{controller.Name}/{System.Net.WebUtility.HtmlEncode(actionName)} 当前请求为:{requestMethod}", System.Net.HttpStatusCode.NotFound);
             }
 
             // 两段式路由表只按 GET/POST 分键，PUT、DELETE 也走 GET 分支，isPost 不足以判定真实动词；
@@ -77,7 +84,11 @@ namespace SAEA.MVC
 
                 HttpContext.Current.Response.Headers["Allow"] = allow;
 
-                return new ContentResult("o_o，当前请求方式不被允许 url:" + HttpContext.Current.Request.Url + "，允许的方式：" + allow, System.Net.HttpStatusCode.MethodNotAllowed);
+                // 文案用原始 request-target：Request.Url 会被剥掉数字末段，路径会缺一截
+                var requestUrl = string.IsNullOrEmpty(HttpContext.Current.Request.RelativeUrl) ? HttpContext.Current.Request.Url : HttpContext.Current.Request.RelativeUrl;
+
+                // 正文按 text/html 输出，requestUrl 含完整 query，编码后再拼进文案
+                return new ContentResult("o_o，当前请求方式不被允许 url:" + System.Net.WebUtility.HtmlEncode(requestUrl) + "，允许的方式：" + allow, System.Net.HttpStatusCode.MethodNotAllowed);
             }
 
             var websockets = HttpContext.Current.WebSockets as WebSocketsFeature;
@@ -199,7 +210,7 @@ namespace SAEA.MVC
                             // 已升级的连接不能再写 HTTP 响应：按服务端异常收尾，避免连接悬空
                             if (websockets?.Current != null)
                             {
-                                websockets.HandleActionException(new TimeoutException($"{routing.Action.Name}: WebSocket 入口执行超过 {HttpContext.Current.WebConfig.Timeout} 秒，连接已关闭"));
+                                websockets.HandleActionException(new TimeoutException($"{routing.Action.Name}: WebSocket 入口执行超过 {GetActionTimeoutSeconds()} 秒，连接已关闭"));
                                 result = new EmptyResult();
                             }
                             else
@@ -327,6 +338,18 @@ namespace SAEA.MVC
         }
 
         /// <summary>
+        /// 取本次请求的 action 执行超时秒数
+        /// </summary>
+        /// <returns>ActionTimeout 大于 0 时用它，否则沿用连接空闲回收的 Timeout</returns>
+        static double GetActionTimeoutSeconds()
+        {
+            var webConfig = HttpContext.Current.WebConfig;
+
+            // 0 与负数都视为未单独配置：沿用 Timeout，保证旧配置下行为完全不变
+            return webConfig.ActionTimeout > 0 ? webConfig.ActionTimeout : webConfig.Timeout;
+        }
+
+        /// <summary>
         /// 代理执行方法
         /// </summary>
         /// <param name="action"></param>
@@ -339,16 +362,25 @@ namespace SAEA.MVC
             object data = null;
 
             var @params = action.GetParameters();
-            int timeoutMs = (int)(HttpContext.Current.WebConfig.Timeout * 1000);
+            int timeoutMs = (int)(GetActionTimeoutSeconds() * 1000);
+
+            // 每次调用一个取消源：超时前由 finally 释放，超时后交给任务观察回调释放
+            var cts = new CancellationTokenSource();
+
+            // 标记已交给超时路径处理，避免 finally 提前释放掉还在被 action 观察的取消源
+            var handedToTimeout = false;
 
             try
             {
+                // 先落到上下文再调用 action，保证 action 内能读到本次令牌
+                if (HttpContext.Current is SAEA.MVC.HttpContext mvcContext)
+                    mvcContext.RequestAborted = cts.Token;
+
                 // 创建参数列表
                 object[] parameters = null;
                 if (@params != null && @params.Any())
                 {
-                    var list = ParamsHelper.FillPamars(@params, nameValues);
-                    parameters = list.ToArray();
+                    parameters = FillParameters(@params, nameValues, cts.Token);
                 }
 
                 // 检查是否为异步方法（Task / Task<T>）
@@ -363,6 +395,13 @@ namespace SAEA.MVC
                     if (!task.Wait(timeoutMs))
                     {
                         // 超时
+                        handedToTimeout = true;
+
+                        // Cancel() 在调用线程同步执行用户注册的回调，回调阻塞会把 408 拖后甚至自锁，因此放到线程池执行
+                        Task.Run(() => CancelQuietly(cts));
+
+                        ObserveAndDispose(task, cts);
+
                         return new ContentResult($"{action.Name}: The execution of this asynchronous method has timed out", System.Net.HttpStatusCode.RequestTimeout);
                     }
 
@@ -377,39 +416,140 @@ namespace SAEA.MVC
                 {
                     // 处理同步方法
                     var task = Task.Run(() => action.Invoke(obj, parameters));
-                    
+
                     // 等待任务完成或超时
                     if (!task.Wait(timeoutMs))
                     {
                         // 超时
+                        handedToTimeout = true;
+
+                        // Cancel() 在调用线程同步执行用户注册的回调，回调阻塞会把 408 拖后甚至自锁，因此放到线程池执行
+                        Task.Run(() => CancelQuietly(cts));
+
+                        ObserveAndDispose(task, cts);
+
                         return new ContentResult($"{action.Name}: The execution of this method has timed out", System.Net.HttpStatusCode.RequestTimeout);
                     }
-                    
+
                     // 任务完成，获取结果
                     data = task.Result;
                 }
-
-                // 处理各种返回类型
-                if (data is ActionResult)
-                {
-                    result = data as ActionResult;
-                }
-                else if (data is string)
-                {
-                    result = new ContentResult(data as string);
-                }
-                else
-                {
-                    result = new JsonResult(data);
-                }
             }
-            catch
+            finally
             {
-                // 处理其他异常
-                throw;
+                // 非超时路径（正常完成、action 同步抛异常、Wait 抛 AggregateException）自己释放
+                if (!handedToTimeout) cts.Dispose();
+            }
+
+            // 处理各种返回类型
+            if (data is ActionResult)
+            {
+                result = data as ActionResult;
+            }
+            else if (data is string)
+            {
+                result = new ContentResult(data as string);
+            }
+            else
+            {
+                result = new JsonResult(data);
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// 按声明顺序填充 action 参数，框架注入 CancellationToken 类型的参数
+        /// </summary>
+        /// <param name="params">action 的参数声明</param>
+        /// <param name="nameValues">请求参数</param>
+        /// <param name="token">本次调用注入的取消令牌</param>
+        /// <returns>与参数声明一一对应的实参数组</returns>
+        static object[] FillParameters(ParameterInfo[] @params, NameValueCollection nameValues, CancellationToken token)
+        {
+            var parameters = new object[@params.Length];
+
+            var hasToken = false;
+
+            for (var i = 0; i < @params.Length; i++)
+            {
+                if (@params[i].ParameterType == typeof(CancellationToken))
+                {
+                    hasToken = true;
+                    break;
+                }
+            }
+
+            if (!hasToken)
+            {
+                var list = ParamsHelper.FillPamars(@params, nameValues);
+
+                if (list == null) return parameters;
+
+                return list.ToArray();
+            }
+
+            // 令牌不能交给参数填充：先剔除非令牌参数填充，再按原声明顺序把令牌插回原位
+            var others = new List<ParameterInfo>(@params.Length);
+
+            for (var i = 0; i < @params.Length; i++)
+            {
+                if (@params[i].ParameterType != typeof(CancellationToken))
+                    others.Add(@params[i]);
+            }
+
+            List<object> filled = null;
+
+            if (others.Count > 0)
+                filled = ParamsHelper.FillPamars(others.ToArray(), nameValues);
+
+            var filledIndex = 0;
+
+            for (var i = 0; i < @params.Length; i++)
+            {
+                if (@params[i].ParameterType == typeof(CancellationToken))
+                    parameters[i] = token;
+                else
+                    parameters[i] = filled[filledIndex++];
+            }
+
+            return parameters;
+        }
+
+        /// <summary>
+        /// 取消并吞掉竞态异常：取消与任务完成后的释放可能并发，取消回调本身也可能抛异常
+        /// </summary>
+        /// <param name="cts">待取消的取消源</param>
+        static void CancelQuietly(CancellationTokenSource cts)
+        {
+            try
+            {
+                cts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // 任务已结束并释放了取消源，此时没有回调需要执行，无需再取消
+            }
+            catch (AggregateException)
+            {
+                // 令牌回调抛出的异常不能顶掉 408 响应
+            }
+        }
+
+        /// <summary>
+        /// 观察超时任务的异常并在其结束后释放取消源
+        /// </summary>
+        /// <param name="task">已超时的任务</param>
+        /// <param name="cts">本次调用的取消源</param>
+        static void ObserveAndDispose(Task task, CancellationTokenSource cts)
+        {
+            task.ContinueWith(t =>
+            {
+                // 读一次 Exception 把异常标记为已观察，避免未观察异常在终结时抛出
+                var ignored = t.Exception;
+
+                cts.Dispose();
+            }, TaskScheduler.Default);
         }
     }
 }

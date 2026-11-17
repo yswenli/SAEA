@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 17:30:00
+*修改时间：2026/11/17 18:40:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：属性路由匹配入口、RoutingPath 改存归一化实际路径、路径参数绑定与 405 处理
+*描述：属性路由匹配入口、RoutingPath 改存归一化实际路径、路径参数绑定与 405 处理；新增 RequestAborted 令牌并说明其仅在本次 action 调用期间有效；405 文案改用 Request.RelativeUrl 保留完整路径并做 HTML 编码
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -39,6 +39,7 @@ using SAEA.Sockets.Pipeline;
 
 using System;
 using System.Linq;
+using System.Threading;
 
 namespace SAEA.MVC
 {
@@ -66,6 +67,14 @@ namespace SAEA.MVC
         /// 本次属性路由命中的归一化实际路径，未命中属性路由时为 null
         /// </summary>
         public string RoutingPath { get; internal set; }
+
+        /// <summary>
+        /// 本次 action 的取消令牌，超时后转为已取消；只有观察令牌的代码才会停止。
+        /// 令牌只在本次 action 调用期间有效，不要在 action 返回后继续注册回调或交给后台任务长期持有，
+        /// action 返回后取消源即释放；未进入 action 的请求（404、405、静态文件、RequestDelegate）
+        /// 读到的是不可取消的默认令牌
+        /// </summary>
+        public CancellationToken RequestAborted { get; internal set; }
 
         WebSocketsFeature _webSockets;
 
@@ -232,7 +241,11 @@ namespace SAEA.MVC
                     // 路径已被属性路由声明但请求动词不符：返回 405 并告知可用动词
                     Response.Headers["Allow"] = match.AllowHeader ?? string.Empty;
 
-                    return new ContentResult("o_o，当前请求方式不被允许 url:" + url + "，允许的方式：" + match.AllowHeader, System.Net.HttpStatusCode.MethodNotAllowed);
+                    // 文案用原始 request-target：Request.Url 会被剥掉数字末段，路径会缺一截
+                    var requestUrl = string.IsNullOrEmpty(Request.RelativeUrl) ? Request.Url : Request.RelativeUrl;
+
+                    // 正文按 text/html 输出，requestUrl 含完整 query，编码后再拼进文案
+                    return new ContentResult("o_o，当前请求方式不被允许 url:" + System.Net.WebUtility.HtmlEncode(requestUrl) + "，允许的方式：" + match.AllowHeader, System.Net.HttpStatusCode.MethodNotAllowed);
                 }
             }
 

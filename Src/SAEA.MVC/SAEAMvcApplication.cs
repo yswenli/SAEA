@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 16:35:00
+*修改时间：2026/11/17 18:40:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：构造期构建属性路由表并挂到路由表实例
+*描述：构造期把配置的 ActionTimeout 写到 WebConfig，动作超时与连接空闲回收分离
 *
 *****************************************************************************/
 using System;
@@ -85,6 +85,9 @@ namespace SAEA.MVC
                 _webHost.WebConfig.Timeout = mvcConfig.Timeout;
                 _webHost.WebConfig.ConnectTimeout = mvcConfig.ConnectTimeout;
             }
+
+            // 0 本身就是合法语义（沿用 Timeout），不需要判空或判正
+            _webHost.WebConfig.ActionTimeout = mvcConfig.ActionTimeout;
         }
 
         /// <summary>
