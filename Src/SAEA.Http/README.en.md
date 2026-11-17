@@ -702,9 +702,10 @@ var server = new WebHost(
     isZiped: false,             // GZIP
     bufferSize: 1024 * 64,      // receive buffer (64KB)
     maxConnects: 1000,          // max connections
-    timeout: 180,               // idle timeout (seconds)
+    timeout: 180,               // idle connection reclamation (seconds)
     connectTimeout: 3);         // connect timeout (seconds)
 
+server.WebConfig.ActionTimeout = 120; // action execution timeout (seconds); 0 falls back to the idle connection timeout
 server.WebConfig.ConfigurePipeline = (id, pipeline) => { /* ... */ };
 server.WebConfig.UseSsl(o => { /* ... */ });
 server.WebConfig.RequestDelegate = ctx => { /* ... */ };

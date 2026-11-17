@@ -724,9 +724,10 @@ var server = new WebHost(
     isZiped: false,             // GZIP 压缩
     bufferSize: 1024 * 64,      // 接收缓冲区（64KB）
     maxConnects: 1000,          // 最大连接数
-    timeout: 180,               // 连接空闲超时（秒）
+    timeout: 180,               // 连接空闲回收时间（秒）
     connectTimeout: 3);         // 连接建立超时（秒）
 
+server.WebConfig.ActionTimeout = 120; // action 执行超时（秒），0 表示沿用连接空闲超时
 server.WebConfig.ConfigurePipeline = (id, pipeline) => { /* ... */ };
 server.WebConfig.UseSsl(o => { /* ... */ });
 server.WebConfig.RequestDelegate = ctx => { /* ... */ };

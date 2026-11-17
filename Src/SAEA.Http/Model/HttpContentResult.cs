@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:29
+*修改时间：2026/11/17 18:40:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.16.1
+*描述：修正默认内容类型的 text/plane 笔误为 text/plain
 *
 *****************************************************************************/
 using System.Net;
@@ -67,8 +67,8 @@ namespace SAEA.Http.Model
         /// </summary>
         /// <param name="str">响应文本</param>
         /// <param name="encoding">文本编码</param>
-        /// <param name="contentType">内容类型，默认 text/plane; charset=utf-8</param>
-        public HttpContentResult(string str, Encoding encoding, string contentType = "text/plane; charset=utf-8")
+        /// <param name="contentType">内容类型，默认 text/plain; charset=utf-8</param>
+        public HttpContentResult(string str, Encoding encoding, string contentType = "text/plain; charset=utf-8")
         {
             if (!string.IsNullOrEmpty(str))
                 this.Content = encoding.GetBytes(str);
