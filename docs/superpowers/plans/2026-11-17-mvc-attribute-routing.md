@@ -13,6 +13,7 @@
 | T5 | 文档 | `Src/SAEA.MVC/README.md` + `README.en.md` 新增「路由」章节；修正 WS 入口表述、`OnActionExecuted` 签名示例；更新 `2026-11-04-mvc-websocket-design.md` 的「不做 WS 路径参数」非目标；`AGENTS.md` 的单测工程清单补 `SAEA.MVC.Tests` | T1–T4 | 中英一致，无失效示例 |
 | T6 | 演示 | `Src/SAEA.MVCTest` 新增属性路由演示控制器 + 页面入口 | T1 | 手工访问可用 |
 | T7 | 缺陷修复批次 | 两段式 `Async` 回退放开到所有 Controller（`RouteTable.cs`，精确名优先、不限定返回类型、属性路由不受影响）；action 超时的协作式取消与 `RequestAborted` 令牌（`MVCInvoker.cs`、`HttpContext.cs`）；404/405 文案与默认内容类型修正（`MVCInvoker.cs`、`HttpContext.cs`、`ContentResult.cs`）；用例 `Controllers/TimeoutCancelController.cs`、`Controllers/AsyncFallbackController.cs`、`Tests/TimeoutCancellationTests.cs`、`Tests/AsyncSuffixFallbackTests.cs`；复核修正：404 文案按请求行真实方法输出并对 action 名做 HTML 编码，405 文案对完整 request-target 做 HTML 编码，超时取消改到线程池执行，补 `RequestAborted` 生命周期说明，补 PUT 动词 404 与令牌居中形参两条用例；新增 `ActionTimeout` 解耦动作超时与连接空闲回收；修正 `SAEA.Http` `HttpContentResult` 的 `text/plane` 笔误 | T1–T6 | `dotnet build Src/SAEA.Sockets.sln -c Debug` 0 error；`SAEA.MVC.Tests` 69 passed |
+| T8 | 属性路由令牌（已完成） | `AttributeRouteTable.cs` 支持 `[controller]` / `[action]` 令牌解析与构建期校验：类名去 `Controller`、方法名去 `Async`（含大小写不敏感）、必须独占一段、未知或畸形方括号、后缀剥离为空、`Foo`/`FooAsync` 同路径冲突；替换结果即 `Routing.Template`，SDK 生成器与冲突检测使用替换后路径 | T1 | 已完成：令牌正常替换并命中；混写、未知或畸形方括号、剥离为空、同路径同动词冲突均在构建期报错 |
 
 ## 执行顺序
 

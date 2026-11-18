@@ -113,18 +113,41 @@ public class HealthController : Controller
         return Content("ok");
     }
 }
+
+[Route("api/v1/[controller]")]       // [controller]: class name without the Controller suffix, ProductController -> Product
+public class ProductController : Controller
+{
+    [HttpGet]                        // GET /api/v1/product
+    public ActionResult List()
+    {
+        return Json(new { Total = 2 });
+    }
+
+    [HttpGet("[action]/{id}")]       // [action]: method name without the Async suffix, GetAsync -> Get, so GET /api/v1/product/get/5
+    public ActionResult GetAsync(string id)
+    {
+        return Json(new { Id = id });
+    }
+}
 ```
 
 - `[Route(template)]` declares a path only and accepts GET/POST/PUT/DELETE.
 - `[HttpGet(template)]` / `[HttpPost(template)]` declare a path and restrict the verb.
 - A class-level `[Route]` is joined with the method template by `/`; when the method only carries `[HttpGet]` / `[HttpPost]` without a template, the class template alone is the path.
 - An action whose class carries `[Route]` but which has no routing attribute of its own stays on two-segment routing, so a class prefix never swallows every action.
+- A template may use the `[controller]` / `[action]` tokens instead of spelling out the controller and method names; token recognition and suffix stripping are case-insensitive, and so is path comparison, so a template that resolves to `Product` and `Get` still matches `/api/v1/product/get/5`.
+- A class-level template may also contain `[action]`, replaced separately for each action: `[Route("api/v1/[controller]/[action]")]` gives every action of that controller its own address.
+
+Tokens are replaced while the attribute route table is built. The resulting absolute path is `Routing.Template`; the SDK generator output and conflict detection both use the replaced result.
 
 ### Template semantics
 
 | Rule | Description |
 | --- | --- |
 | Static segments | `api/v1/users`, compared segment by segment, case-insensitive |
+| Token `[controller]` | replaced by the controller class name without the trailing `Controller` suffix, e.g. `UserController` -> `User`; token recognition and suffix stripping are case-insensitive |
+| Token `[action]` | replaced by the action method name without the trailing `Async` suffix, e.g. `GetAsync` -> `Get`; token recognition and suffix stripping are case-insensitive |
+| Token placement | must occupy a whole segment; `[controller]` and `[action]` are legal alone, while mixed forms such as `v1-[action]`, `[controller]s` and `{[action]}` are invalid |
 | Path parameters | `{id}`, required and exactly one segment; the name allows only letters, digits and underscores |
 | Placeholder placement | must occupy a whole segment; `user-{id}` is invalid |
 | Leading/trailing `/` | ignored; repeated `//` collapses into one |
@@ -158,9 +181,14 @@ The attribute route table is built and validated in the `SAEAMvcApplication` con
 - An invalid template (`{id?}`, `{*path}`, `{id:int}`, an invalid placeholder name) throws `ArgumentException`.
 - An action declaring more than one templated routing attribute (for example `[Route("x")]` together with `[HttpGet("y")]`) throws `ArgumentException`.
 - The same path shape plus the same verb declared by two actions throws `InvalidOperationException`; `{id}` and `{uid}` count as the same shape, while the same path with different verbs is legal.
+- A segment containing brackets that is neither `[controller]` nor `[action]` (including `[foo]` and the unclosed `[controller`) throws `ArgumentException`; such forms used to be registered silently as literal static segments and now fail startup.
+- An empty result after suffix stripping (a class named exactly `Controller` or a method named exactly `Async`) throws `ArgumentException`.
+- When `Foo` and `FooAsync` in the same controller both use `[action]`, they resolve to the same path, and the same verb makes startup throw an `InvalidOperationException` conflict; use explicit different templates or different verbs to keep both.
 
 ### Not supported
 
+- Tokens cannot be mixed with literals: `v1-[action]`, `[controller]s` and `{[action]}` are all invalid; a token must occupy a whole segment.
+- Only the `[controller]` and `[action]` tokens exist; there is no `[area]` or any other token.
 - Optional parameters `{id?}`, catch-all `{*path}`, type constraints `{id:int}` / `{id:guid}`.
 - The `~/` absolute-prefix syntax.
 - Multiple paths per action: an action has exactly one template source.
@@ -178,6 +206,8 @@ The attribute route table is built and validated in the `SAEAMvcApplication` con
 | `GET /api/v1/orders/9` | `OrderController.Get` | method template is the absolute path |
 | `POST /api/v1/orders/9` | same as above | `[Route]` accepts any verb |
 | `GET /health` | `HealthController.Ping` | single-segment attribute route |
+| `GET /api/v1/product/get/5` | `ProductController.GetAsync`, `id = "5"` | `[controller]` -> `Product`, `[action]` -> `Get`, matching is case-insensitive |
+| `GET /API/V1/PRODUCT/GET/5` | same as above | token replacement and path comparison are both case-insensitive |
 | `GET /home/index` | `HomeController.Index` | no attribute route, two-segment routing |
 | `GET /test/sleep` | `TestController.SleepAsync` | two-segment route omits the `Async` suffix |
 | `POST /home/index` | 405 with `Allow: GET` | two-segment action that only carries `[HttpGet]`, blocked as well |

@@ -113,18 +113,41 @@ public class HealthController : Controller
         return Content("ok");
     }
 }
+
+[Route("api/v1/[controller]")]       // [controller]：类名去掉 Controller 后缀，ProductController → Product
+public class ProductController : Controller
+{
+    [HttpGet]                        // GET /api/v1/product
+    public ActionResult List()
+    {
+        return Json(new { Total = 2 });
+    }
+
+    [HttpGet("[action]/{id}")]       // [action]：方法名去掉 Async 后缀，GetAsync → Get，即 GET /api/v1/product/get/5
+    public ActionResult GetAsync(string id)
+    {
+        return Json(new { Id = id });
+    }
+}
 ```
 
 - `[Route(template)]` 只声明路径，不限定请求方法，GET/POST/PUT/DELETE 都接受。
 - `[HttpGet(template)]` / `[HttpPost(template)]` 既声明路径又限定动词。
 - 类上的 `[Route]` 与方法模板按 `/` 拼接；方法上只有 `[HttpGet]` / `[HttpPost]`（无模板）时，类级模板本身就是路径。
 - 类上只有 `[Route]`、方法上没有任何路由特性的 action 不进入属性路由，继续走两段式，避免类级模板吞掉全部 action。
+- 模板里可以用 `[controller]` / `[action]` 令牌代替手写控制器名与方法名，令牌识别与后缀剥离都忽略大小写；地址本身的比较同样忽略大小写，所以模板替换出 `Product`、`Get` 后，`/api/v1/product/get/5` 照样命中。
+- 类级模板里也可以写 `[action]`，按每个 action 分别替换：`[Route("api/v1/[controller]/[action]")]` 会让该控制器的每个 action 各走自己的地址。
+
+令牌在属性路由表构建期完成替换，替换后的绝对路径就是 `Routing.Template`；SDK 生成器输出与冲突检测都使用替换后的结果。
 
 ### 模板语义
 
 | 规则 | 说明 |
 | --- | --- |
 | 静态段 | `api/v1/users`，逐段比较，忽略大小写 |
+| 令牌 `[controller]` | 换成控制器类名去掉结尾 `Controller` 后缀，如 `UserController` → `User`；令牌识别与后缀剥离都忽略大小写 |
+| 令牌 `[action]` | 换成 action 方法名去掉结尾 `Async` 后缀，如 `GetAsync` → `Get`；令牌识别与后缀剥离都忽略大小写 |
+| 令牌位置 | 必须独占一整段，`[controller]`、`[action]` 单独成段合法；`v1-[action]`、`[controller]s`、`{[action]}` 这类混写非法 |
 | 路径参数 | `{id}`，必选且只占一个段；参数名只允许字母、数字、下划线 |
 | 占位符位置 | 必须独占一段，`user-{id}` 这类混写非法 |
 | 首尾 `/` | 忽略；连续 `//` 合并为一个 |
@@ -158,9 +181,14 @@ public class HealthController : Controller
 - 模板非法（`{id?}`、`{*path}`、`{id:int}`、占位名含非法字符）抛 `ArgumentException`。
 - 同一 action 声明了多个带模板的路由特性（如 `[Route("x")]` 与 `[HttpGet("y")]`）抛 `ArgumentException`。
 - 同一路径形状 + 同一动词被两个 action 声明抛 `InvalidOperationException`；`{id}` 与 `{uid}` 视为同一形状，同路径不同动词合法。
+- 段里出现方括号但既不是 `[controller]` 也不是 `[action]`（含 `[foo]`、未闭合的 `[controller`）抛 `ArgumentException`；这类写法以前会被当字面静态段静默注册，现在直接启动失败。
+- 后缀剥离后为空（类名恰好是 `Controller`、方法名恰好是 `Async`）抛 `ArgumentException`。
+- 同一控制器里 `Foo` 与 `FooAsync` 都用 `[action]` 时两者解析到同一路径，动词相同即启动期 `InvalidOperationException` 冲突；要共存就显式写不同模板或分动词。
 
 ### 不支持的能力
 
+- 令牌不能与字面量混写：`v1-[action]`、`[controller]s`、`{[action]}` 均非法，令牌必须独占一段。
+- 只有 `[controller]` 与 `[action]` 两个令牌，没有 `[area]` 等其它令牌。
 - 可选参数 `{id?}`、通配 `{*path}`、类型约束 `{id:int}` / `{id:guid}`。
 - `~/` 绝对前缀语法。
 - 一个 action 声明多条路径：一个 action 只能有一个模板来源。
@@ -178,6 +206,8 @@ public class HealthController : Controller
 | `GET /api/v1/orders/9` | `OrderController.Get` | 方法级模板即绝对路径 |
 | `POST /api/v1/orders/9` | 同上 | `[Route]` 不限动词 |
 | `GET /health` | `HealthController.Ping` | 单段属性路由 |
+| `GET /api/v1/product/get/5` | `ProductController.GetAsync`，`id = "5"` | `[controller]` → `Product`、`[action]` → `Get`，匹配忽略大小写 |
+| `GET /API/V1/PRODUCT/GET/5` | 同上 | 令牌替换结果与路径比较都忽略大小写 |
 | `GET /home/index` | `HomeController.Index` | 未声明属性路由，走两段式 |
 | `GET /test/sleep` | `TestController.SleepAsync` | 两段式省略 `Async` 后缀 |
 | `POST /home/index` | 405，`Allow: GET` | 两段式 action 只标了 `[HttpGet]`，同样拦截 |

@@ -17,6 +17,7 @@ SAEA.MVC 的地址完全由「URL 末尾两段」的位置约定产生：
 | 静态段 | `[Route("api/v1/users/list")]` |
 | 路径参数 | `[Route("users/{id}")]`，必选、单段 |
 | 类级前缀 | 类 `[Route("api/users")]` + 方法 `[Route("{id}")]` → `/api/users/{id}` |
+| 路径令牌 | `[controller]`（类名去掉 `Controller` 后缀）与 `[action]`（方法名去掉 `Async` 后缀）：替换忽略大小写，令牌必须独占一段 |
 | 动词限定 | `[HttpGet]` / `[HttpPost]`（可带路径）真正拦截动词，不匹配返回 405 |
 | 零破坏 | 不使用 `[HttpGet]` / `[HttpPost]` 的控制器继续走两段式、不限动词，行为一字不变 |
 | WebSocket | WS 入口走同一套匹配，`[Router]` 同样生效 |
@@ -112,6 +113,23 @@ public CancellationToken RequestAborted { get; internal set; }   // 单次 actio
 
 同一「归一化路径 + 动词」在**同一应用**内被两个 action 声明 → `SAEAMvcApplication` 构造期抛异常，消息包含路径、动词与两个 `Controller/Action`。
 同一路径不同动词合法共存。
+
+### 5.4 路径令牌
+
+模板段可以是 `[controller]` 或 `[action]` 两个令牌，构建期替换为实际名称：
+
+| 令牌 | 取值 | 示例 |
+| --- | --- | --- |
+| `[controller]` | 控制器类名去掉结尾 `Controller` 后缀 | `UserController` → `User` |
+| `[action]` | action 方法名去掉结尾 `Async` 后缀 | `GetAsync` → `Get` |
+
+- 令牌识别与后缀剥离都忽略大小写（`[Controller]` 与 `getasync` → `get` 同样生效）。
+- 令牌必须独占一整段：`[controller]`、`[action]` 单独成段合法；`v1-[action]`、`[controller]s`、`{[action]}` 这类与字面量或花括号混写构建期抛 `ArgumentException`。
+- 段里出现方括号但既不是 `[controller]` 也不是 `[action]`（含 `[foo]`、未闭合的 `[controller`）构建期抛 `ArgumentException`；这类写法此前会被当作字面静态段静默注册，现在启动即失败。
+- 后缀剥离后为空（类名恰好是 `Controller`、方法名恰好是 `Async`）构建期抛 `ArgumentException`。
+- 类级 `[Route]` 模板同样可以写 `[action]`，按每个 action 分别替换：`[Route("api/v1/[controller]/[action]")]` 让该控制器每个 action 各走自己的地址。
+- 替换发生在属性路由表构建期，替换后的绝对路径即 `Routing.Template`，SDK 生成器输出与冲突检测都使用替换后的结果；匹配语义（逐段静态比较、忽略大小写、尾斜杠等价、`{id}` 单段必选、query 不参与匹配）不变。
+- 同一控制器里 `Foo` 与 `FooAsync` 都用 `[action]` 时解析到同一路径，动词相同即构建期 `InvalidOperationException` 冲突；需要共存就显式写不同模板或分动词。
 
 ## 6. 匹配模型
 
@@ -240,3 +258,7 @@ WS 升级沿用 `GetActionResult` 的同一条路径，属性路由对 WS 入口
 1. **两段式 `Async` 回退放开到所有 Controller**（`RouteTable.ResolveActions`）：先按地址里的 action 名精确匹配，未命中再尝试 `actionName + "Async"`，`/{Controller}/{Action}` 与 `WebConfig.DefaultRoute` 两条两段式分支都生效，所以 `/test/sleep` 命中 `TestController.SleepAsync`。精确名优先，`Foo` 与 `FooAsync` 同时存在时 `/controller/foo` 命中 `Foo`；回退不限定返回类型；属性路由按模板匹配，与方法名无关，不走这套回退；`WSController` 派生类未 override 时回落到基类 `OpenAsync` 的兜底仍只对其派生类生效。
 2. **action 超时的协作式取消与观察兜底**（`MVCInvoker.MethodInvoke`、`HttpContext.RequestAborted`）：每次调用创建一个 `CancellationTokenSource`，声明 `CancellationToken` 形参时由框架注入，否则从 `RequestAborted` 读取；等待超过 action 超时秒数返回 408 并 `Cancel()` 该令牌（action 超时读 `WebConfig.ActionTimeout`，为 0 时沿用 `Timeout`），未完成的 Task 交给观察回调收尾——异常被丢弃，不会再写响应。取消放在线程池执行（`Task.Run` 调 `CancelQuietly`），因为 `CancellationTokenSource.Cancel()` 会在调用线程同步执行用户注册的回调，阻塞的回调会把 408 拖后甚至自锁；取消与任务完成后的释放可能并发，取消回调自身抛出的异常被吞掉。`Timeout` 仍是 `SAEA.Http` 的连接空闲回收时间，只为缩短动作超时而调小它会在 408 写出前回收连接，这种场景应改配 `ActionTimeout`。不观察令牌的同步代码无法被强制终止，会继续在后台跑完。
 3. **文案与内容类型修正**：404 的「找不到：Controller/Action 当前请求为:」输出请求行的真实方法（GET/POST/PUT/DELETE），不再是特性名 `HttpGet`/`HttpPost`（`MVCInvoker`）；405 文案改用原始 request-target `Request.RelativeUrl`，数字末段不会再被 `SAEA.Http` 的请求解析剥掉（`HttpContext`）；`ContentResult(string, Encoding)` 的默认内容类型由 `text/plane` 修正为 `text/plain; charset=utf-8`（`ContentResult`）。404/405 正文按 `text/html` 输出，因此拼进正文的 action 名与完整 request-target（含查询串）都先做 HTML 编码。
+
+## 14. 补充修订（2026-11-18）
+
+1. **属性路由路径令牌**：模板段新增 `[controller]`（类名去掉结尾 `Controller` 后缀）与 `[action]`（方法名去掉结尾 `Async` 后缀）两个令牌，令牌识别与后缀剥离都忽略大小写。令牌必须独占一整段：与字面量或花括号混写（`v1-[action]`、`[controller]s`、`{[action]}`）、未知或畸形方括号（`[foo]`、未闭合的 `[controller`）、后缀剥离后为空（类名恰好是 `Controller`、方法名恰好是 `Async`）都在构建期抛 `ArgumentException`，不再把方括号内容当字面静态段静默注册。类级 `[Route]` 可写 `[action]` 并按每个 action 分别替换；替换在属性路由表构建期完成，替换后的绝对路径即 `Routing.Template`，SDK 生成器输出与冲突检测都使用替换后的结果。`Foo` 与 `FooAsync` 同用 `[action]` 会解析到同一路径，动词相同即构建期 `InvalidOperationException` 冲突，需要共存就显式写不同模板或分动词。

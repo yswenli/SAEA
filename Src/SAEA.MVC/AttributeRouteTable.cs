@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 17:50:00
+*修改时间：2026/11/18 10:40:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：新增 TryGetDeclaredRoute，供 SDK 生成器复用同一套模板解析与归一化
+*描述：新增 [controller] 与 [action] 模板令牌解析，并在构建期拒绝其余方括号写法
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -49,6 +49,18 @@ namespace SAEA.MVC
         const char OpenBrace = '{';
 
         const char CloseBrace = '}';
+
+        const char OpenBracket = '[';
+
+        const char CloseBracket = ']';
+
+        const string ControllerToken = "[controller]";
+
+        const string ActionToken = "[action]";
+
+        const string ControllerSuffix = "Controller";
+
+        const string ActionSuffix = "Async";
 
         static readonly string[] AllVerbs = { ConstHelper.GET, ConstHelper.POST, ConstHelper.PUT, ConstHelper.DELETE };
 
@@ -271,6 +283,13 @@ namespace SAEA.MVC
 
             if (sources > 0) segments.AddRange(SplitTemplate(methodTemplate, owner));
 
+            // 替换前的模板原文同时用于令牌取值失败的异常消息
+            var rawTemplate = BuildTemplate(segments);
+
+            // 类级段列表由同一控制器的多个 action 共享，上面的 AddRange 已把内容拷进本次条目自己的列表，
+            // 这里原地替换令牌只会影响当前 action，不会污染其它 action 已算好的路径
+            ReplaceTokens(segments, controllerType, action, owner, rawTemplate);
+
             var verbs = new List<string>();
 
             if (get != null && post != null)
@@ -307,6 +326,51 @@ namespace SAEA.MVC
             }
 
             return entry;
+        }
+
+        /// <summary>
+        /// 逐 action 替换段里的 [controller] 与 [action] 令牌，类级模板中的令牌因此按每个 action 分别取值
+        /// </summary>
+        /// <param name="segments">拼接后的段列表，令牌段会被原地替换为实际名称</param>
+        /// <param name="controllerType">控制器类型</param>
+        /// <param name="action">action 方法</param>
+        /// <param name="owner">声明位置描述，仅用于异常消息</param>
+        /// <param name="template">替换前的模板原文，仅用于异常消息</param>
+        static void ReplaceTokens(List<string> segments, Type controllerType, MethodInfo action, string owner, string template)
+        {
+            for (var i = 0; i < segments.Count; i++)
+            {
+                var segment = segments[i];
+
+                if (string.Compare(segment, ControllerToken, true) == 0)
+                {
+                    segments[i] = TrimSuffix(controllerType.Name, ControllerSuffix, ControllerToken, template, owner);
+                }
+                else if (string.Compare(segment, ActionToken, true) == 0)
+                {
+                    segments[i] = TrimSuffix(action.Name, ActionSuffix, ActionToken, template, owner);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 去掉一个结尾后缀并校验结果非空，[controller] 与 [action] 共用同一套规则
+        /// </summary>
+        /// <param name="value">原始名称</param>
+        /// <param name="suffix">要剥掉的结尾后缀</param>
+        /// <param name="token">令牌原文，仅用于异常消息</param>
+        /// <param name="template">模板原文，仅用于异常消息</param>
+        /// <param name="owner">声明位置描述，仅用于异常消息</param>
+        /// <returns>去掉后缀后的名称</returns>
+        static string TrimSuffix(string value, string suffix, string token, string template, string owner)
+        {
+            if (value.Length >= suffix.Length && string.Compare(value, value.Length - suffix.Length, suffix, 0, suffix.Length, StringComparison.OrdinalIgnoreCase) == 0)
+                value = value.Substring(0, value.Length - suffix.Length);
+
+            if (value.Length == 0)
+                throw new ArgumentException($"路由模板 \"{template}\" 的令牌 \"{token}\" 无法取值：{owner} 去掉结尾 {suffix} 后缀后为空");
+
+            return value;
         }
 
         /// <summary>
@@ -378,13 +442,22 @@ namespace SAEA.MVC
         }
 
         /// <summary>
-        /// 只接受纯静态段或纯占位段 {name}，其余写法在构建期报错，不做静默降级
+        /// 只接受纯静态段、纯占位段 {name} 或独占一段的 [controller] / [action] 令牌，其余写法在构建期报错，不做静默降级
         /// </summary>
         /// <param name="segment">单个模板段</param>
         /// <param name="owner">声明位置描述，仅用于异常消息</param>
         /// <param name="template">完整模板原文，仅用于异常消息</param>
         static void ValidateSegment(string segment, string owner, string template)
         {
+            if (segment.IndexOf(OpenBracket) >= 0 || segment.IndexOf(CloseBracket) >= 0)
+            {
+                // 令牌必须整段独占；未知令牌、与字面量混写、未闭合的方括号都按非法模板报错，不能当成静态段静默注册
+                if (string.Compare(segment, ControllerToken, true) != 0 && string.Compare(segment, ActionToken, true) != 0)
+                    throw new ArgumentException($"路由模板 \"{template}\" 的段 \"{segment}\" 非法：只支持 [controller] 与 [action] 两个令牌，且必须独占一段（{owner}）");
+
+                return;
+            }
+
             if (segment.IndexOf(OpenBrace) < 0 && segment.IndexOf(CloseBrace) < 0) return;
 
             var isPlaceholder = segment.Length > 2
