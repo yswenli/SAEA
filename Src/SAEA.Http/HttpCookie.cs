@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:29
+*修改时间：2026/11/18 16:48:11
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.16.1
+*描述：Cookie 序列化改为单次预置容量，并抽出分段写出供响应报头字节路径共用，输出文本保持不变
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Http.Base;
 
 using System;
 using System.Collections.Generic;
@@ -136,43 +137,53 @@ namespace SAEA.Http
         /// <returns>报头文本，Key 为空时返回空字符串</returns>
         public new string ToString()
         {
-            StringBuilder sb = new StringBuilder();
+            if (string.IsNullOrEmpty(Key))
+                return string.Empty;
 
-            if (!string.IsNullOrEmpty(Key))
-            {
-                sb.Append($"Set-Cookie: {Key}={Value};");
+            var builder = new StringBuilder(GetEstimatedLength());
+            var sink = new StringBuilderHeaderSink(builder);
+            WriteChunks(ref sink);
 
-                if (!string.IsNullOrEmpty(this.Domain))
-                {
-                    sb.Append($" Domain={Domain};");
-                }
-                else
-                {
-                    sb.Append($" Domain={DefaultDomain};");
-                }
+            return builder.ToString();
+        }
 
-                if (Expires != null && Expires.Year > 1)
-                {
-                    sb.Append($" Expires={Expires.ToGMTString()};");
-                }
-                else
-                {
-                    sb.Append($" Expires=Session;");
-                }
+        /// <summary>
+        /// 按 Set-Cookie 分段写出到报头写出目标：报头字符串与报头字节两条输出都走这里，保证文本一致
+        /// </summary>
+        /// <param name="sink">报头分段写出目标</param>
+        internal void WriteChunks<TSink>(ref TSink sink) where TSink : struct, IHttpHeaderChunkSink
+        {
+            sink.Text("Set-Cookie: ");
+            sink.Text(Key);
+            sink.Text("=");
+            sink.Text(Value);
+            sink.Text(";");
 
-                if (!string.IsNullOrEmpty(Path))
-                {
-                    sb.Append($" Path={Path}");
-                }
-                else
-                {
-                    sb.Append($" Path=/");
-                }
+            sink.Text(" Domain=");
+            sink.Text(string.IsNullOrEmpty(this.Domain) ? DefaultDomain : this.Domain);
+            sink.Text(";");
 
-                return sb.ToString();
-            }
+            sink.Text(" Expires=");
+            sink.Text(Expires.Year > 1 ? Expires.ToGMTString() : "Session");
+            sink.Text(";");
 
-            return string.Empty;
+            sink.Text(" Path=");
+            sink.Text(string.IsNullOrEmpty(Path) ? "/" : Path);
+        }
+
+        /// <summary>
+        /// 估算本 Cookie 的 Set-Cookie 文本长度，用于一次预置 StringBuilder 容量
+        /// </summary>
+        /// <returns>估算的字符数，固定段与前缀按 48 计</returns>
+        int GetEstimatedLength()
+        {
+            // 固定段：前缀 "Set-Cookie: "、两个分隔分号、三个属性名前后的空格与 "="；过期时间按最长 29 字符预留
+            var length = 48;
+            length += Key.Length;
+            length += Value == null ? 0 : Value.Length;
+            length += string.IsNullOrEmpty(this.Domain) ? DefaultDomain.Length : this.Domain.Length;
+            length += string.IsNullOrEmpty(Path) ? 1 : Path.Length;
+            return length;
         }
     }
 
@@ -227,12 +238,23 @@ namespace SAEA.Http
         {
             if (this.Count > 0)
             {
-                StringBuilder sb = new StringBuilder();
+                // 一次算够容量并直接分段写入，避免每个 Cookie 先成串再被 StringBuilder 复制一次
+                var capacity = 0;
                 foreach (var item in this.Values)
                 {
-                    var itemStr = item.ToString();
-                    if (!string.IsNullOrEmpty(itemStr))
-                        sb.AppendLine(itemStr);
+                    if (item == null || string.IsNullOrEmpty(item.Key)) continue;
+                    capacity += item.Key.Length + (item.Value == null ? 0 : item.Value.Length) + 48 + Environment.NewLine.Length;
+                }
+
+                if (capacity == 0) return string.Empty;
+
+                StringBuilder sb = new StringBuilder(capacity);
+                var sink = new StringBuilderHeaderSink(sb);
+                foreach (var item in this.Values)
+                {
+                    if (item == null || string.IsNullOrEmpty(item.Key)) continue;
+                    item.WriteChunks(ref sink);
+                    sink.Break();
                 }
                 return sb.ToString();
             }

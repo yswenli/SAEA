@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 16:09:00
+*修改时间：2026/11/18 16:48:11
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：Send/End/WriteRaw/SendHeader/SendData/SendEnd 拆出私有 async 核心并补齐对应 Async 公开入口，原同步方法改为阻塞等待同一份实现；内置宿主走异步写出，外部 IWebHost 实现回退同步写
+*描述：报头改为「先算长度再直接编码进目标帧」，报头字符串与字节共用同一份分段描述；Cookie 分段写出；Date 头按秒缓存
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -39,6 +39,7 @@ using SAEA.Sockets.Pipeline;
 using System;
 using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SAEA.Http
@@ -70,6 +71,12 @@ namespace SAEA.Http
         // 空行与报头行尾用同一组换行字节：每请求都 Encoding.GetBytes 一次纯属重复分配，
         // 数组只读不写，可安全共享
         static readonly byte[] _newLineBytes = Encoding.UTF8.GetBytes(Environment.NewLine);
+
+        // Date 头每秒最多格式化一次：缓存键是本地时间戳的秒数，值与秒成对写入。
+        // 多线程下可能重复计算一次，也可能让值与秒错开一代（Date 滞后不超过 1 秒，HTTP 允许）
+        static long _dateHeaderSecond = long.MinValue;
+
+        static string _dateHeaderText;
 
         /// <summary>
         /// 当前响应关联的连接通道，发送与 WebSocket 升级依赖它
@@ -133,35 +140,209 @@ namespace SAEA.Http
         /// <returns></returns>
         protected string BuildHeader()
         {
-            StringBuilder builder = new StringBuilder();
+            // 容量按典型报头一次给够，避免从 16 逐级扩容；结果与逐段扩容完全一致
+            var builder = new StringBuilder(512);
+            var sink = new StringBuilderHeaderSink(builder);
+            WriteHeaderChunks(ref sink);
 
-            // 逐段 Append 而不是插值拼串：插值会先拼出临时字符串，报头每请求都要构建一次
-            builder.Append(this.Protocal).Append(' ').Append(Status.ToNVString()).AppendLine();
-            builder.AppendLine(ConstHelper.ServerName);
-            builder.AppendLine("X-Powered-By: SAEA.Sockets");
+            return builder.ToString();
+        }
 
-            builder.Append("Date: ").Append(DateTimeHelper.Now.ToGMTString()).AppendLine();
+        /// <summary>
+        /// 按固定顺序逐段写出报头：报头字符串与报头字节两条输出都走这里，只有一份拼接逻辑
+        /// </summary>
+        /// <param name="sink">报头分段写出目标</param>
+        void WriteHeaderChunks<TSink>(ref TSink sink) where TSink : struct, IHttpHeaderChunkSink
+        {
+            sink.Text(this.Protocal);
+            sink.Text(" ");
+            sink.Text(Status.ToNVString());
+            sink.Break();
+
+            sink.Line(ConstHelper.ServerName);
+            sink.Line("X-Powered-By: SAEA.Sockets");
+
+            sink.Text("Date: ");
+            sink.Text(GetDateHeaderText());
+            sink.Break();
 
             if (_isZiped)
                 //支持gzip
-                builder.AppendLine(ConstHelper.ContentEncoding);
+                sink.Line(ConstHelper.ContentEncoding);
 
             //支持跨域
-            builder.Append(ConstHelper.CrossDomain);
+            sink.Text(ConstHelper.CrossDomain);
 
-            if (this.Headers.Count > 0)
+            var headers = this.Headers;
+            if (headers.Count > 0)
             {
-                foreach (var key in Headers.Keys)
+                foreach (var key in headers.Keys)
                 {
-                    builder.Append(key).Append(": ").Append(Headers[key]).AppendLine();
+                    sink.Text(key);
+                    sink.Text(": ");
+                    sink.Line(headers[key]);
                 }
             }
-            if (this.Cookies.Count > 0)
+
+            var cookies = this.Cookies;
+            if (cookies.Count > 0)
             {
-                builder.Append(this.Cookies.ToString());
+                foreach (var cookie in cookies.Values)
+                {
+                    // Key 为空的 Cookie 整行不输出，与 HttpCookies.ToString 的既有语义一致
+                    if (cookie == null || string.IsNullOrEmpty(cookie.Key)) continue;
+                    cookie.WriteChunks(ref sink);
+                    sink.Break();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 取 Date 头值，每秒最多格式化一次
+        /// </summary>
+        /// <returns>GMT 格式的时间字符串</returns>
+        static string GetDateHeaderText()
+        {
+            var now = DateTimeHelper.Now;
+            var second = now.Ticks / TimeSpan.TicksPerSecond;
+
+            var cached = Volatile.Read(ref _dateHeaderText);
+            if (cached != null && second == Volatile.Read(ref _dateHeaderSecond))
+                return cached;
+
+            var text = now.ToGMTString();
+
+            // 先写秒再写值：并发时最坏让值与秒错开一代，Date 最多滞后 1 秒，不会写出非法日期
+            Volatile.Write(ref _dateHeaderSecond, second);
+            Volatile.Write(ref _dateHeaderText, text);
+
+            return text;
+        }
+
+        /// <summary>
+        /// 按目标编码取换行字节
+        /// </summary>
+        /// <param name="encoding">报头编码</param>
+        /// <returns>换行字节，UTF-8 复用共享字段</returns>
+        static byte[] GetNewLineBytes(Encoding encoding)
+        {
+            return ReferenceEquals(encoding, Encoding.UTF8) ? _newLineBytes : encoding.GetBytes(Environment.NewLine);
+        }
+
+        /// <summary>
+        /// 只遍历分段描述统计报头字节数，不产生任何中间字符串
+        /// </summary>
+        /// <param name="encoding">报头编码</param>
+        /// <param name="newLineBytes">换行字节</param>
+        /// <returns>报头（含各行行尾）的精确字节数</returns>
+        int GetHeaderByteCount(Encoding encoding, byte[] newLineBytes)
+        {
+            var sink = new HeaderLengthSink();
+            sink.Encoding = encoding;
+            sink.NewLineLength = newLineBytes.Length;
+            WriteHeaderChunks(ref sink);
+
+            return sink.Length;
+        }
+
+        /// <summary>
+        /// 把报头直接编码进目标缓冲，编码内容与 <see cref="BuildHeader"/> 完全一致
+        /// </summary>
+        /// <param name="buffer">目标缓冲</param>
+        /// <param name="offset">起始写入位置</param>
+        /// <param name="encoding">报头编码</param>
+        /// <param name="newLineBytes">换行字节</param>
+        /// <returns>实际写出的字节数</returns>
+        int WriteHeaderBytes(byte[] buffer, int offset, Encoding encoding, byte[] newLineBytes)
+        {
+            var sink = new HeaderByteSink();
+            sink.Encoding = encoding;
+            sink.Target = buffer;
+            sink.Offset = offset;
+            sink.NewLineBytes = newLineBytes;
+            WriteHeaderChunks(ref sink);
+
+            return sink.Offset - offset;
+        }
+
+        /// <summary>
+        /// 生成「报头 + 一个空行」的字节，供 101 升级响应与分段写头使用
+        /// </summary>
+        /// <param name="encoding">报头编码</param>
+        /// <returns>报头与空行组成的字节数组，长度一次性算准</returns>
+        byte[] EncodeHeaderWithBlankLine(Encoding encoding)
+        {
+            var newLineBytes = GetNewLineBytes(encoding);
+            var headerLen = GetHeaderByteCount(encoding, newLineBytes);
+
+            var result = new byte[headerLen + newLineBytes.Length];
+
+            var offset = WriteHeaderBytes(result, 0, encoding, newLineBytes);
+            Buffer.BlockCopy(newLineBytes, 0, result, offset, newLineBytes.Length);
+
+            return result;
+        }
+
+        /// <summary>
+        /// 统计报头字节数的写出目标
+        /// </summary>
+        private struct HeaderLengthSink : IHttpHeaderChunkSink
+        {
+            public Encoding Encoding;
+
+            public int NewLineLength;
+
+            public int Length;
+
+            public void Text(string value)
+            {
+                if (!string.IsNullOrEmpty(value))
+                    Length += Encoding.GetByteCount(value);
             }
 
-            return builder.ToString();
+            public void Line(string value)
+            {
+                Text(value);
+                Break();
+            }
+
+            public void Break()
+            {
+                Length += NewLineLength;
+            }
+        }
+
+        /// <summary>
+        /// 把报头直接编码进目标缓冲的写出目标
+        /// </summary>
+        private struct HeaderByteSink : IHttpHeaderChunkSink
+        {
+            public Encoding Encoding;
+
+            public byte[] Target;
+
+            public int Offset;
+
+            public byte[] NewLineBytes;
+
+            public void Text(string value)
+            {
+                if (string.IsNullOrEmpty(value)) return;
+
+                Offset += Encoding.GetBytes(value, 0, value.Length, Target, Offset);
+            }
+
+            public void Line(string value)
+            {
+                Text(value);
+                Break();
+            }
+
+            public void Break()
+            {
+                Buffer.BlockCopy(NewLineBytes, 0, Target, Offset, NewLineBytes.Length);
+                Offset += NewLineBytes.Length;
+            }
         }
 
         /// <summary>
@@ -275,14 +456,8 @@ namespace SAEA.Http
             {
                 // 101 由业务按握手报头自行组装：此处不能调 ToBytes()，否则会被覆写
                 // Connection: close 并追加 Content-Length，破坏升级握手。
-                var header = BuildHeader();
-                byte[] headerBytes = Encoding.UTF8.GetBytes(header);
-
-                // BuildHeader 已用 AppendLine 结束最后一行，这里只补一个空行作为报头结束符。
-                var result = new byte[headerBytes.Length + _newLineBytes.Length];
-                Buffer.BlockCopy(headerBytes, 0, result, 0, headerBytes.Length);
-                Buffer.BlockCopy(_newLineBytes, 0, result, headerBytes.Length, _newLineBytes.Length);
-                return result;
+                // BuildHeader 已用行尾结束最后一行，这里只补一个空行作为报头结束符。
+                return EncodeHeaderWithBlankLine(Encoding.UTF8);
             }
 
             return ToBytes();
@@ -313,20 +488,19 @@ namespace SAEA.Http
             if (!this.Headers.ContainsKey(connectionKey))
                 this.SetHeader(ResponseHeaderType.Connection, "close");
 
-            var header = BuildHeader();
-
-            // 报头、空行与报文体一次成帧：长度先算好只分配一次。
+            // 报头、空行与报文体一次成帧：长度先算好只分配一次，报头直接编码进目标帧。
             // 返回的 byte[] 会被调用方继续持有（输出缓存、异步写入），因此不能从 ArrayPool 借出。
-            var headerLen = Encoding.UTF8.GetByteCount(header);
+            var headerEncoding = Encoding.UTF8;
             var lineLen = _newLineBytes.Length;
+            var headerLen = GetHeaderByteCount(headerEncoding, _newLineBytes);
 
             var result = new byte[headerLen + lineLen + bodyLen];
 
-            Encoding.UTF8.GetBytes(header, 0, header.Length, result, 0);
-            Buffer.BlockCopy(_newLineBytes, 0, result, headerLen, lineLen);
+            var headerOffset = WriteHeaderBytes(result, 0, headerEncoding, _newLineBytes);
+            Buffer.BlockCopy(_newLineBytes, 0, result, headerOffset, lineLen);
 
             if (bodyLen > 0)
-                Buffer.BlockCopy(bdata, 0, result, headerLen + lineLen, bodyLen);
+                Buffer.BlockCopy(bdata, 0, result, headerOffset + lineLen, bodyLen);
 
             return result;
         }
@@ -478,18 +652,8 @@ namespace SAEA.Http
                 Headers["Connection"] = "keep-alive";
             }
 
-            var header = BuildHeader();
-
             // 与 ToBytes 同理：先算长度一次分配，报头直接编进目标数组，返回的 byte[] 会被发送流程继续持有
-            var headerLen = encoding.GetByteCount(header);
-
-            // UTF-8 是绝对主流，直接复用共享换行字节；其他编码才现算
-            var lineBytes = ReferenceEquals(encoding, Encoding.UTF8) ? _newLineBytes : encoding.GetBytes(Environment.NewLine);
-
-            var arr = new byte[headerLen + lineBytes.Length];
-
-            encoding.GetBytes(header, 0, header.Length, arr, 0);
-            Buffer.BlockCopy(lineBytes, 0, arr, headerLen, lineBytes.Length);
+            var arr = EncodeHeaderWithBlankLine(encoding);
 
             if (Channel != null)
                 await SendToHostAsync(Channel, arr).ConfigureAwait(false);
