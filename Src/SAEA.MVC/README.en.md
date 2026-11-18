@@ -408,6 +408,29 @@ How to read these numbers:
 
 Full data, failure rates and resource usage: [MVC / TLS acceptance record](../../docs/superpowers/plans/2026-11-13-mvc-tls-acceptance.md).
 
+### Keep-alive benchmark (process-isolated)
+
+This round runs the load generator and the server in separate processes and measures framework overhead on persistent connections: one IPv4 loopback connection per worker, HTTP/1.1 keep-alive, session cookie sent back; concurrency 1 / 16 / 64, 2 s warm-up then 8 s measured, three runs per cell with the median reported. 11.53 million requests in total, all 200, zero errors.
+
+| Scenario | 1 concurrent | 16 concurrent | 64 concurrent |
+| --- | ---: | ---: | ---: |
+| Two-stage route `/bench/echo` | 7,427 RPS / p50 0.13 ms | 47,292 RPS / p50 0.27 ms | 41,603 RPS / p50 1.17 ms |
+| Attribute route `/api/v1/bench/echo` | 6,865 / 0.14 | 45,972 / 0.28 | 39,127 / 1.22 |
+| Attribute route + path parameter | 7,130 / 0.13 | 45,732 / 0.29 | 41,859 / 1.20 |
+| Output cache hit | 7,457 / 0.13 | 46,739 / 0.26 | 47,485 / 1.10 |
+| JSON response | 7,140 / 0.14 | 46,691 / 0.28 | 41,994 / 1.20 |
+
+(From 16 concurrency upwards the cells are RPS / p50; environment: Windows 10, 16 logical cores, .NET 10, Release build, workstation GC.)
+
+- Throughput plateaus at 16 concurrent connections (~46k–49k RPS) and drops to 37k–42k at 64, while the server uses only 44%–57% of the 16 cores, so the limit is internal serialization and queueing rather than CPU capacity.
+- All five entry points stay within 10% of each other: route shape (two-stage / attribute / path parameter) and JSON serialization are not the dominant cost; for tiny bodies `[OutputCache]` only gains about 14% at 64 concurrency.
+
+How to read these numbers:
+
+- Ordinary responses always declare `Connection: close` yet the server does not actually close the connection; clients that honour the header (HttpClient, browsers) must open a TCP connection per request, which measured about one tenth of the figures above on the same machine and exhausted ephemeral ports after roughly 13,000 requests. The table therefore comes from a keep-alive client that ignores the header and represents the ceiling when connections are reused; do not compare it directly with the short-connection figures above.
+- A request without a cookie creates a new session every time, and the SAEA.Http session sweep only clears session content without removing the entry, so memory keeps growing during long runs; the benchmark sends the session cookie back to avoid that path.
+- Loopback only, with very small response bodies; large bodies, static files and TLS are not covered, and the self-written load generator was not compared against Kestrel or other frameworks.
+
 ### Comparison with Other Web Frameworks
 
 | Metric | SAEA.MVC | ASP.NET Core | NancyFX | HttpListener |
