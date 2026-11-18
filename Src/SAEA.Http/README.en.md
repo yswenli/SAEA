@@ -295,6 +295,12 @@ How to read these numbers:
 
 Full data, failure rates and resource usage: [MVC / TLS acceptance record](../../docs/superpowers/plans/2026-11-13-mvc-tls-acceptance.md).
 
+### Per-request processing cost
+
+- Response framing no longer builds the headers as a string and then encodes it: the header order has a single segmented description, and the string output (`BuildHeader`), the length accounting and the direct byte write all derive from it, so the final frame is allocated once and written directly, with no header string or intermediate byte array. The signature and textual output of `BuildHeader` are unchanged.
+- Request parsing now scans the header text by index: the request line, each header line, the query string and the cookies no longer produce intermediate arrays, and the header and query dictionaries are pre-sized from the line count / separator count.
+- In-process measurement on one machine (request parsing + dispatch + response encoding, **excluding socket send/receive**): per-request allocation 15,640 B -> 7,600 B. This is an in-process figure; for per-request allocation on the full network path see the "Per-request allocation (interleaved A/B re-run)" section in the MVC README.
+
 ### Server comparison
 
 | Metric | SAEA.Http | Kestrel | HttpListener |

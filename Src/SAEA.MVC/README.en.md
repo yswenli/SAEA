@@ -438,6 +438,25 @@ How to read these numbers:
 
 Deployment note: enable server GC on hosts with high concurrency. The evidence is a same-machine 16-core comparison that only switched the GC mode without touching code: on the old code, 16 concurrency went from 33.6k–40.1k to 42.4k–45.9k, 64 concurrency from 25.3k–34.4k to 43.9k–44.1k, and p99 fell from 9.3 ms to 3.9 ms. Two ways to enable it: `<ServerGarbageCollection>true</ServerGarbageCollection>` in the project file, or the `DOTNET_gcServer=1` runtime environment variable. The gain is clear on multi-core hosts with many concurrent connections; on a single core or at low concurrency it is limited, and workstation GC starts faster and uses less memory.
 
+### Per-request allocation (interleaved A/B re-run)
+
+Method: the load generator and the server run in separate processes against `GET /bench/echo` (two-stage route, response body `ok`) over HTTP/1.1 keep-alive (one raw socket per worker), with the session cookie sent back; 3 s warm-up + 10 s measured, at 1 / 16 / 64 concurrency. A is the commit `87417317` before the three optimizations (end-to-end async, response headers written straight into the target buffer, index-based request parsing), B is the current `5b7b334f`; A and B alternate (A1 B1 A2 B2 A3 B3, plus A5 B5 A6 B6 at 1 concurrency). 26 runs in total, 7.59 million requests, 0 failures, 0 reconnects.
+
+How per-request allocation is measured: inside the server process, `GC.GetTotalAllocatedBytes(true)` is sampled at the start and end of the measurement window and the difference is divided by the requests completed in that window, covering every managed allocation in the process (socket, parsing, dispatch, encoding and runtime bookkeeping). Independent `dotnet-counters` alloc-rate sampling reports 18,342 / 10,159 B, 7% / 2% away from the in-process figure, in the same direction.
+
+| Concurrency | A before | B current | Reduction |
+| ---: | ---: | ---: | ---: |
+| 1 | 19,576 | 10,357 | −47.1% |
+| 16 | 19,655 | 10,385 | −47.2% |
+| 64 | 19,643 | 10,373 | −47.2% |
+
+Findings and boundaries:
+
+- The per-request allocation of the 13 A rounds and the 13 B rounds form two fully disjoint sets, with a stable ratio of 1.89x at all three concurrency levels: this is the only gain established with certainty in this round. The magnitude sits on the same basis and in the same band as the 16–23 KB recorded in the "Async entry points" section of this document.
+- GC pause as a share of the measurement window: at 1 concurrency from 0.47% to 0.29%, at 16 concurrency from 14.3% to 8.9% (in-process `GC.GetTotalPauseDuration()`; independent `dotnet-counters` sampling gives 14.1% / 8.9%, same direction). At 64 concurrency two rounds had cores taken by other processes on the same machine (overall machine busy above 99%), so the pause share for that cell is not used.
+- The median per-request CPU cost appears 4%–15% lower, but after re-measuring A under the same machine state the two sides overlap completely (A clean rounds 164.9 / 167.9 µs versus B 160.7–177.3 µs): the difference is inside a ±10% noise band and cannot be counted as a gain. The 152 / 165 µs recorded in the previous section compares an earlier round against the round before it, so those absolute values must not be subtracted from the ones in this section.
+- RPS is likewise not used for conclusions: at 64 concurrency two B rounds were pushed down to 23k / 29k by external load, while clean rounds under the same conditions gave 46.7k / 48.6k. Only ranges are reported: about 7.1k–8.5k at 1 concurrency, about 44k at 16, and about 38k–49k at 64.
+
 ### Comparison with Other Web Frameworks
 
 | Metric | SAEA.MVC | ASP.NET Core | NancyFX | HttpListener |
