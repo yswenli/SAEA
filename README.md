@@ -283,7 +283,7 @@ server.Start();
 | 静态 100KB 串行（命中内存缓存） | 529 RPS / 51.7 MiB/s |
 | WebSocket 单连接回显 | 7078 条/秒 |
 
-> 口径：客户端与服务端同机同进程、走 IPv4 回环；普通响应固定 `Connection: close`，每个请求都含 TCP 建连与断开，HTTPS 再叠加一次 TLS 握手，RPS 受建连成本主导；静态文件命中内存缓存，不代表首次磁盘读取与大文件路径。单次快照，同一探针跨轮波动 20%–35%（另一次复跑为 HTTP 串行 749 RPS、HTTPS 串行 183 RPS、静态串行 515 RPS、WebSocket 单连接 5782 条/秒），只能做同一轮内的相对比较。
+> 口径：客户端与服务端同机同进程、走 IPv4 回环；该组为短连接口径（每个请求单独建连），不代表默认 keep-alive 下的吞吐，连接策略见 [SAEA.MVC](Src/SAEA.MVC/README.md) 的「长连接压测（进程隔离）」小节；静态文件命中内存缓存，不代表首次磁盘读取与大文件路径。单次快照，同一探针跨轮波动 20%–35%（另一次复跑为 HTTP 串行 749 RPS、HTTPS 串行 183 RPS、静态串行 515 RPS、WebSocket 单连接 5782 条/秒），只能做同一轮内的相对比较。
 
 > 完整数据、失败率与资源占用见 [MVC / TLS 验收记录](docs/superpowers/plans/2026-11-13-mvc-tls-acceptance.md)；组件级口径见 [SAEA.Http](Src/SAEA.Http/README.md) 与 [SAEA.MVC](Src/SAEA.MVC/README.md) 的实测小节。`SAEA.Http` 作为独立服务器未单独采集基准。
 

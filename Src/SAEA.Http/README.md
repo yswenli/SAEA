@@ -309,7 +309,7 @@ HTTP 请求处理流程:
 口径与边界：
 
 - 客户端与服务端同机、同进程、走 IPv4 回环；并发场景下压测客户端本身已是瓶颈之一（本组 64 并发 RPS 为 16 并发的 0.85 倍），不能据此推断服务端的扩展性上限。
-- 服务端对普通响应固定 `Connection: close`，每个请求都含一次 TCP 建连与断开，HTTPS 再叠加一次 TLS 握手，RPS 主要由建连成本决定，不代表业务处理上限。
+- 该组为短连接口径（每个请求单独建连），不代表默认 keep-alive 下的吞吐；连接策略为 HTTP/1.1 默认复用连接、HTTP/1.0 默认关闭、请求显式 `Connection: close` 时才关闭。
 - 自签证书、固定 TLS 1.2、客户端跳过证书校验；静态文件命中内存缓存，不代表首次磁盘读取与大文件分块传输路径。
 - 单次运行快照，同一探针跨轮波动可达 20%–35%（同机另一次复跑为 HTTP 串行 749 RPS、HTTPS 串行 183 RPS、静态 100KB 串行 515 RPS、WebSocket 单连接 5782 条/秒）。只能用于同一轮内的相对比较，不能当生产绝对值，也不能与其他框架横向对比。
 
@@ -727,7 +727,7 @@ var server = new WebHost(
     timeout: 180,               // 连接空闲回收时间（秒）
     connectTimeout: 3);         // 连接建立超时（秒）
 
-server.WebConfig.ActionTimeout = 120; // action 执行超时（秒），0 表示沿用连接空闲超时
+server.WebConfig.ActionTimeout = 120; // action 执行超时（秒），0 表示不启用超时包装（同步 action 在当前线程直接执行），大于 0 才包装超时并返回 408
 server.WebConfig.ConfigurePipeline = (id, pipeline) => { /* ... */ };
 server.WebConfig.UseSsl(o => { /* ... */ });
 server.WebConfig.RequestDelegate = ctx => { /* ... */ };

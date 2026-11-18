@@ -402,7 +402,7 @@ The table below is one snapshot from a loopback load test. The site under test i
 How to read these numbers:
 
 - Client and server ran on the same machine in the same process over IPv4 loopback; under concurrency the load generator is itself a bottleneck (in this run 64-concurrent RPS is 0.85x the 16-concurrent figure), so it does not indicate the server's scaling limit.
-- Ordinary responses are fixed to `Connection: close`, so every request pays a TCP connect and teardown and HTTPS adds a TLS handshake; RPS is dominated by connection setup rather than business processing.
+- This group was measured on short connections (one TCP connection per request) and does not represent throughput under the default keep-alive; for the connection policy see the keep-alive benchmark section below.
 - Self-signed certificate with TLS 1.2 fixed and certificate validation skipped; static files are served from the in-memory cache, so this is not the first-read or large-file chunked path.
 - Single-run snapshot: the same probe varies 20%–35% between runs (another run on this machine measured 749 RPS HTTP serial, 183 RPS HTTPS serial, 515 RPS static 100 KB serial and 5,782 msg/s WebSocket single connection). Use it only for relative comparison within one run, never as a production absolute value or for cross-framework comparison.
 
@@ -410,26 +410,31 @@ Full data, failure rates and resource usage: [MVC / TLS acceptance record](../..
 
 ### Keep-alive benchmark (process-isolated)
 
-This round runs the load generator and the server in separate processes and measures framework overhead on persistent connections: one IPv4 loopback connection per worker, HTTP/1.1 keep-alive, session cookie sent back; concurrency 1 / 16 / 64, 2 s warm-up then 8 s measured, three runs per cell with the median reported. 11.53 million requests in total, all 200, zero errors.
+This round runs the load generator and the server in separate processes and measures framework overhead on persistent connections: one IPv4 loopback connection per worker, HTTP/1.1 keep-alive, session cookie sent back; concurrency 1 / 16 / 64, 2 s warm-up then 8 s measured, three runs per cell with the median reported. 5 scenarios x 3 concurrency levels x 3 repeats = 45 runs, 10,822,329 requests in total, 0 failures, 0 non-200, 0 errors, 0 reconnects.
 
 | Scenario | 1 concurrent | 16 concurrent | 64 concurrent |
 | --- | ---: | ---: | ---: |
-| Two-stage route `/bench/echo` | 7,427 RPS / p50 0.13 ms | 47,292 RPS / p50 0.27 ms | 41,603 RPS / p50 1.17 ms |
-| Attribute route `/api/v1/bench/echo` | 6,865 / 0.14 | 45,972 / 0.28 | 39,127 / 1.22 |
-| Attribute route + path parameter | 7,130 / 0.13 | 45,732 / 0.29 | 41,859 / 1.20 |
-| Output cache hit | 7,457 / 0.13 | 46,739 / 0.26 | 47,485 / 1.10 |
-| JSON response | 7,140 / 0.14 | 46,691 / 0.28 | 41,994 / 1.20 |
+| Two-stage route `/bench/echo` | 9,991 RPS / p50 0.09 ms | 43,906 / 0.28 | 40,738 / 1.22 |
+| Attribute route `/api/v1/bench/echo` | 7,499 / 0.13 | 43,778 / 0.28 | 42,774 / 1.19 |
+| Attribute route + path parameter | 9,539 / 0.10 | 40,687 / 0.29 | 40,503 / 1.22 |
+| Output cache hit | 7,430 / 0.13 | 42,417 / 0.29 | 37,031 / 1.28 |
+| JSON response | 7,112 / 0.13 | 40,897 / 0.29 | 38,369 / 1.26 |
 
-(From 16 concurrency upwards the cells are RPS / p50; environment: Windows 10, 16 logical cores, .NET 10, Release build, workstation GC.)
+(Each cell is RPS / p50; environment: Windows 10, 16 logical cores, .NET 10, Release build, workstation GC.)
 
-- Throughput plateaus at 16 concurrent connections (~46k–49k RPS) and drops to 37k–42k at 64, while the server uses only 44%–57% of the 16 cores, so the limit is internal serialization and queueing rather than CPU capacity.
-- All five entry points stay within 10% of each other: route shape (two-stage / attribute / path parameter) and JSON serialization are not the dominant cost; for tiny bodies `[OutputCache]` only gains about 14% at 64 concurrency.
+- Per-request CPU cost drops to about 152 µs in the serial cell (24% below the previous round) and to about 165 µs at 64 concurrency (11% lower): removing the thread hop and the spin-wait with timeout from the request path and cutting per-request allocations mainly lower the cost per request, not the peak throughput.
+- Throughput still peaks around 16 concurrent connections (~44k RPS), and 64 concurrency reaches 93% of it; the median p50 is 0.09 -> 0.28 -> 1.17 ms and the median p99 is 0.20 -> 2.16 -> 5.71 ms; meanwhile the server uses only 45% / 42% of the 16 cores, so the remaining bottleneck is queueing inside the server, not CPU capacity.
+- All five entry points stay within 10% of each other; the output cache cell varies widely between repeats at 64 concurrency this round (35.2k–40k+), so no conclusion about the cache gain can be drawn from it.
+- Compared with the previous round (old code, same machine, same parameters): the serial cell goes from 7,427 to 9,991 RPS (+34.5%) and per-request CPU from 199 µs to 152 µs (-24%); 16 concurrency goes from 47,292 to 43,906 (-7%) with per-request CPU from 168 µs to 166 µs (-1%), where the earlier 47,292 was the upper edge of the noise (the old code repeated 33.6k–40.1k on the same cell, and this round's 42–44k falls in the same band); 64 concurrency goes from 41,603 to 40,738 (-2%) with per-request CPU from 184 µs to 165 µs (-11%). The 64-to-16 concurrency ratio rises from 88% to 93%, narrowing the drop from 12% to 7%.
 
 How to read these numbers:
 
-- Ordinary responses always declare `Connection: close` yet the server does not actually close the connection; clients that honour the header (HttpClient, browsers) must open a TCP connection per request, which measured about one tenth of the figures above on the same machine and exhausted ephemeral ports after roughly 13,000 requests. The table therefore comes from a keep-alive client that ignores the header and represents the ceiling when connections are reused; do not compare it directly with the short-connection figures above.
-- A request without a cookie creates a new session every time, and the SAEA.Http session sweep only clears session content without removing the entry, so memory keeps growing during long runs; the benchmark sends the session cookie back to avoid that path.
-- Loopback only, with very small response bodies; large bodies, static files and TLS are not covered, and the self-written load generator was not compared against Kestrel or other frameworks.
+- Connection policy: HTTP/1.1 answers `Connection: keep-alive` by default and actually reuses the connection, HTTP/1.0 closes by default, and a connection is closed only when the request explicitly sends `Connection: close`; the 45 runs this round re-established 0 connections.
+- Sessions: a request without a cookie creates a new session, and an expired session is removed from the session table by the sweep thread (`SweepExpired`), so memory no longer grows monotonically with the request count during long runs; this round still sends the cookie back to pin a single session and reduce noise from session allocation.
+- Coverage: loopback only, with very small response bodies; large bodies, static files and TLS are not covered, and the self-written load generator was not compared against Kestrel or other frameworks.
+- Cross-round comparability: the same cell can vary 10%–20% between rounds, so the table is only meant for relative comparison within this round.
+
+Deployment note: enable server GC on hosts with high concurrency. The evidence is a same-machine 16-core comparison that only switched the GC mode without touching code: on the old code, 16 concurrency went from 33.6k–40.1k to 42.4k–45.9k, 64 concurrency from 25.3k–34.4k to 43.9k–44.1k, and p99 fell from 9.3 ms to 3.9 ms. Two ways to enable it: `<ServerGarbageCollection>true</ServerGarbageCollection>` in the project file, or the `DOTNET_gcServer=1` runtime environment variable. The gain is clear on multi-core hosts with many concurrent connections; on a single core or at low concurrency it is limited, and workstation GC starts faster and uses less memory.
 
 ### Comparison with Other Web Frameworks
 
@@ -824,7 +829,7 @@ var config = new SAEAMvcApplicationConfig
     DefaultPage = "index.html", // Default homepage
     IsDebug = false,            // Debug mode
     Timeout = 180,              // Idle connection reclamation time (seconds)
-    ActionTimeout = 0,          // Action execution timeout (seconds); 0 falls back to Timeout
+    ActionTimeout = 0,          // Action execution timeout (seconds): 0 disables the timeout wrapper (sync actions run inline), above 0 wraps the call and returns 408
     ConnectTimeout = 6          // Connection timeout (seconds)
 };
 
@@ -953,7 +958,7 @@ public class ExportController : Controller
 
 - When the action declares a `CancellationToken` parameter, the framework injects the token per request.
 - When it does not, read it from `((SAEA.MVC.HttpContext)HttpContext.Current).RequestAborted`; the static type of `HttpContext.Current` is `SAEA.Http.Model.IHttpContext`, so cast or type-check it first.
-- If a single invocation does not finish within the action timeout in seconds (`ActionTimeout > 0 ? ActionTimeout : Timeout`), the framework returns **408 Request Timeout** and calls `Cancel()` on that token. `Timeout` only governs idle connection reclamation; lowering it alone does not change the action timeout but reclaims idle connections sooner. Do not lower `Timeout` just to shorten the action timeout — the connection can be reclaimed before the 408 is written; set `ActionTimeout` instead.
+- The action timeout wrapper is enabled only when `ActionTimeout > 0` is explicitly configured: if a single invocation does not finish within `ActionTimeout` seconds, the framework returns **408 Request Timeout** and calls `Cancel()` on that token. By default (`ActionTimeout = 0`) no timeout wrapper is applied: a blocking synchronous action occupies the consumer thread with no 408 fallback, and an asynchronous action is awaited synchronously through `GetAwaiter().GetResult()`. `Timeout` only governs idle connection reclamation; lowering it alone does not change the action timeout but reclaims idle connections sooner. Do not lower `Timeout` just to shorten the action timeout — the connection can be reclaimed before the 408 is written; set `ActionTimeout` instead.
 - The token is valid only for the current action invocation: the source is released once the action returns, so do not register callbacks afterwards or hand the token to a long-lived background task. Requests that never enter an action (404, 405, static files, `RequestDelegate`) see a default token that cannot be cancelled.
 - This is **cooperative cancellation**: only code that observes the token stops, for example `token.ThrowIfCancellationRequested()`, `Task.Delay(..., token)` or a callback registered on the token. Synchronous code that never observes the token cannot be terminated; it keeps running to completion in the background, and the framework observes and discards its later exceptions without writing another response.
 

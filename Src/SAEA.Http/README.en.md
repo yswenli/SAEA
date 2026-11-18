@@ -289,7 +289,7 @@ The table below is one snapshot from a loopback load test. The site under test i
 How to read these numbers:
 
 - Client and server ran on the same machine in the same process over IPv4 loopback; under concurrency the load generator is itself a bottleneck (in this run 64-concurrent RPS is 0.85x the 16-concurrent figure), so it does not indicate the server's scaling limit.
-- Ordinary responses are fixed to `Connection: close`, so every request pays a TCP connect and teardown and HTTPS adds a TLS handshake; RPS is dominated by connection setup rather than business processing.
+- This group was measured on short connections (one TCP connection per request) and does not represent throughput under the default keep-alive; the connection policy is that HTTP/1.1 reuses connections by default, HTTP/1.0 closes by default, and a connection is closed only when the request explicitly sends `Connection: close`.
 - Self-signed certificate with TLS 1.2 fixed and certificate validation skipped; static files are served from the in-memory cache, so this is not the first-read or large-file chunked path.
 - Single-run snapshot: the same probe varies 20%–35% between runs (another run on this machine measured 749 RPS HTTP serial, 183 RPS HTTPS serial, 515 RPS static 100 KB serial and 5,782 msg/s WebSocket single connection). Use it only for relative comparison within one run, never as a production absolute value or for cross-framework comparison.
 
@@ -705,7 +705,7 @@ var server = new WebHost(
     timeout: 180,               // idle connection reclamation (seconds)
     connectTimeout: 3);         // connect timeout (seconds)
 
-server.WebConfig.ActionTimeout = 120; // action execution timeout (seconds); 0 falls back to the idle connection timeout
+server.WebConfig.ActionTimeout = 120; // action execution timeout (seconds): 0 disables the wrapper (sync actions run inline), above 0 wraps the call and returns 408
 server.WebConfig.ConfigurePipeline = (id, pipeline) => { /* ... */ };
 server.WebConfig.UseSsl(o => { /* ... */ });
 server.WebConfig.RequestDelegate = ctx => { /* ... */ };
