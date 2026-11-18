@@ -23,19 +23,19 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 12:20:00
+*修改时间：2026/11/18 17:07:24
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：请求体解析拆出 ParseBody(HttpMessage)，供解码器在已完成 body 复制的消息上直接产出表单、文件与 JSON
+*版本号： v26.11.16.1
+*描述：报头与查询串改为下标扫描，去掉报头文本、报头行与路径段的中间数组拷贝；解析请求行前跳过前导空行
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Http.Model;
 
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -67,7 +67,7 @@ namespace SAEA.Http.Base
             if (index == length - 4)
             {
                 httpMessage = new HttpMessage();
-                httpMessage.HeaderStr = Encoding.ASCII.GetString(bufferSpan.ToArray());
+                httpMessage.HeaderStr = GetAsciiString(bufferSpan);
                 httpMessage.Position = length;
             }
             else
@@ -75,7 +75,7 @@ namespace SAEA.Http.Base
                 if (index > 0 && bufferSpan.Length >= index + 4)
                 {
                     httpMessage = new HttpMessage();
-                    httpMessage.HeaderStr = Encoding.ASCII.GetString(bufferSpan.Slice(0, index + 4).ToArray());
+                    httpMessage.HeaderStr = GetAsciiString(bufferSpan.Slice(0, index + 4));
                     httpMessage.Position = index + 4;
                 }
             }
@@ -84,39 +84,63 @@ namespace SAEA.Http.Base
 
             //分析requestHeader
 
-            var rows = httpMessage.HeaderStr.Split(ConstHelper.ENTER, StringSplitOptions.RemoveEmptyEntries);
+            var headerStr = httpMessage.HeaderStr;
 
-            var arr = rows[0].Split(ConstHelper.SPACE);
+            // 请求行前允许有空行，跳过前导的完整 CRLF 对（只跳成对的，单独的 LF 留在请求行里）
+            var requestLineStart = 0;
 
-            httpMessage.Method = arr[0];
+            while (requestLineStart + 1 < headerStr.Length && headerStr[requestLineStart] == '\r' && headerStr[requestLineStart + 1] == '\n')
+                requestLineStart += 2;
 
-            httpMessage.RelativeUrl = NormalizeTarget(arr[1]);
+            var lineEnd = headerStr.IndexOf(ConstHelper.ENTER, requestLineStart, StringComparison.Ordinal);
 
-            httpMessage.Protocal = arr[2];
+            if (lineEnd < 0) lineEnd = headerStr.Length;
 
-            if (httpMessage.RelativeUrl.Contains(ConstHelper.QUESTIONMARK))
+            ParseRequestLine(httpMessage, headerStr, requestLineStart, lineEnd);
+
+            var questionIndex = httpMessage.RelativeUrl.IndexOf(ConstHelper.QUESTIONMARK);
+
+            if (questionIndex > -1)
             {
-                var qarr = httpMessage.RelativeUrl.Split(ConstHelper.QUESTIONMARK);
-                httpMessage.Url = qarr[0];
-                if (qarr.Length > 1)
-                    httpMessage.Query = GetRequestQuerys(qarr[1]);
+                var target = httpMessage.RelativeUrl;
+
+                httpMessage.Url = target.Substring(0, questionIndex);
+
+                // 原实现取 Split('?') 的 qarr[1]，即首个与第二个 '?' 之间的部分
+                var nextQuestionIndex = target.IndexOf(ConstHelper.QUESTIONMARK, questionIndex + 1);
+
+                var queryEnd = nextQuestionIndex < 0 ? target.Length : nextQuestionIndex;
+
+                httpMessage.Query = GetRequestQuerys(target.Substring(questionIndex + 1, queryEnd - questionIndex - 1));
             }
             else
             {
                 httpMessage.Url = httpMessage.RelativeUrl;
             }
 
-            var uarr = httpMessage.Url.Split(ConstHelper.SLASH);
+            var lastSlash = httpMessage.Url.LastIndexOf(ConstHelper.SLASH);
 
-            if (long.TryParse(uarr[uarr.Length - 1], out long id))
+            if (TryParseId(httpMessage.Url, lastSlash + 1, out long id))
             {
-                httpMessage.Url = StringHelper.Substring(httpMessage.Url, 0, httpMessage.Url.LastIndexOf(ConstHelper.SLASH));
+                httpMessage.Url = StringHelper.Substring(httpMessage.Url, 0, lastSlash);
                 httpMessage.Query.Add(ConstHelper.ID, id.ToString());
             }
 
-            var lastRows = rows.AsSpan().Slice(1).ToArray();
+            // 报头逐行扫描：跳过请求行与空行，其余行按首个冒号拆键值
+            httpMessage.Headers = new Dictionary<string, string>(CountHeaderLines(headerStr), StringComparer.OrdinalIgnoreCase);
 
-            httpMessage.Headers = GetRequestHeaders(lastRows);
+            var lineStart = lineEnd + 2;
+
+            while (lineStart < headerStr.Length)
+            {
+                var currentEnd = headerStr.IndexOf(ConstHelper.ENTER, lineStart, StringComparison.Ordinal);
+
+                if (currentEnd < 0) currentEnd = headerStr.Length;
+
+                if (currentEnd > lineStart) AddHeaderRow(httpMessage.Headers, headerStr, lineStart, currentEnd);
+
+                lineStart = currentEnd + 2;
+            }
 
             //cookies
             if (httpMessage.Headers.TryGetValue(RequestHeaderType.Cookie.GetDescription(), out string cookiesStr))
@@ -183,6 +207,148 @@ namespace SAEA.Http.Base
         }
 
         /// <summary>
+        /// 把字节区段按 ASCII 解码为字符串
+        /// </summary>
+        /// <param name="span">待解码的字节区段</param>
+        /// <returns>解码后的文本</returns>
+        static string GetAsciiString(ReadOnlySpan<byte> span)
+        {
+            var length = span.Length;
+
+            if (length == 0) return string.Empty;
+
+            // 从池里借中转缓冲，避免每次解码都新分配一个与报头等长的字节数组
+            var rented = MemoryPoolManager.Rent(length);
+
+            try
+            {
+                span.CopyTo(rented);
+
+                return Encoding.ASCII.GetString(rented, 0, length);
+            }
+            finally
+            {
+                MemoryPoolManager.Return(rented, length);
+            }
+        }
+
+        /// <summary>
+        /// 解析请求行「方法 SP 目标 SP 协议」，按空格分段且保留空段
+        /// </summary>
+        /// <param name="httpMessage">接收解析结果的消息对象</param>
+        /// <param name="text">报头全文</param>
+        /// <param name="start">请求行起始下标</param>
+        /// <param name="end">请求行结束下标（不含）</param>
+        static void ParseRequestLine(HttpMessage httpMessage, string text, int start, int end)
+        {
+            var firstSpace = IndexOfChar(text, ' ', start, end);
+
+            if (firstSpace < 0)
+            {
+                httpMessage.Method = text.Substring(start, end - start);
+
+                // 只有一段时原实现读 arr[1] 越界，这里抛同一类型的异常
+                throw new IndexOutOfRangeException();
+            }
+
+            httpMessage.Method = text.Substring(start, firstSpace - start);
+
+            var secondSpace = IndexOfChar(text, ' ', firstSpace + 1, end);
+
+            if (secondSpace < 0)
+            {
+                httpMessage.RelativeUrl = NormalizeTarget(text.Substring(firstSpace + 1, end - firstSpace - 1));
+
+                // 只有两段时原实现读 arr[2] 越界，这里抛同一类型的异常
+                throw new IndexOutOfRangeException();
+            }
+
+            httpMessage.RelativeUrl = NormalizeTarget(text.Substring(firstSpace + 1, secondSpace - firstSpace - 1));
+
+            var thirdSpace = IndexOfChar(text, ' ', secondSpace + 1, end);
+
+            httpMessage.Protocal = thirdSpace < 0
+                ? text.Substring(secondSpace + 1, end - secondSpace - 1)
+                : text.Substring(secondSpace + 1, thirdSpace - secondSpace - 1);
+        }
+
+        /// <summary>
+        /// 判断地址最后一段是否为整数，是则输出其值
+        /// </summary>
+        /// <param name="url">已去掉查询串的地址</param>
+        /// <param name="start">最后一段的起始下标</param>
+        /// <param name="id">解析出的整数值</param>
+        /// <returns>最后一段能解析为整数返回 true</returns>
+        static bool TryParseId(string url, int start, out long id)
+        {
+            id = 0;
+
+            var length = url.Length - start;
+
+            if (length <= 0) return false;
+
+            // 纯数字且不超过 18 位时直接按位取值，不必为这一段分配子串
+            var allDigits = length <= 18;
+
+            for (var i = start; i < url.Length; i++)
+            {
+                var c = url[i];
+
+                if (c < '0' || c > '9')
+                {
+                    allDigits = false;
+                    break;
+                }
+            }
+
+            if (allDigits)
+            {
+                long value = 0;
+
+                for (var i = start; i < url.Length; i++)
+                {
+                    value = value * 10 + (url[i] - '0');
+                }
+
+                id = value;
+
+                return true;
+            }
+
+            // 数字、正负号与空白之外的字符一定解析失败，直接返回，避免为它分配子串
+            for (var i = start; i < url.Length; i++)
+            {
+                var c = url[i];
+
+                if ((c >= '0' && c <= '9') || c == '+' || c == '-' || c == ' ' || (c >= '\t' && c <= '\r'))
+                    continue;
+
+                return false;
+            }
+
+            // 带符号、空白或位数过多时交给 long.TryParse，避免手工复刻数字样式规则
+            return long.TryParse(url.Substring(start), out id);
+        }
+
+        /// <summary>
+        /// 在文本区间内查找指定字符
+        /// </summary>
+        /// <param name="text">待查找文本</param>
+        /// <param name="value">目标字符</param>
+        /// <param name="start">起始下标</param>
+        /// <param name="end">结束下标（不含）</param>
+        /// <returns>字符下标，未找到返回 -1</returns>
+        static int IndexOfChar(string text, char value, int start, int end)
+        {
+            for (var i = start; i < end; i++)
+            {
+                if (text[i] == value) return i;
+            }
+
+            return -1;
+        }
+
+        /// <summary>
         /// 分析request body
         /// </summary>
         /// <param name="requestData">含报头的完整请求字节</param>
@@ -246,7 +412,19 @@ namespace SAEA.Http.Base
                                         filePart.Data = sr.ReadData(sr.Position, httpMessage.Boundary);
                                         if (filePart.Data != null)
                                         {
-                                            filePart.Data = filePart.Data.Take(filePart.Data.Length - 2).ToArray();
+                                            // 原实现 Take(len - 2).ToArray() 会让文件数据再复制一遍，这里一次复制到位；
+                                            // 长度不足 2 时同样得到空数组，与截空结果一致
+                                            var dataLength = filePart.Data.Length - 2;
+                                            if (dataLength > 0)
+                                            {
+                                                var trimmed = new byte[dataLength];
+                                                Buffer.BlockCopy(filePart.Data, 0, trimmed, 0, dataLength);
+                                                filePart.Data = trimmed;
+                                            }
+                                            else
+                                            {
+                                                filePart.Data = Array.Empty<byte>();
+                                            }
                                         }
                                         httpMessage.PostFiles.Add(filePart);
                                     }
@@ -272,28 +450,59 @@ namespace SAEA.Http.Base
         }
         #region private
 
+        /// <summary>
+        /// 解析查询串，键原样保留、值做 URL 解码，重复键后者覆盖
+        /// </summary>
+        /// <param name="row">查询串文本，不含问号</param>
+        /// <returns>查询参数集合，无有效参数时返回 null</returns>
         private static Dictionary<string, string> GetRequestQuerys(string row)
         {
             if (string.IsNullOrEmpty(row)) return null;
-            var kvs = row.Split(ConstHelper.AMPERSAND, StringSplitOptions.RemoveEmptyEntries);
-            if (kvs == null || kvs.Count() <= 0) return null;
-            Dictionary<string, string> dic = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var item in kvs)
+
+            var capacity = 1;
+
+            for (var i = 0; i < row.Length; i++)
             {
-                var index = item.IndexOf("=");
+                if (row[i] == '&') capacity++;
+            }
 
-                var key = item.Substring(0, index);
+            Dictionary<string, string> dic = new Dictionary<string, string>(capacity, StringComparer.OrdinalIgnoreCase);
 
-                var value = string.Empty;
+            var start = 0;
 
-                if (item.Length > index + 1)
+            // 原实现按 & 拆分并丢弃空段，这里按同一规则跳过空段
+            while (start < row.Length)
+            {
+                var end = IndexOfChar(row, '&', start, row.Length);
+
+                if (end < 0) end = row.Length;
+
+                if (end > start)
                 {
-                    value = HttpUtility.UrlDecode(item.Substring(index + 1));
+                    var index = IndexOfChar(row, '=', start, end);
+
+                    if (index < 0)
+                    {
+                        // 无 = 的参数原实现用 Substring(0, -1) 抛 ArgumentOutOfRangeException，保持同一行为
+                        row.Substring(0, -1);
+                    }
+
+                    var key = row.Substring(start, index - start);
+
+                    var value = string.Empty;
+
+                    if (end > index + 1)
+                    {
+                        value = HttpUtility.UrlDecode(row.Substring(index + 1, end - index - 1));
+                    }
+
+                    dic[key] = value;
                 }
 
-                dic[key] = value;
+                start = end + 1;
             }
-            return dic;
+
+            return dic.Count > 0 ? dic : null;
         }
 
         private static Dictionary<string, string> GetRequestForms(string row)
@@ -305,7 +514,7 @@ namespace SAEA.Http.Base
             if (row.IndexOf(ConstHelper.ENTER) > 0 && row.TrimStart().IndexOf("{") != 0)
             {
                 var kvs = row.Split(ConstHelper.ENTER, StringSplitOptions.RemoveEmptyEntries);
-                if (kvs == null || kvs.Count() <= 0) return dic;
+                if (kvs == null || kvs.Length <= 0) return dic;
                 foreach (var item in kvs)
                 {
                     var key = item.Substring(0, item.IndexOf(ConstHelper.EQUO));
@@ -316,7 +525,7 @@ namespace SAEA.Http.Base
             else if (row.IndexOf("&") > 0)
             {
                 var kvs = row.Split(ConstHelper.AMPERSAND, StringSplitOptions.RemoveEmptyEntries);
-                if (kvs == null || kvs.Count() <= 0) return null;
+                if (kvs == null || kvs.Length <= 0) return null;
                 foreach (var item in kvs)
                 {
                     var arr = item.Split(ConstHelper.EQUO);
@@ -332,21 +541,59 @@ namespace SAEA.Http.Base
         }
 
 
-        private static Dictionary<string, string> GetRequestHeaders(IEnumerable<string> rows)
+        /// <summary>
+        /// 统计报头文本的行数，用于预置报头字典容量
+        /// </summary>
+        /// <param name="headerStr">报头全文</param>
+        /// <returns>换行符个数，不小于实际报头行数</returns>
+        private static int CountHeaderLines(string headerStr)
         {
-            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var count = 0;
 
-            if (rows == null || rows.Count() <= 0) return result;
-
-            foreach (var row in rows)
+            for (var i = 0; i < headerStr.Length - 1; i++)
             {
-                var rowArr = row.Split(ConstHelper.COLON);
-                if (rowArr.Length == 2)
-                    result[rowArr[0]] = rowArr[1].Trim();
-                else
-                    result[rowArr[0]] = "";
+                if (headerStr[i] == '\r' && headerStr[i + 1] == '\n') count++;
             }
-            return result;
+
+            return count;
+        }
+
+        /// <summary>
+        /// 把一行报头写入集合：只在恰好一个冒号时取值并去掉两侧空白，无冒号与多冒号一律记空串
+        /// </summary>
+        /// <param name="headers">报头集合</param>
+        /// <param name="text">报头全文</param>
+        /// <param name="start">行起始下标</param>
+        /// <param name="end">行结束下标（不含）</param>
+        private static void AddHeaderRow(Dictionary<string, string> headers, string text, int start, int end)
+        {
+            var colonIndex = IndexOfChar(text, ':', start, end);
+
+            if (colonIndex < 0)
+            {
+                headers[text.Substring(start, end - start)] = string.Empty;
+
+                return;
+            }
+
+            var key = text.Substring(start, colonIndex - start);
+
+            if (IndexOfChar(text, ':', colonIndex + 1, end) > -1)
+            {
+                headers[key] = string.Empty;
+
+                return;
+            }
+
+            var valueStart = colonIndex + 1;
+
+            var valueEnd = end;
+
+            while (valueStart < valueEnd && char.IsWhiteSpace(text[valueStart])) valueStart++;
+
+            while (valueEnd > valueStart && char.IsWhiteSpace(text[valueEnd - 1])) valueEnd--;
+
+            headers[key] = text.Substring(valueStart, valueEnd - valueStart);
         }
 
         private static FilePart GetRequestFormsWithMultiPart(string row, HttpMessage httpMessage)

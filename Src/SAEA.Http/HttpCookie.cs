@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 16:48:11
+*修改时间：2026/11/18 17:07:24
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：Cookie 序列化改为单次预置容量，并抽出分段写出供响应报头字节路径共用，输出文本保持不变
+*描述：Cookie 解析改为下标扫描，去掉按分号与等号拆分的中间数组，解析结果不变
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -34,7 +34,6 @@ using SAEA.Http.Base;
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 namespace SAEA.Http
@@ -203,23 +202,63 @@ namespace SAEA.Http
 
             if (string.IsNullOrEmpty(cookieStr)) return result;
 
-            var rows = cookieStr.Split(";", StringSplitOptions.RemoveEmptyEntries);
+            // 按分号逐段扫描并跳过空段，省掉整段拆分的数组与子串
+            var start = 0;
 
-            if (rows == null || rows.Count() <= 0) return result;
-
-            foreach (var row in rows)
+            while (start < cookieStr.Length)
             {
-                var rowArr = row.Split("=");
-                if (rowArr.Length == 2)
-                {
-                    result[rowArr[0].Trim()] = new HttpCookie(rowArr[0].Trim(), HttpUtility.HtmlDecode(HttpUtility.UrlDecode(rowArr[1])));
-                }
-                else
-                {
-                    result[rowArr[0].Trim()] = new HttpCookie(rowArr[0].Trim(), "");
-                }
+                var end = cookieStr.IndexOf(ConstHelper.SEMICOLON, start);
+
+                if (end < 0) end = cookieStr.Length;
+
+                if (end > start) AddCookie(result, cookieStr, start, end);
+
+                start = end + 1;
             }
+
             return result;
+        }
+
+        /// <summary>
+        /// 解析单个 Cookie 段并写入集合
+        /// </summary>
+        /// <param name="cookies">目标集合</param>
+        /// <param name="text">Cookie 报头全文</param>
+        /// <param name="start">段起始下标</param>
+        /// <param name="end">段结束下标（不含）</param>
+        static void AddCookie(HttpCookies cookies, string text, int start, int end)
+        {
+            var equals = text.IndexOf('=', start, end - start);
+
+            // 原实现只在恰好一个等号时取值，无等号与多等号都按空值处理
+            if (equals < 0 || text.IndexOf('=', equals + 1, end - equals - 1) > -1)
+            {
+                var bareKey = TrimName(text, start, equals < 0 ? end : equals);
+
+                cookies[bareKey] = new HttpCookie(bareKey, string.Empty);
+
+                return;
+            }
+
+            var key = TrimName(text, start, equals);
+
+            cookies[key] = new HttpCookie(key, HttpUtility.HtmlDecode(HttpUtility.UrlDecode(text.Substring(equals + 1, end - equals - 1))));
+        }
+
+        /// <summary>
+        /// 截取 Cookie 名并去掉两侧空白
+        /// </summary>
+        /// <param name="text">Cookie 报头全文</param>
+        /// <param name="start">起始下标</param>
+        /// <param name="end">结束下标（不含）</param>
+        /// <returns>去掉两侧空白后的 Cookie 名</returns>
+        static string TrimName(string text, int start, int end)
+        {
+            while (start < end && char.IsWhiteSpace(text[start])) start++;
+
+            while (end > start && char.IsWhiteSpace(text[end - 1])) end--;
+
+            return text.Substring(start, end - start);
         }
 
         /// <summary>
