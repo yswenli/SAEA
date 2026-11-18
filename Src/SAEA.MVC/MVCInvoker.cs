@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 18:40:00
+*修改时间：2026/11/18 13:36:20
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：404 文案输出请求行真实方法并对 actionName 做 HTML 编码；405 文案改用 Request.RelativeUrl 保留完整路径并做 HTML 编码；action 注入 CancellationToken，超时改在线程池取消并对未完成任务观察兜底；动作超时改读 WebConfig.ActionTimeout，为 0 时沿用 Timeout
+*描述：未显式配置 ActionTimeout 时改走直调快路径，去掉每请求 Task.Run 跳线程与带超时的 Wait 自旋；直调异常按旧路径形态包成 AggregateException 保持 500 文案与 OnException 类型不变；WebSocket 入口仍固定走超时路径
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -202,7 +202,8 @@ namespace SAEA.MVC
                 {
                     try
                     {
-                        var invokeResult = MethodInvoke(routing.Action, routing.Instance, nameValues);
+                        // WebSocket 入口固定走超时路径：超时后按 ErrorAsync 收尾关闭连接，不能退化成无限等待
+                        var invokeResult = MethodInvoke(routing.Action, routing.Instance, nameValues, true);
 
                         // 正常返回统一当 EmptyResult：响应已由握手或连接负责
                         if (invokeResult is ContentResult contentResult && contentResult.Status == System.Net.HttpStatusCode.RequestTimeout)
@@ -338,14 +339,15 @@ namespace SAEA.MVC
         }
 
         /// <summary>
-        /// 取本次请求的 action 执行超时秒数
+        /// 取本次请求的 action 执行超时秒数，仅在启用超时路径时使用
         /// </summary>
         /// <returns>ActionTimeout 大于 0 时用它，否则沿用连接空闲回收的 Timeout</returns>
         static double GetActionTimeoutSeconds()
         {
             var webConfig = HttpContext.Current.WebConfig;
 
-            // 0 与负数都视为未单独配置：沿用 Timeout，保证旧配置下行为完全不变
+            // 0 与负数都视为未单独配置：需要超时收尾的入口（显式配置 ActionTimeout 的动作与 WebSocket 入口）
+            // 继续沿用 Timeout 兜底
             return webConfig.ActionTimeout > 0 ? webConfig.ActionTimeout : webConfig.Timeout;
         }
 
@@ -355,14 +357,19 @@ namespace SAEA.MVC
         /// <param name="action"></param>
         /// <param name="obj"></param>
         /// <param name="nameValues"></param>
+        /// <param name="alwaysTimeout">是否无视配置强制启用超时包装，WebSocket 入口依赖 408 收尾必须传 true</param>
         /// <returns></returns>
-        static ActionResult MethodInvoke(MethodInfo action, object obj, NameValueCollection nameValues)
+        static ActionResult MethodInvoke(MethodInfo action, object obj, NameValueCollection nameValues, bool alwaysTimeout = false)
         {
             ActionResult result = null;
             object data = null;
 
             var @params = action.GetParameters();
             int timeoutMs = (int)(GetActionTimeoutSeconds() * 1000);
+
+            // 只有显式配置 ActionTimeout 才启用超时包装：默认的 Timeout 兜底长达 180 秒，实际不会命中，
+            // 却要让每个请求额外付出一次线程跳转与带超时的自旋等待
+            var withTimeout = alwaysTimeout || HttpContext.Current.WebConfig.ActionTimeout > 0;
 
             // 每次调用一个取消源：超时前由 finally 释放，超时后交给任务观察回调释放
             var cts = new CancellationTokenSource();
@@ -386,7 +393,47 @@ namespace SAEA.MVC
                 // 检查是否为异步方法（Task / Task<T>）
                 bool isAsync = action.ReturnType != null && typeof(Task).IsAssignableFrom(action.ReturnType);
 
-                if (isAsync)
+                if (!withTimeout)
+                {
+                    // 快路径：不起任务、不设超时。同步 action 直接调用；异步 action 仍占用当前消费线程等它完成，
+                    // 这是同步分发模型的固有代价，本轮不改分发模型
+                    if (isAsync)
+                    {
+                        var task = (Task)action.Invoke(obj, parameters);
+
+                        try
+                        {
+                            // GetAwaiter().GetResult() 不抛 AggregateException，也不做带超时的自旋等待
+                            task.GetAwaiter().GetResult();
+                        }
+                        catch (Exception ex)
+                        {
+                            // 旧路径由 Task.Wait 抛出 AggregateException，这里按同样的形态抛回，
+                            // 保证 OnException 收到的异常类型与 500 文案逐字不变
+                            throw new AggregateException(ex);
+                        }
+
+                        // 任务完成，Task<T> 取 Result，非泛型 Task 没有结果
+                        if (action.ReturnType.IsGenericType && action.ReturnType.GetGenericTypeDefinition() == typeof(Task<>))
+                        {
+                            var resultProperty = task.GetType().GetProperty("Result");
+                            data = resultProperty?.GetValue(task);
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            data = action.Invoke(obj, parameters);
+                        }
+                        catch (Exception ex)
+                        {
+                            // 同上：旧路径经 Task.Run + Wait 抛 AggregateException，异常形态必须保持一致
+                            throw new AggregateException(ex);
+                        }
+                    }
+                }
+                else if (isAsync)
                 {
                     // 处理异步方法
                     var task = (Task)action.Invoke(obj, parameters);

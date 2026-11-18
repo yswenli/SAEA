@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 10:55:00
+*修改时间：2026/11/18 13:38:40
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：响应改为按连接通道写出，升级时等握手写完再切换分帧器，不再依赖底层令牌与编码器
+*版本号： v26.11.16.1
+*描述：ToBytes 与 SendHeader 改为先算长度一次成帧，去掉 List<byte> 与多次 AddRange；SetCached 的缓存判定参数改手工分段解析，去掉 Split+LINQ 的中间分配，解析容错行为保持不变；BuildHeader 改逐段 Append 去掉插值临时串；换行字节改为共享只读字段
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -37,8 +37,6 @@ using SAEA.Http.Model;
 using SAEA.Sockets.Pipeline;
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Text;
 
@@ -67,6 +65,10 @@ namespace SAEA.Http
         internal IWebHost WebHost { get; set; }
 
         bool _isZiped = false;
+
+        // 空行与报头行尾用同一组换行字节：每请求都 Encoding.GetBytes 一次纯属重复分配，
+        // 数组只读不写，可安全共享
+        static readonly byte[] _newLineBytes = Encoding.UTF8.GetBytes(Environment.NewLine);
 
         /// <summary>
         /// 当前响应关联的连接通道，发送与 WebSocket 升级依赖它
@@ -131,11 +133,13 @@ namespace SAEA.Http
         protected string BuildHeader()
         {
             StringBuilder builder = new StringBuilder();
-            builder.AppendLine($"{this.Protocal} {Status.ToNVString()}");
+
+            // 逐段 Append 而不是插值拼串：插值会先拼出临时字符串，报头每请求都要构建一次
+            builder.Append(this.Protocal).Append(' ').Append(Status.ToNVString()).AppendLine();
             builder.AppendLine(ConstHelper.ServerName);
             builder.AppendLine("X-Powered-By: SAEA.Sockets");
 
-            builder.AppendLine("Date: " + DateTimeHelper.Now.ToGMTString());
+            builder.Append("Date: ").Append(DateTimeHelper.Now.ToGMTString()).AppendLine();
 
             if (_isZiped)
                 //支持gzip
@@ -148,7 +152,7 @@ namespace SAEA.Http
             {
                 foreach (var key in Headers.Keys)
                 {
-                    builder.AppendLine($"{key}: {Headers[key]}");
+                    builder.Append(key).Append(": ").Append(Headers[key]).AppendLine();
                 }
             }
             if (this.Cookies.Count > 0)
@@ -156,9 +160,7 @@ namespace SAEA.Http
                 builder.Append(this.Cookies.ToString());
             }
 
-            var result = builder.ToString();
-            builder.Clear();
-            return result;
+            return builder.ToString();
         }
 
         /// <summary>
@@ -172,22 +174,23 @@ namespace SAEA.Http
 
             #region cached
 
-            var carr = cacheCalcResult.Split(",").Select(b => Convert.ToInt32(b)).ToArray();
+            // 逐段解析后按段数判定，语义与原先 Split(',').Select(Convert.ToInt32).ToArray() 完全一致
+            var cacheCount = ParseCacheCalc(cacheCalcResult, out var cacheFlag, out var cacheSeconds);
 
-            if (carr.Length == 2 && carr[0] >= 0)
+            if (cacheCount == 2 && cacheFlag >= 0)
             {
-                this.SetHeader(ResponseHeaderType.CacheControl, "Max-Age=" + carr[1]);
-                this.SetHeader(ResponseHeaderType.Expires, DateTimeHelper.Now.AddSeconds(carr[1]).ToGMTString());
+                this.SetHeader(ResponseHeaderType.CacheControl, "Max-Age=" + cacheSeconds);
+                this.SetHeader(ResponseHeaderType.Expires, DateTimeHelper.Now.AddSeconds(cacheSeconds).ToGMTString());
                 this.Status = HttpStatusCode.OK;
 
-                if (carr[0] == 0)
+                if (cacheFlag == 0)
                 {
                     this.Headers["Last-Modified"] = DateTimeHelper.Now.ToGMTString();
                 }
 
-                if (carr[0] == 1)
+                if (cacheFlag == 1)
                 {
-                    if (carr[1] > 0)
+                    if (cacheSeconds > 0)
                     {
                         this.Status = HttpStatusCode.NotModified;
 
@@ -219,6 +222,46 @@ namespace SAEA.Http
             }
         }
 
+        /// <summary>
+        /// 按逗号分段解析缓存判定参数，逐段转成整数
+        /// </summary>
+        /// <param name="cacheCalcResult">逗号分隔的判定参数，如 "-1,-1"</param>
+        /// <param name="flag">第一段的值，段数不足时为 0</param>
+        /// <param name="seconds">第二段的值，段数不足时为 0</param>
+        /// <returns>实际段数，只有 2 段才是有效输入</returns>
+        static int ParseCacheCalc(string cacheCalcResult, out int flag, out int seconds)
+        {
+            flag = 0;
+            seconds = 0;
+
+            var count = 0;
+            var start = 0;
+
+            // 分段规则与 string.Split(',') 一致：空串算一段、末尾逗号会多出一个空段；
+            // 逐段改用 int.Parse，对前后空格、正负号、非数字与数值越界的处理与 Convert.ToInt32(string) 相同
+            while (true)
+            {
+                var end = cacheCalcResult.IndexOf(',', start);
+
+                var segment = end < 0 ? cacheCalcResult.Substring(start) : cacheCalcResult.Substring(start, end - start);
+
+                var value = int.Parse(segment);
+
+                if (count == 0)
+                    flag = value;
+                else if (count == 1)
+                    seconds = value;
+
+                count++;
+
+                if (end < 0) break;
+
+                start = end + 1;
+            }
+
+            return count;
+        }
+
         /// <summary>生成可直接写入传输层的完整响应字节，依次为状态行、报头、空行与报文体。</summary>
         /// <returns>完整响应字节；101 升级响应不覆盖 Connection 与 Content-Length，也不写报文体</returns>
         public byte[] Encode()
@@ -233,12 +276,11 @@ namespace SAEA.Http
                 // Connection: close 并追加 Content-Length，破坏升级握手。
                 var header = BuildHeader();
                 byte[] headerBytes = Encoding.UTF8.GetBytes(header);
-                byte[] lineBytes = Encoding.UTF8.GetBytes(Environment.NewLine);
 
                 // BuildHeader 已用 AppendLine 结束最后一行，这里只补一个空行作为报头结束符。
-                var result = new byte[headerBytes.Length + lineBytes.Length];
+                var result = new byte[headerBytes.Length + _newLineBytes.Length];
                 Buffer.BlockCopy(headerBytes, 0, result, 0, headerBytes.Length);
-                Buffer.BlockCopy(lineBytes, 0, result, headerBytes.Length, lineBytes.Length);
+                Buffer.BlockCopy(_newLineBytes, 0, result, headerBytes.Length, _newLineBytes.Length);
                 return result;
             }
 
@@ -251,10 +293,6 @@ namespace SAEA.Http
         /// <returns>完整响应字节，依次为报头、空行、报文体</returns>
         protected byte[] ToBytes()
         {
-            List<byte> reponseDataList = new List<byte>();
-
-            byte[] lineBytes = Encoding.UTF8.GetBytes(Environment.NewLine);
-
             var bdata = this.Body;
             if (_isZiped && this.Body != null)
                 bdata = GZipHelper.Compress(this.Body);
@@ -267,21 +305,29 @@ namespace SAEA.Http
             }
 
             this.SetHeader(ResponseHeaderType.ContentLength, bodyLen.ToString());
-            // 总是设置Connection头为close，不支持keep-alive
-            this.SetHeader(ResponseHeaderType.Connection, "close");
+
+            // 未显式指定时默认关闭连接：未知调用方仍按短连接处理，保持既有安全性。
+            // 键名与 Headers 的比较器都不区分大小写，先判存在再写，避免与调用方设置的值重复。
+            var connectionKey = ResponseHeaderType.Connection.GetDescription();
+            if (!this.Headers.ContainsKey(connectionKey))
+                this.SetHeader(ResponseHeaderType.Connection, "close");
+
             var header = BuildHeader();
 
-            byte[] headerBytes = Encoding.UTF8.GetBytes(header);
+            // 报头、空行与报文体一次成帧：长度先算好只分配一次。
+            // 返回的 byte[] 会被调用方继续持有（输出缓存、异步写入），因此不能从 ArrayPool 借出。
+            var headerLen = Encoding.UTF8.GetByteCount(header);
+            var lineLen = _newLineBytes.Length;
 
-            //发送响应头
-            reponseDataList.AddRange(headerBytes);
-            //发送空行
-            reponseDataList.AddRange(lineBytes);
+            var result = new byte[headerLen + lineLen + bodyLen];
 
-            //发送内容
-            if (bdata != null)
-                reponseDataList.AddRange(bdata);
-            return reponseDataList.ToArray();
+            Encoding.UTF8.GetBytes(header, 0, header.Length, result, 0);
+            Buffer.BlockCopy(_newLineBytes, 0, result, headerLen, lineLen);
+
+            if (bodyLen > 0)
+                Buffer.BlockCopy(bdata, 0, result, headerLen + lineLen, bodyLen);
+
+            return result;
         }
 
         /// <summary>
@@ -344,7 +390,7 @@ namespace SAEA.Http
         /// <summary>
         /// 直接写原始响应字节（握手失败等场景），绕过 BuildHeader/ToBytes
         /// </summary>
-        /// <param name="data">原始字节</param>
+        /// <param name="data">原始字节，报头由调用方组装；close 为 true 时必须已写入 Connection: close</param>
         /// <param name="close">写完后是否断开连接</param>
         /// <returns>是否已写出</returns>
         public bool WriteRaw(byte[] data, bool close)
@@ -383,10 +429,6 @@ namespace SAEA.Http
 
             if (encoding == null) encoding = Encoding.UTF8;
 
-            List<byte> reponseDataList = new List<byte>();
-
-            byte[] lineBytes = encoding.GetBytes(System.Environment.NewLine);
-
             if (bodyLen > 0)
                 this.SetHeader(ResponseHeaderType.ContentLength, bodyLen.ToString());
 
@@ -404,16 +446,17 @@ namespace SAEA.Http
 
             var header = BuildHeader();
 
-            byte[] headerBytes = encoding.GetBytes(header);
+            // 与 ToBytes 同理：先算长度一次分配，报头直接编进目标数组，返回的 byte[] 会被发送流程继续持有
+            var headerLen = encoding.GetByteCount(header);
 
-            //发送响应头
-            reponseDataList.AddRange(headerBytes);
-            //发送空行
-            reponseDataList.AddRange(lineBytes);
+            // UTF-8 是绝对主流，直接复用共享换行字节；其他编码才现算
+            var lineBytes = ReferenceEquals(encoding, Encoding.UTF8) ? _newLineBytes : encoding.GetBytes(Environment.NewLine);
 
-            var arr = reponseDataList.ToArray();
+            var arr = new byte[headerLen + lineBytes.Length];
 
-            reponseDataList.Clear();
+            encoding.GetBytes(header, 0, header.Length, arr, 0);
+            Buffer.BlockCopy(lineBytes, 0, arr, headerLen, lineBytes.Length);
+
             if (Channel != null)
                 WebHost.Send(Channel, arr);
         }
@@ -446,6 +489,79 @@ namespace SAEA.Http
 
 
         /// <summary>
+        /// 按请求协议与请求的 Connection 头决定本条响应的连接策略，并写入 Connection 响应头。
+        /// <para>
+        /// HTTP/1.1 及更高版本默认保持连接，只有请求显式声明 close 才关闭；HTTP/1.0 默认关闭，
+        /// 只有请求显式声明 keep-alive 才保持连接。调用方据返回值选择 <see cref="Send"/>（保持连接）
+        /// 或 <see cref="End"/>（关闭连接），响应头与连接副作用必须一致。
+        /// </para>
+        /// </summary>
+        /// <param name="requestProtocol">请求协议名与版本，如 HTTP/1.0、HTTP/1.1；为空时按 HTTP/1.1 处理</param>
+        /// <param name="connectionHeader">请求的 Connection 头值，未携带时传 null 或空字符串</param>
+        /// <returns>true 表示保持连接，调用方应走 <see cref="Send"/>；false 表示关闭连接，调用方应走 <see cref="End"/></returns>
+        public bool ApplyConnectionPolicy(string requestProtocol, string connectionHeader)
+        {
+            var keepAlive = AllowsKeepAlive(requestProtocol, connectionHeader);
+
+            this.SetHeader(ResponseHeaderType.Connection, keepAlive ? "keep-alive" : "close");
+
+            return keepAlive;
+        }
+
+        /// <summary>
+        /// 判断本次请求是否允许复用连接。
+        /// </summary>
+        /// <param name="requestProtocol">请求协议名与版本</param>
+        /// <param name="connectionHeader">请求的 Connection 头值</param>
+        /// <returns>允许复用连接返回 true</returns>
+        private static bool AllowsKeepAlive(string requestProtocol, string connectionHeader)
+        {
+            var hasKeepAlive = HasConnectionToken(connectionHeader, "keep-alive");
+            var hasClose = HasConnectionToken(connectionHeader, "close");
+
+            // HTTP/1.0 默认短连接，只有客户端显式声明 keep-alive 才复用；同时声明 close 时以关闭为准。
+            if (IsHttp10(requestProtocol))
+                return hasKeepAlive && !hasClose;
+
+            // HTTP/1.1 及更高版本默认长连接，只有客户端显式声明 close 才关闭。
+            return !hasClose;
+        }
+
+        /// <summary>
+        /// 判断协议是否为 HTTP/1.0。
+        /// </summary>
+        /// <param name="requestProtocol">请求协议名与版本</param>
+        /// <returns>HTTP/1.0 返回 true</returns>
+        private static bool IsHttp10(string requestProtocol)
+        {
+            return !string.IsNullOrEmpty(requestProtocol)
+                && requestProtocol.Trim().Equals("HTTP/1.0", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// 判断 Connection 头中是否含指定选项。
+        /// </summary>
+        /// <param name="connectionHeader">请求的 Connection 头值</param>
+        /// <param name="token">待匹配的选项名，如 close、keep-alive</param>
+        /// <returns>含该选项返回 true</returns>
+        private static bool HasConnectionToken(string connectionHeader, string token)
+        {
+            if (string.IsNullOrEmpty(connectionHeader))
+                return false;
+
+            // Connection 头允许逗号分隔多个选项，必须逐项匹配，不能用子串包含判断。
+            var tokens = connectionHeader.Split(',');
+
+            foreach (var item in tokens)
+            {
+                if (item.Trim().Equals(token, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// 发送响应但不关闭连接
         /// </summary>
         public void Send()
@@ -460,7 +576,7 @@ namespace SAEA.Http
         }
 
         /// <summary>
-        /// 结束当前流程
+        /// 结束当前流程并关闭连接；编码前强制把 Connection 置为 close，避免响应头与实际连接状态不一致
         /// </summary>
         public void End()
         {
@@ -470,6 +586,7 @@ namespace SAEA.Http
             if (channel == null) return;
             else
             {
+                this.SetHeader(ResponseHeaderType.Connection, "close");
                 WebHost.End(channel, this.ToBytes());
                 Channel = null;
             }

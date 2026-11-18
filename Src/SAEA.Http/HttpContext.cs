@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 12:03:00
+*修改时间：2026/11/18 13:21:42
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：静态文件映射结果为 null 时直接返回 404，不再用越界路径访问文件
+*版本号： v26.11.16.1
+*描述：普通响应改为按请求协议与 Connection 请求头决定保持还是关闭连接，响应头与 Send/End 的副作用保持一致
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -115,12 +115,13 @@ namespace SAEA.Http
             // 确保连接被释放
             if (result == null)
             {
-                // 如果没有结果，直接结束连接
+                // 没有结果说明业务已自行写出响应（或没有可写内容），按短连接收尾：
+                // End 会先强制 Connection: close 再关闭，重复调用在 Channel 置空后自然失效。
                 Response.End();
             }
             else if (!(result is IBigDataResult))
             {
-                // 非大数据结果，设置缓存并结束连接
+                // 非大数据结果，设置缓存后按连接策略收尾
                 if (result is IFileResult && _webHost.WebConfig.IsStaticsCached)
                 {
                     Response.SetCached(result, "60,60");
@@ -129,8 +130,19 @@ namespace SAEA.Http
                 {
                     Response.SetCached(result, this.Session.CacheCalcString);
                 }
-                
-                Response.End();
+
+                // 连接复用由请求协议与请求的 Connection 头决定：HTTP/1.1 默认保持，
+                // HTTP/1.0 默认关闭；响应头与 Send/End 的连接副作用必须一致。
+                var connection = Request.Headers.ContainsKey("Connection") ? Request.Headers["Connection"] : null;
+
+                if (Response.ApplyConnectionPolicy(Request.Protocal, connection))
+                {
+                    Response.Send();
+                }
+                else
+                {
+                    Response.End();
+                }
             }
             // IBigDataResult类型会在其他地方处理连接释放
         }

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:23:31
+*修改时间：2026/11/18 13:21:42
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补齐英文与乱码注释的中文说明
+*版本号： v26.11.16.1
+*描述：过期会话改为每轮清空内容后全部移除，不再只处理第一个过期条目，避免会话表无界增长
 *
 *****************************************************************************/
 using System;
@@ -56,17 +56,47 @@ namespace SAEA.Http
             {
                 while (true)
                 {
-                    foreach (var item in _cache)
+                    try
                     {
-                        if (item.Value.Expired < DateTimeHelper.Now)
-                        {
-                            item.Value.Clear();
-                            break;
-                        }
+                        SweepExpired();
                     }
+                    catch (Exception ex)
+                    {
+                        // 清理线程必须长期存活：单轮异常只记录，不能让整个会话表从此无人回收。
+                        LogHelper.Debug("HTTP 会话清理失败:" + ex.Message);
+                    }
+
                     Thread.Sleep(1000);
                 }
             });
+        }
+
+        /// <summary>
+        /// 清理一轮已过期会话：逐个清空内容后再从字典移除，返回本轮移除的会话数。
+        /// <para>
+        /// 先清内容再移除，避免在途请求读到半移除的会话；<see cref="ConcurrentDictionary{TKey,TValue}"/>
+        /// 的枚举是快照，期间被其它线程移除时 <c>TryRemove</c> 返回 false，属正常情况。
+        /// </para>
+        /// </summary>
+        /// <returns>本轮实际移除的会话数</returns>
+        internal static int SweepExpired()
+        {
+            var removed = 0;
+
+            foreach (var item in _cache)
+            {
+                if (item.Value.Expired >= DateTimeHelper.Now)
+                    continue;
+
+                // 先清内容再移除：ConcurrentDictionary 的枚举是快照，期间被其它线程移除时
+                // TryRemove 返回 false，属正常情况，不计入本轮移除数。
+                item.Value.Clear();
+
+                if (_cache.TryRemove(item.Key, out HttpSession _))
+                    removed++;
+            }
+
+            return removed;
         }
 
         /// <summary>

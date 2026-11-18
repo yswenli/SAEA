@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 18:40:00
+*修改时间：2026/11/18 13:21:42
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：属性路由匹配入口、RoutingPath 改存归一化实际路径、路径参数绑定与 405 处理；新增 RequestAborted 令牌并说明其仅在本次 action 调用期间有效；405 文案改用 Request.RelativeUrl 保留完整路径并做 HTML 编码
+*描述：连接复用改为按请求协议与 Connection 请求头判定，Send/End 与响应头保持一致
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -161,27 +161,18 @@ namespace SAEA.MVC
                 // 非大数据结果和非事件流，设置缓存并结束连接
                 Response.SetCached(result, this.Session.CacheCalcString);
 
-                // 根据客户端请求头设置Connection头
-                if (Request.Headers.ContainsKey("Connection"))
+                // 连接复用由请求协议与请求的 Connection 头决定：HTTP/1.1 默认保持，
+                // HTTP/1.0 默认关闭；响应头与 Send/End 的连接副作用必须一致。
+                var connection = Request.Headers.ContainsKey("Connection") ? Request.Headers["Connection"] : null;
+
+                if (Response.ApplyConnectionPolicy(Request.Protocal, connection))
                 {
-                    var connection = Request.Headers["Connection"].ToLower();
-                    if (connection.Contains("keep-alive"))
-                    {
-                        Response.Headers["Connection"] = "keep-alive";
-                        // 发送响应但不关闭连接
-                        Response.Send();
-                    }
-                    else
-                    {
-                        Response.Headers["Connection"] = "close";
-                        Response.End();
-                    }
+                    // 发送响应但不关闭连接，同一连接可继续处理下一个请求
+                    Response.Send();
                 }
                 else
                 {
-                    // HTTP/1.1默认保持连接
-                    Response.Headers["Connection"] = "keep-alive";
-                    Response.Send();
+                    Response.End();
                 }
             }
             // IBigDataResult或IEventStream类型会在其他地方处理连接释放

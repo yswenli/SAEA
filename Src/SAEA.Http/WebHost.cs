@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 17:58:57
+*修改时间：2026/11/18 13:41:10
 *修改人： yswenli
 *版本号： v26.11.5.1
-*描述：新增 TLS 入口并把 socket 创建延迟到 Start，Stop 后释放 socket 以便 Restart 按最新配置重建
+*描述：上下文创建改为按类型预编译并缓存构造委托，去掉每请求的 Activator.CreateInstance 反射激活
 *
 *****************************************************************************/
 using System;
+using System.Linq.Expressions;
 
 using SAEA.Common;
 using SAEA.Http.Base;
@@ -59,6 +60,9 @@ namespace SAEA.Http
         private readonly bool _isDebug;
 
         Type _httpContentType = typeof(HttpContext);
+
+        // 上下文构造委托：Activator.CreateInstance 每请求都要走一次类型查找与反射激活，这里按类型建一次缓存
+        Func<IWebHost, IHttpContext> _contextFactory;
 
         /// <summary>
         /// 是否已启动
@@ -119,6 +123,8 @@ namespace SAEA.Http
                 _httpContentType = typeof(HttpContext);
             }
 
+            _contextFactory = CreateContextFactory(_httpContentType);
+
             WebConfig = new WebConfig()
             {
                 Root = root,
@@ -146,7 +152,27 @@ namespace SAEA.Http
         /// <returns>新建的业务上下文</returns>
         internal IHttpContext CreateContext()
         {
-            return (IHttpContext)Activator.CreateInstance(_httpContentType, this);
+            return _contextFactory(this);
+        }
+
+        /// <summary>
+        /// 按上下文类型预编译构造委托并缓存，避免每请求走 Activator 的反射激活流程
+        /// </summary>
+        /// <param name="contextType">IHttpContext 实现类型</param>
+        /// <returns>接收宿主实例的构造委托</returns>
+        static Func<IWebHost, IHttpContext> CreateContextFactory(Type contextType)
+        {
+            var constructor = contextType.GetConstructor(new[] { typeof(IWebHost) });
+
+            // 没有 (IWebHost) 构造时退回 Activator，保持原有的失败时机与异常类型
+            if (constructor == null)
+                return webHost => (IHttpContext)Activator.CreateInstance(contextType, webHost);
+
+            var webHostParam = Expression.Parameter(typeof(IWebHost), "webHost");
+
+            var body = Expression.Convert(Expression.New(constructor, webHostParam), typeof(IHttpContext));
+
+            return Expression.Lambda<Func<IWebHost, IHttpContext>>(body, webHostParam).Compile();
         }
 
 
