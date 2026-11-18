@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 10:40:00
+*修改时间：2026/11/18 16:05:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：删除异常与请求委托事件，处理入口改按连接通道，远端地址取自连接会话
+*版本号： v26.11.16.1
+*描述：抽出 InitContext 供同步与异步入口共用；新增 HttpHandleAsync 与 GetActionResultAsync 虚方法，默认实现仍走原同步入口
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -36,6 +36,7 @@ using SAEA.Sockets.Pipeline;
 
 using System;
 using System.Net;
+using System.Threading.Tasks;
 
 namespace SAEA.Http.Base
 {
@@ -150,6 +151,30 @@ namespace SAEA.Http.Base
         /// <param name="httpMessage">Http消息</param>
         public virtual void HttpHandle(IChannel channel, HttpMessage httpMessage)
         {
+            InitContext(channel, httpMessage);
+        }
+
+        /// <summary>
+        /// 异步处理业务逻辑；默认实现同步调用 <see cref="HttpHandle"/> 并返回已完成任务，
+        /// 只有真正需要异步收尾的派生类才覆盖本方法，只重写 <see cref="HttpHandle"/> 的既有实现不受影响。
+        /// </summary>
+        /// <param name="channel">连接通道</param>
+        /// <param name="httpMessage">Http消息</param>
+        /// <returns>处理完成后的任务</returns>
+        public virtual Task HttpHandleAsync(IChannel channel, HttpMessage httpMessage)
+        {
+            HttpHandle(channel, httpMessage);
+
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// 初始化本次请求的 Request、Session 与 Response
+        /// </summary>
+        /// <param name="channel">连接通道</param>
+        /// <param name="httpMessage">Http消息</param>
+        protected void InitContext(IChannel channel, HttpMessage httpMessage)
+        {
             Request.Init(httpMessage);
 
             string sessionID;
@@ -214,6 +239,15 @@ namespace SAEA.Http.Base
         /// </summary>
         /// <returns>操作结果</returns>
         public abstract IHttpResult GetActionResult();
+
+        /// <summary>
+        /// 异步获取操作结果；默认实现直接取同步结果，需要真正异步的派生类覆盖本方法
+        /// </summary>
+        /// <returns>业务处理结果</returns>
+        public virtual Task<IHttpResult> GetActionResultAsync()
+        {
+            return Task.FromResult(GetActionResult());
+        }
 
         /// <summary>
         /// 释放资源

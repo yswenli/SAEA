@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 13:21:42
+*修改时间：2026/11/18 16:12:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：连接复用改为按请求协议与 Connection 请求头判定，Send/End 与响应头保持一致
+*描述：新增 HttpHandleAsync 真正异步入口并等待 action 与响应写出完成，原 HttpHandle 改为阻塞等待同一实现；GetActionResultAsync 异步等待路由调用，连接策略与 500 文案保持不变
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -40,6 +40,7 @@ using SAEA.Sockets.Pipeline;
 using System;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SAEA.MVC
 {
@@ -99,7 +100,18 @@ namespace SAEA.MVC
         /// <param name="httpMessage">Http消息</param>
         public override void HttpHandle(IChannel channel, HttpMessage httpMessage)
         {
-            base.HttpHandle(channel, httpMessage);
+            HttpHandleAsync(channel, httpMessage).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 异步处理业务逻辑：等待 action 完成，并等待响应真正写出
+        /// </summary>
+        /// <param name="channel">连接通道</param>
+        /// <param name="httpMessage">Http消息</param>
+        /// <returns>响应写出完成后的任务</returns>
+        public override async Task HttpHandleAsync(IChannel channel, HttpMessage httpMessage)
+        {
+            InitContext(channel, httpMessage);
 
             IHttpResult result = null;
 
@@ -132,7 +144,7 @@ namespace SAEA.MVC
                         }
                         else
                         {
-                            result = GetActionResult();
+                            result = await GetActionResultAsync().ConfigureAwait(false);
                         }
                         break;
                     case ConstHelper.OPTIONS:
@@ -168,11 +180,11 @@ namespace SAEA.MVC
                 if (Response.ApplyConnectionPolicy(Request.Protocal, connection))
                 {
                     // 发送响应但不关闭连接，同一连接可继续处理下一个请求
-                    Response.Send();
+                    await Response.SendAsync().ConfigureAwait(false);
                 }
                 else
                 {
-                    Response.End();
+                    await Response.EndAsync().ConfigureAwait(false);
                 }
             }
             // IBigDataResult或IEventStream类型会在其他地方处理连接释放
@@ -183,6 +195,15 @@ namespace SAEA.MVC
         /// </summary>
         /// <returns></returns>
         public override IHttpResult GetActionResult()
+        {
+            return GetActionResultAsync().GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 异步根据地址路由到目标并返回执行结果
+        /// </summary>
+        /// <returns>业务处理结果</returns>
+        public override async Task<IHttpResult> GetActionResultAsync()
         {
             string url = Request.Url;
 
@@ -226,7 +247,7 @@ namespace SAEA.MVC
 
                         RoutingPath = match.Path;
 
-                        return MvcInvoker.InvokeResult(_routeTable, match.ControllerType, match.ActionName, Request.Parmas.ToNameValueCollection(), isPost);
+                        return await MvcInvoker.InvokeResultAsync(_routeTable, match.ControllerType, match.ActionName, Request.Parmas.ToNameValueCollection(), isPost).ConfigureAwait(false);
                     }
 
                     // 路径已被属性路由声明但请求动词不符：返回 405 并告知可用动词
@@ -274,7 +295,7 @@ namespace SAEA.MVC
 
                         nameValues = Request.Parmas.ToNameValueCollection();
 
-                        return MvcInvoker.InvokeResult(_routeTable, d, WebConfig.DefaultRoute.Value.ToString(), nameValues, isPost);
+                        return await MvcInvoker.InvokeResultAsync(_routeTable, d, WebConfig.DefaultRoute.Value.ToString(), nameValues, isPost).ConfigureAwait(false);
                     }
 
                 case 1:
@@ -307,7 +328,7 @@ namespace SAEA.MVC
                         {
                             nameValues = Request.Parmas.ToNameValueCollection();
 
-                            return MvcInvoker.InvokeResult(_routeTable, first, arr[arr.Length - 1], nameValues, isPost);
+                            return await MvcInvoker.InvokeResultAsync(_routeTable, first, arr[arr.Length - 1], nameValues, isPost).ConfigureAwait(false);
                         }
                     }
 

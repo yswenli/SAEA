@@ -23,14 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 13:41:10
+*修改时间：2026/11/18 16:08:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：上下文创建改为按类型预编译并缓存构造委托，去掉每请求的 Activator.CreateInstance 反射激活
+*版本号： v26.11.16.1
+*描述：新增 SendAsync 与 EndAsync，写出过程交给连接会话异步完成；原 Send/End 改为阻塞等待同一份实现，写失败仍只记日志不抛
 *
 *****************************************************************************/
 using System;
 using System.Linq.Expressions;
+using System.Threading.Tasks;
 
 using SAEA.Common;
 using SAEA.Http.Base;
@@ -221,11 +222,22 @@ namespace SAEA.Http
         /// <param name="data">待发送字节</param>
         public void Send(IChannel channel, byte[] data)
         {
+            SendAsync(channel, data).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 异步发送，不关闭连接；写失败只记日志，不向调用方抛出
+        /// </summary>
+        /// <param name="channel">连接通道</param>
+        /// <param name="data">待发送字节</param>
+        /// <returns>写出完成后的任务</returns>
+        public Task SendAsync(IChannel channel, byte[] data)
+        {
             var session = HttpConnectionSession.TryGet(channel);
             if (session == null)
-                return;
+                return Task.CompletedTask;
 
-            session.WriteBytes(data);
+            return session.WriteBytesSafeAsync(data);
         }
 
         /// <summary>
@@ -263,11 +275,22 @@ namespace SAEA.Http
         /// <param name="data">待发送字节</param>
         public void End(IChannel channel, byte[] data)
         {
+            EndAsync(channel, data).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 异步发送并在写完成后关闭连接；写失败只记日志，不向调用方抛出
+        /// </summary>
+        /// <param name="channel">连接通道</param>
+        /// <param name="data">待发送字节</param>
+        /// <returns>写出完成并已提交关闭后的任务</returns>
+        public Task EndAsync(IChannel channel, byte[] data)
+        {
             var session = HttpConnectionSession.TryGet(channel);
             if (session == null)
-                return;
+                return Task.CompletedTask;
 
-            session.WriteBytesAndClose(data);
+            return session.WriteBytesAndCloseAsync(data);
         }
 
         /// <summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 13:38:40
+*修改时间：2026/11/18 16:09:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：ToBytes 与 SendHeader 改为先算长度一次成帧，去掉 List<byte> 与多次 AddRange；SetCached 的缓存判定参数改手工分段解析，去掉 Split+LINQ 的中间分配，解析容错行为保持不变；BuildHeader 改逐段 Append 去掉插值临时串；换行字节改为共享只读字段
+*描述：Send/End/WriteRaw/SendHeader/SendData/SendEnd 拆出私有 async 核心并补齐对应 Async 公开入口，原同步方法改为阻塞等待同一份实现；内置宿主走异步写出，外部 IWebHost 实现回退同步写
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -39,6 +39,7 @@ using SAEA.Sockets.Pipeline;
 using System;
 using System.Net;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace SAEA.Http
 {
@@ -395,6 +396,22 @@ namespace SAEA.Http
         /// <returns>是否已写出</returns>
         public bool WriteRaw(byte[] data, bool close)
         {
+            return WriteRawAsync(data, close).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 异步直接写原始响应字节（握手失败等场景），绕过 BuildHeader/ToBytes
+        /// </summary>
+        /// <param name="data">原始字节，报头由调用方组装；close 为 true 时必须已写入 Connection: close</param>
+        /// <param name="close">写完后是否断开连接</param>
+        /// <returns>已写出时返回 true；已升级、已直接写过或没有关联连接时返回 false</returns>
+        public Task<bool> WriteRawAsync(byte[] data, bool close)
+        {
+            return WriteRawCoreAsync(data, close);
+        }
+
+        private async Task<bool> WriteRawCoreAsync(byte[] data, bool close)
+        {
             if (IsUpgraded || IsHandled) return false;
 
             var channel = Channel;
@@ -403,7 +420,7 @@ namespace SAEA.Http
             if (channel == null || webHost == null) return false;
 
             if (data != null && data.Length > 0)
-                webHost.Send(channel, data);
+                await SendToHostAsync(channel, data).ConfigureAwait(false);
 
             IsHandled = true;
 
@@ -424,6 +441,23 @@ namespace SAEA.Http
         /// <param name="bodyLen"></param>
         /// <param name="encoding"></param>
         public void SendHeader(long bodyLen, Encoding encoding = null)
+        {
+            SendHeaderAsync(bodyLen, encoding).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 异步仅发送头，针对类似大文件、事件流场景分开处理，
+        /// 与 <see cref="SendDataAsync"/>、<see cref="SendEndAsync"/> 联合使用
+        /// </summary>
+        /// <param name="bodyLen">报文体长度；小于 0 表示无限长度流，保持连接</param>
+        /// <param name="encoding">报头编码，未指定时用 UTF-8</param>
+        /// <returns>写出完成后的任务</returns>
+        public Task SendHeaderAsync(long bodyLen, Encoding encoding = null)
+        {
+            return SendHeaderCoreAsync(bodyLen, encoding);
+        }
+
+        private async Task SendHeaderCoreAsync(long bodyLen, Encoding encoding)
         {
             if (IsUpgraded || IsHandled) return;
 
@@ -458,7 +492,7 @@ namespace SAEA.Http
             Buffer.BlockCopy(lineBytes, 0, arr, headerLen, lineBytes.Length);
 
             if (Channel != null)
-                WebHost.Send(Channel, arr);
+                await SendToHostAsync(Channel, arr).ConfigureAwait(false);
         }
 
 
@@ -469,9 +503,25 @@ namespace SAEA.Http
         /// <param name="data"></param>
         public void SendData(byte[] data)
         {
+            SendDataAsync(data).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 异步发送数据，
+        /// 与 <see cref="SendHeaderAsync"/>、<see cref="SendEndAsync"/> 联合使用
+        /// </summary>
+        /// <param name="data">待发送字节</param>
+        /// <returns>写出完成后的任务</returns>
+        public Task SendDataAsync(byte[] data)
+        {
+            return SendDataCoreAsync(data);
+        }
+
+        private async Task SendDataCoreAsync(byte[] data)
+        {
             if (IsUpgraded || IsHandled) return;
 
-            WebHost.Send(Channel, data);
+            await SendToHostAsync(Channel, data).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -480,9 +530,26 @@ namespace SAEA.Http
         /// </summary>
         public void SendEnd()
         {
-            if (IsUpgraded || IsHandled) return;
+            SendEndAsync().GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 异步发送结束，
+        /// 与 <see cref="SendHeaderAsync"/>、<see cref="SendDataAsync"/> 联合使用
+        /// </summary>
+        /// <returns>关闭提交后的任务</returns>
+        public Task SendEndAsync()
+        {
+            return SendEndCoreAsync();
+        }
+
+        private Task SendEndCoreAsync()
+        {
+            if (IsUpgraded || IsHandled) return Task.CompletedTask;
 
             WebHost.Disconnect(Channel);
+
+            return Task.CompletedTask;
         }
 
         #endregion
@@ -566,13 +633,26 @@ namespace SAEA.Http
         /// </summary>
         public void Send()
         {
+            SendAsync().GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 异步发送响应但不关闭连接
+        /// </summary>
+        /// <returns>写出完成后的任务</returns>
+        public Task SendAsync()
+        {
+            return SendCoreAsync();
+        }
+
+        private async Task SendCoreAsync()
+        {
             if (IsUpgraded || IsHandled) return;
 
-            if (Channel == null) return;
-            else
-            {
-                WebHost.Send(Channel, this.ToBytes());
-            }
+            var channel = Channel;
+            if (channel == null) return;
+
+            await SendToHostAsync(channel, this.ToBytes()).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -580,16 +660,56 @@ namespace SAEA.Http
         /// </summary>
         public void End()
         {
+            EndAsync().GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 异步结束当前流程并关闭连接；编码前强制把 Connection 置为 close，写完成后才提交关闭
+        /// </summary>
+        /// <returns>写出完成并已提交关闭后的任务</returns>
+        public Task EndAsync()
+        {
+            return EndCoreAsync();
+        }
+
+        private async Task EndCoreAsync()
+        {
             if (IsUpgraded || IsHandled) return;
 
             var channel = Channel;
             if (channel == null) return;
+
+            this.SetHeader(ResponseHeaderType.Connection, "close");
+
+            var data = this.ToBytes();
+
+            var webHost = WebHost as WebHost;
+
+            if (webHost != null)
+                await webHost.EndAsync(channel, data).ConfigureAwait(false);
             else
+                WebHost.End(channel, data);
+
+            Channel = null;
+        }
+
+        /// <summary>
+        /// 把一段完整字节写到连接：内置宿主走异步写出，外部 IWebHost 实现退回同步写，行为不变
+        /// </summary>
+        /// <param name="channel">连接通道</param>
+        /// <param name="data">待写出的字节</param>
+        /// <returns>写出完成后的任务</returns>
+        private async Task SendToHostAsync(IChannel channel, byte[] data)
+        {
+            var webHost = WebHost as WebHost;
+
+            if (webHost != null)
             {
-                this.SetHeader(ResponseHeaderType.Connection, "close");
-                WebHost.End(channel, this.ToBytes());
-                Channel = null;
+                await webHost.SendAsync(channel, data).ConfigureAwait(false);
+                return;
             }
+
+            WebHost.Send(channel, data);
         }
 
         /// <summary>

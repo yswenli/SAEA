@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 13:36:20
+*修改时间：2026/11/18 16:14:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：未显式配置 ActionTimeout 时改走直调快路径，去掉每请求 Task.Run 跳线程与带超时的 Wait 自旋；直调异常按旧路径形态包成 AggregateException 保持 500 文案与 OnException 类型不变；WebSocket 入口仍固定走超时路径
+*描述：InvokeResult 抽出 async 核心 InvokeResultAsync，原公开方法改为阻塞等待同一实现；MethodInvoke 改为异步执行，未配置超时时直接等待，配置超时时用 WhenAny 加取消源复现 408 与 AggregateException 形态
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -57,6 +57,20 @@ namespace SAEA.MVC
         /// <param name="isPost"></param>
         /// <returns></returns>
         public static ActionResult InvokeResult(RouteTable routeTable, Type controller, string actionName, NameValueCollection nameValues, bool isPost)
+        {
+            return InvokeResultAsync(routeTable, controller, actionName, nameValues, isPost).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 异步 MVC 处理：等待 action 真正完成，异常形态与同步入口一致
+        /// </summary>
+        /// <param name="routeTable">路由表</param>
+        /// <param name="controller">目标控制器类型</param>
+        /// <param name="actionName">action 名称</param>
+        /// <param name="nameValues">请求参数</param>
+        /// <param name="isPost">是否 POST 请求</param>
+        /// <returns>action 执行结果</returns>
+        public static async Task<ActionResult> InvokeResultAsync(RouteTable routeTable, Type controller, string actionName, NameValueCollection nameValues, bool isPost)
         {
             if (routeTable == null) return new ContentResult($"o_o，当前未注册任何Controller!", System.Net.HttpStatusCode.NotFound);
 
@@ -203,7 +217,7 @@ namespace SAEA.MVC
                     try
                     {
                         // WebSocket 入口固定走超时路径：超时后按 ErrorAsync 收尾关闭连接，不能退化成无限等待
-                        var invokeResult = MethodInvoke(routing.Action, routing.Instance, nameValues, true);
+                        var invokeResult = await MethodInvokeAsync(routing.Action, routing.Instance, nameValues, true).ConfigureAwait(false);
 
                         // 正常返回统一当 EmptyResult：响应已由握手或连接负责
                         if (invokeResult is ContentResult contentResult && contentResult.Status == System.Net.HttpStatusCode.RequestTimeout)
@@ -233,7 +247,7 @@ namespace SAEA.MVC
                 }
                 else
                 {
-                    result = MethodInvoke(routing.Action, routing.Instance, nameValues);
+                    result = await MethodInvokeAsync(routing.Action, routing.Instance, nameValues).ConfigureAwait(false);
                 }
             }
             else
@@ -361,6 +375,19 @@ namespace SAEA.MVC
         /// <returns></returns>
         static ActionResult MethodInvoke(MethodInfo action, object obj, NameValueCollection nameValues, bool alwaysTimeout = false)
         {
+            return MethodInvokeAsync(action, obj, nameValues, alwaysTimeout).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 异步代理执行方法：未启用超时时直接等待 action 完成；启用超时时等待完成或到点返回 408
+        /// </summary>
+        /// <param name="action">目标 action</param>
+        /// <param name="obj">控制器实例</param>
+        /// <param name="nameValues">请求参数</param>
+        /// <param name="alwaysTimeout">是否无视配置强制启用超时包装，WebSocket 入口依赖 408 收尾必须传 true</param>
+        /// <returns>action 结果；超时返回 408 结果</returns>
+        static async Task<ActionResult> MethodInvokeAsync(MethodInfo action, object obj, NameValueCollection nameValues, bool alwaysTimeout = false)
+        {
             ActionResult result = null;
             object data = null;
 
@@ -368,7 +395,7 @@ namespace SAEA.MVC
             int timeoutMs = (int)(GetActionTimeoutSeconds() * 1000);
 
             // 只有显式配置 ActionTimeout 才启用超时包装：默认的 Timeout 兜底长达 180 秒，实际不会命中，
-            // 却要让每个请求额外付出一次线程跳转与带超时的自旋等待
+            // 却要让每个请求额外付出一次线程跳转与带超时的等待
             var withTimeout = alwaysTimeout || HttpContext.Current.WebConfig.ActionTimeout > 0;
 
             // 每次调用一个取消源：超时前由 finally 释放，超时后交给任务观察回调释放
@@ -395,16 +422,14 @@ namespace SAEA.MVC
 
                 if (!withTimeout)
                 {
-                    // 快路径：不起任务、不设超时。同步 action 直接调用；异步 action 仍占用当前消费线程等它完成，
-                    // 这是同步分发模型的固有代价，本轮不改分发模型
+                    // 快路径：不设超时。同步 action 直接调用，异步 action 真正 await，等待期间不占用线程
                     if (isAsync)
                     {
                         var task = (Task)action.Invoke(obj, parameters);
 
                         try
                         {
-                            // GetAwaiter().GetResult() 不抛 AggregateException，也不做带超时的自旋等待
-                            task.GetAwaiter().GetResult();
+                            await task.ConfigureAwait(false);
                         }
                         catch (Exception ex)
                         {
@@ -439,18 +464,21 @@ namespace SAEA.MVC
                     var task = (Task)action.Invoke(obj, parameters);
 
                     // 等待任务完成或超时
-                    if (!task.Wait(timeoutMs))
+                    if (!await WaitWithTimeoutAsync(task, timeoutMs).ConfigureAwait(false))
                     {
                         // 超时
                         handedToTimeout = true;
 
                         // Cancel() 在调用线程同步执行用户注册的回调，回调阻塞会把 408 拖后甚至自锁，因此放到线程池执行
-                        Task.Run(() => CancelQuietly(cts));
+                        _ = Task.Run(() => CancelQuietly(cts));
 
                         ObserveAndDispose(task, cts);
 
                         return new ContentResult($"{action.Name}: The execution of this asynchronous method has timed out", System.Net.HttpStatusCode.RequestTimeout);
                     }
+
+                    // 与原 task.Wait(timeoutMs) 返回 true 后一致：失败任务按 AggregateException 抛出
+                    RethrowLikeWait(task);
 
                     // 任务完成，Task<T> 取 Result，非泛型 Task 没有结果
                     if (action.ReturnType.IsGenericType && action.ReturnType.GetGenericTypeDefinition() == typeof(Task<>))
@@ -465,26 +493,26 @@ namespace SAEA.MVC
                     var task = Task.Run(() => action.Invoke(obj, parameters));
 
                     // 等待任务完成或超时
-                    if (!task.Wait(timeoutMs))
+                    if (!await WaitWithTimeoutAsync(task, timeoutMs).ConfigureAwait(false))
                     {
                         // 超时
                         handedToTimeout = true;
 
                         // Cancel() 在调用线程同步执行用户注册的回调，回调阻塞会把 408 拖后甚至自锁，因此放到线程池执行
-                        Task.Run(() => CancelQuietly(cts));
+                        _ = Task.Run(() => CancelQuietly(cts));
 
                         ObserveAndDispose(task, cts);
 
                         return new ContentResult($"{action.Name}: The execution of this method has timed out", System.Net.HttpStatusCode.RequestTimeout);
                     }
 
-                    // 任务完成，获取结果
+                    // 任务完成，获取结果（已失败时与原 task.Wait 一样抛 AggregateException）
                     data = task.Result;
                 }
             }
             finally
             {
-                // 非超时路径（正常完成、action 同步抛异常、Wait 抛 AggregateException）自己释放
+                // 非超时路径（正常完成、action 同步抛异常、等待时抛 AggregateException）自己释放
                 if (!handedToTimeout) cts.Dispose();
             }
 
@@ -503,6 +531,48 @@ namespace SAEA.MVC
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// 等待任务完成或到达超时；结束时立即释放计时器，避免长超时配置下计时器常驻
+        /// </summary>
+        /// <param name="task">待等待的任务</param>
+        /// <param name="timeoutMs">最长等待毫秒数</param>
+        /// <returns>任务在超时前完成返回 true，超时返回 false</returns>
+        static async Task<bool> WaitWithTimeoutAsync(Task task, int timeoutMs)
+        {
+            // 已完成的任务不必建计时器：原 Task.Wait 在这种情况下也是立即返回
+            if (task.IsCompleted)
+                return true;
+
+            using (var delayCts = new CancellationTokenSource())
+            {
+                var delayTask = Task.Delay(timeoutMs, delayCts.Token);
+
+                var completed = await Task.WhenAny(task, delayTask).ConfigureAwait(false);
+
+                if (ReferenceEquals(completed, task))
+                {
+                    // 任务先完成，主动取消计时器；被取消的延迟任务不会产生未观察异常
+                    delayCts.Cancel();
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 按 Task.Wait 的异常形态重新抛出：失败任务抛 AggregateException，取消任务包一层 TaskCanceledException
+        /// </summary>
+        /// <param name="task">已结束的任务</param>
+        static void RethrowLikeWait(Task task)
+        {
+            if (task.IsFaulted)
+                throw task.Exception;
+
+            if (task.IsCanceled)
+                throw new AggregateException(new TaskCanceledException(task));
         }
 
         /// <summary>

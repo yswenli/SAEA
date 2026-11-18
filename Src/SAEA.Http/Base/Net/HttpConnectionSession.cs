@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/10 9:10:00
+ *修改时间：2026/11/18 16:07:00
  *修改人： yswenli
- *版本号： v26.11.5.1
- *描述：新增，承载管线迁移后的连接级状态
+ *版本号： v26.11.16.1
+ *描述：写出入口拆出异步版本：WriteBytesAsync 开放为 internal，新增吞异常的 WriteBytesSafeAsync 与先写完再关闭的 WriteBytesAndCloseAsync，原同步方法改为阻塞等待同一份实现
  *
  *****************************************************************************/
 using System;
@@ -157,12 +157,22 @@ namespace SAEA.Http.Base.Net
         /// <param name="data">待写出的字节</param>
         internal void WriteBytes(byte[] data)
         {
+            WriteBytesSafeAsync(data).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 异步写出一段完整字节；写失败只记录，不向业务抛出。
+        /// </summary>
+        /// <param name="data">待写出的字节</param>
+        /// <returns>写出完成后的任务</returns>
+        internal async Task WriteBytesSafeAsync(byte[] data)
+        {
             if (data == null || data.Length == 0)
                 return;
 
             try
             {
-                WriteBytesAsync(data).GetAwaiter().GetResult();
+                await WriteBytesAsync(data).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -177,7 +187,19 @@ namespace SAEA.Http.Base.Net
         /// <param name="data">待写出的字节，可为 null</param>
         internal void WriteBytesAndClose(byte[] data)
         {
-            WriteBytes(data);
+            WriteBytesAndCloseAsync(data).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 异步写出一段完整字节，等写真正完成后才请求关闭连接。
+        /// 写失败只记录，仍然关闭连接，避免半开连接悬挂。
+        /// </summary>
+        /// <param name="data">待写出的字节，可为 null</param>
+        /// <returns>写完成并已提交关闭后的任务</returns>
+        internal async Task WriteBytesAndCloseAsync(byte[] data)
+        {
+            await WriteBytesSafeAsync(data).ConfigureAwait(false);
+
             Close();
         }
 
@@ -229,7 +251,7 @@ namespace SAEA.Http.Base.Net
             return pending.Wait(timeoutMs);
         }
 
-        private async Task WriteBytesAsync(byte[] data)
+        internal async Task WriteBytesAsync(byte[] data)
         {
             var pipeline = Pipeline;
             if (pipeline == null)
