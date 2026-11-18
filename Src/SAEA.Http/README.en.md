@@ -449,6 +449,22 @@ server.WebConfig.RequestDelegate = ctx =>
 | `HttpEmptyResult` | Empty result |
 | `HttpActionResult` | Action result |
 
+### Async writes
+
+`WebHost` and `HttpResponse` both expose async entry points, and the synchronous methods are kept:
+
+| Synchronous entry | Async entry |
+| --- | --- |
+| `WebHost.Send` / `WebHost.End` | `WebHost.SendAsync` / `WebHost.EndAsync` |
+| `HttpResponse.Send` / `HttpResponse.End` | `HttpResponse.SendAsync` / `HttpResponse.EndAsync` |
+| `HttpResponse.WriteRaw` | `HttpResponse.WriteRawAsync` |
+| `HttpResponse.SendHeader` / `SendData` / `SendEnd` | The matching `*Async` methods |
+
+- The synchronous methods are internally "async implementation + `GetAwaiter().GetResult()`", so both paths share one implementation.
+- `EndAsync` waits for the write to actually complete before committing the close, so a large response body is not truncated by the close on a slow client.
+- Write failures are still logged only and never thrown to business code, same as the synchronous entries.
+- A custom `IWebHost` implementation (one that does not inherit the built-in `WebHost`) falls back to synchronous writes on the async path.
+
 ---
 
 ## Examples 📝

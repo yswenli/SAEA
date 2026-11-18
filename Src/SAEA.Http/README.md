@@ -471,6 +471,22 @@ server.WebConfig.RequestDelegate = ctx =>
 | `HttpEmptyResult` | 空结果 |
 | `HttpActionResult` | 操作结果 |
 
+### 异步写出
+
+`WebHost` 与 `HttpResponse` 都提供异步入口，同步方法保留：
+
+| 同步入口 | 异步入口 |
+| --- | --- |
+| `WebHost.Send` / `WebHost.End` | `WebHost.SendAsync` / `WebHost.EndAsync` |
+| `HttpResponse.Send` / `HttpResponse.End` | `HttpResponse.SendAsync` / `HttpResponse.EndAsync` |
+| `HttpResponse.WriteRaw` | `HttpResponse.WriteRawAsync` |
+| `HttpResponse.SendHeader` / `SendData` / `SendEnd` | 对应的 `*Async` |
+
+- 同步方法内部就是「异步实现 + `GetAwaiter().GetResult()`」，两条路径共用一份实现。
+- `EndAsync` 先等写出真正完成，再提交关闭，避免大响应体在慢客户端上被关闭截断。
+- 写失败仍然只记日志、不向业务抛出，与同步入口一致。
+- 自定义 `IWebHost` 实现（不继承内置 `WebHost`）在异步路径上回退为同步写。
+
 ---
 
 ## 使用示例 📝

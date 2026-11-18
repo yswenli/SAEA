@@ -423,16 +423,18 @@ ActionResult ──┬── JsonActionResult ──► JSON 序列化输出
 （每格为 RPS / p50；环境为 Windows 10、16 逻辑核、.NET 10、Release 构建、工作站 GC。）
 
 - 单请求 CPU 成本在串行档降到约 152 µs（较上一轮降 24%），并发 64 降到约 165 µs（降 11%）：去掉请求路径上的线程跳转与带超时自旋、压掉每请求分配，收益主要体现在单请求成本而不是峰值吞吐。
-- 吞吐仍在并发 16 附近见顶（约 4.4 万 RPS），并发 64 为它的 93%；p50 中位为 0.09 → 0.28 → 1.17 ms，p99 中位为 0.20 → 2.16 → 5.71 ms；同期服务端只用掉 16 核算力的 45% / 42%，说明剩余瓶颈是服务端内部的排队，不是算力不足。
+- 吞吐仍在并发 16 附近见顶（约 4.4 万 RPS），并发 64 为它的 93%；p50 中位为 0.09 → 0.28 → 1.17 ms，p99 中位为 0.20 → 2.16 → 5.71 ms。服务端进程 CPU 只占 16 逻辑核的 45% / 42%，但这**不代表**服务端还有余量：压测客户端与后台程序跑在同一台机器上，实测逐轮拆解为服务端 6.3 核 + 客户端 3.3 核 + 后台与内核 5.8 核 ≈ 整机 96%（峰值 100%），同机压测下服务端只能分到约 6 核算力。
 - 五种入口的差距在 10% 以内；输出缓存档在并发 64 本轮重复间波动较大（35.2k–40k+），不能据此得出缓存收益结论。
 - 与上一轮（旧代码、同机同参数）对照：串行档 7,427 → 9,991 RPS（+34.5%），每请求 CPU 199 µs → 152 µs（−24%）；并发 16 为 47,292 → 43,906（−7%），每请求 CPU 168 µs → 166 µs（−1%），上一轮的 47,292 属波动上沿（旧代码重复测同档为 33.6k–40.1k，本轮 42–44k 与其同区间）；并发 64 为 41,603 → 40,738（−2%），每请求 CPU 184 µs → 165 µs（−11%）。并发 64 相对并发 16 的比值由 88% 升到 93%，跌幅由 12% 收窄到 7%。
+- 同机容量对照（判定性实验）：同一份压测客户端打一个「收到请求即回固定 200」的极简 socket 服务端，整机 100% 时跑出 73k–77k RPS；同样饱和条件下 SAEA.MVC 为 27k–36k。两者的每请求服务端 CPU 成本为 95–99 µs·核 对 159–206 µs·核（1.7–2.2 倍），差距来自每请求成本，不是并发模型，也不是算力分配。
+- 绝对值的可复现性：上表取自同一轮 45 次运行，但同一份代码换个时间复跑会明显不同（今日同机复测串行档 6.6k–7.1k RPS、并发 16 为 37k–40k、并发 64 为 33k–39k，差异来自后台负载）。因此上表只用于同一轮内的相对比较，跨轮数字不要直接相减。
 
 口径与边界：
 
 - 连接口径：HTTP/1.1 默认回 `Connection: keep-alive` 并真正复用连接，HTTP/1.0 默认关闭，请求显式 `Connection: close` 时才关闭；本轮 45 次运行 0 重建连接。
 - 会话：无 Cookie 请求每次新建会话，会话过期后由清理线程从会话表移除（`SweepExpired`），长时间压测内存不再随请求数单调增长；本轮仍回传 Cookie 以固定单一会话，减少与会话分配相关的噪声。
 - 覆盖范围：只覆盖极短响应体的回环场景，大响应体、静态文件、TLS 未纳入；客户端为自写压测器，未与 Kestrel 等做跨框架对比。
-- 跨轮可比性：同一档位跨轮波动可达 10%–20%，上表只用于本轮内相对比较。
+- 跨轮可比性：同一档位跨轮波动远超 10%–20%（本轮串行档 9,991 RPS，隔日同机同代码复测为 6.6k–7.1k；并发 16 从 43.9k 到 37k–40k，并发 64 从 40.7k 到 33k–39k），后台负载与机器状态都会改变绝对值，上表只用于同一轮内的相对比较。
 
 部署建议：高并发宿主建议启用 server GC。依据是同一台 16 核机器上仅切换 GC 模式（不改代码）：旧代码并发 16 从 33.6k–40.1k 提到 42.4k–45.9k，并发 64 从 25.3k–34.4k 提到 43.9k–44.1k，p99 从 9.3 ms 降到 3.9 ms。写法二选一：项目文件加 `<ServerGarbageCollection>true</ServerGarbageCollection>`，或运行时设环境变量 `DOTNET_gcServer=1`。多核、并发连接较多的宿主收益明显；单核或低并发场景收益有限，工作站 GC 的启动与内存占用更友好。
 
@@ -958,9 +960,31 @@ public class ExportController : Controller
 
 - 声明了 `CancellationToken` 形参时，令牌由框架按每次请求注入。
 - 不声明形参时，从 `((SAEA.MVC.HttpContext)HttpContext.Current).RequestAborted` 读取；`HttpContext.Current` 的静态类型是 `SAEA.Http.Model.IHttpContext`，取用前需要判型或强转。
-- 只有显式配置 `ActionTimeout > 0` 才启用动作超时包装：单次调用超过 `ActionTimeout` 秒仍未完成时，框架返回 **408 Request Timeout**，并 `Cancel()` 该令牌。默认（`ActionTimeout = 0`）不启用超时包装：同步 action 阻塞会直接占用消费线程，没有 408 兜底；异步 action 由 `GetAwaiter().GetResult()` 同步等待完成。`Timeout` 只负责连接空闲回收，单独调小它不会改变动作超时，但会提前回收空闲连接；只为缩短动作超时而调小 `Timeout` 会先回收连接、导致 408 写不出去，应改用 `ActionTimeout`。
+- 只有显式配置 `ActionTimeout > 0` 才启用动作超时包装：单次调用超过 `ActionTimeout` 秒仍未完成时，框架返回 **408 Request Timeout**，并 `Cancel()` 该令牌。默认（`ActionTimeout = 0`）不启用超时包装：同步 action 阻塞会直接占用消费线程，没有 408 兜底；异步 action 由框架真正 `await`，等待期间线程归还线程池，不会被单个请求占死。`Timeout` 只负责连接空闲回收，单独调小它不会改变动作超时，但会提前回收空闲连接；只为缩短动作超时而调小 `Timeout` 会先回收连接、导致 408 写不出去，应改用 `ActionTimeout`。
 - 令牌只在本次 action 调用期间有效：action 返回后取消源即释放，不要继续注册回调或交给后台任务长期持有。未进入 action 的请求（404、405、静态文件、`RequestDelegate`）读到的是不可取消的默认令牌。
 - 这是**协作式取消**：只有观察令牌的代码才会停止，比如 `token.ThrowIfCancellationRequested()`、`Task.Delay(..., token)`、向令牌注册的回调。没有观察令牌的同步代码无法被强制终止，会继续在后台跑完，其后续异常由框架观察并丢弃，不会再写响应。
+
+### 异步入口
+
+框架自身也提供了一套异步入口。它和上面的「异步 Action」是两件事：异步 Action 描述你写的控制器方法，异步入口描述框架把请求处理完、并等待响应真正写出。
+
+| 同步入口 | 异步入口 | 说明 |
+| --- | --- | --- |
+| `IHttpContext.HttpHandle` | `HttpContextBase.HttpHandleAsync` | 请求处理总入口；`IHttpContext` 未新增成员，非 `HttpContextBase` 派生实现仍走同步入口 |
+| `HttpContext.GetActionResult` | `HttpContext.GetActionResultAsync` | 路由与 action 结果获取 |
+| `MvcInvoker.InvokeResult` | `MvcInvoker.InvokeResultAsync` | 执行 action，异步 action 在这里被真正 `await` |
+| `HttpResponse.Send` / `End` | `HttpResponse.SendAsync` / `EndAsync` | 发送响应；`EndAsync` 写完成后才提交关闭 |
+| `HttpResponse.WriteRaw` | `HttpResponse.WriteRawAsync` | 直接写原始字节（握手失败等场景） |
+| `HttpResponse.SendHeader` / `SendData` / `SendEnd` | 对应的 `*Async` | 分段写场景（SSE、大文件） |
+| `WebHost.Send` / `End` | `WebHost.SendAsync` / `EndAsync` | 发送字节；写失败仍只记日志，不向业务抛出 |
+
+约定：
+
+- 同步入口全部保留，内部是「异步实现 + `GetAwaiter().GetResult()`」：一份实现两套入口，不会出现行为漂移。
+- `IHttpContext` 接口没有新增成员，只重写了 `HttpHandle` 的自定义实现不会被绕过。
+- 自定义 `IWebHost` 实现（不继承内置 `WebHost`）在异步路径上回退为同步写，行为与改动前一致。
+- 线程占用实测：64 个并发请求打「`await Task.Delay(200)` 后返回」的 action，服务端进程线程数稳定在 30；把同一个 action 改成同步 `Thread.Sleep(200)`，线程数为 46。等待期间线程确实归还了线程池。
+- 异步入口**不提升吞吐**：同一批压测（并发 1 / 16 / 64）改动前后差异在 ±6% 以内。这是预期结果——本机测出的瓶颈是每请求 CPU 与 GC（约 16–23 KB 分配/请求、18%–30% 墙钟在 GC 暂停），不是线程模型。
 
 ### WebSocket 长连接
 
