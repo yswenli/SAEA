@@ -29,6 +29,8 @@
 *描述：新增，提供只声明 Async 版本、同步与异步同名共存、以及只走属性路由模板的三个入口
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
 using System.Threading.Tasks;
 
 namespace SAEA.MVC.Tests.Controllers

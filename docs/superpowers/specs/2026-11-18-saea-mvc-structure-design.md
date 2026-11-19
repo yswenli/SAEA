@@ -13,7 +13,7 @@
 
 目标只有两条：
 
-1. 目录结构与命名空间反映职责，作者面向的公开类型仍留在 `SAEA.MVC`。
+1. 目录结构与命名空间反映职责，每个目录映射到同名子命名空间，作者面向的公开类型也随目录进入子命名空间。
 2. 把 6 个巨型类按单职责切成小类型，新增类型全部 `internal`，**公开类型名与公开成员签名冻结**（行为变更只有第 5 节切 4 的 `_sweeper` 释放；类型改名只有 `Routing` → `RouteEntry` 一处，见第 4.5 节）。
 
 本次不做性能优化，也不改协议语义；除第 5 节切 4 明确列出的 `_sweeper` 释放外，其余搬迁必须行为等价。
@@ -26,9 +26,9 @@
 | 可空引用类型 | 不启用，不为局部改动单独开启 |
 | 包与依赖 | 不改 `Src/SAEA.MVC/SAEA.MVC.csproj` 的 `<Version>`（当前 `26.11.16.1`），不增删、不升降 `PackageReference`，不动四个 `ProjectReference`（`SAEA.Common`、`SAEA.Http`、`SAEA.Sockets`、`SAEA.WebSocket`） |
 | 文件头 banner | 每个改动文件的「命名空间」「文件名」字段按实际内容改写；「修改标记」段整体覆盖为本次修改信息，不追加历史；`唯一标识` 保持原值不变；`CLR版本` 仍为 `netstandard2.0`；`版本号` 随 csproj 现值 |
-| 公开 API | 除第 4.5 节裁定的 `Routing` → `RouteEntry` 这一处改名外，其余公开类型名与公开成员签名冻结；`MvcInvoker`、`WSMessage`、`RouteTable` 等名称不改 |
+| 公开 API | 改名与迁移共三处：第 4.5 节的 `Routing` → `RouteEntry` 改名、第 4.2 节的 `WSMessage` / `WSMessageType` 迁入 `SAEA.MVC.WebSockets`，与第 4.2 节的 `HttpGet` / `HttpPost` 改名为 `HttpGetAttribute` / `HttpPostAttribute`；`Hosting/`、`Controllers/`、`Results/`、`Attributes/` 下 22 个类型的命名空间统一迁到同名子命名空间（第 4.3 节）。上述之外，公开类型名与公开成员签名冻结，`MvcInvoker`、`RouteTable` 等名称不改 |
 | 行尾与编码 | 改既有文件前先确认其行尾与 BOM 并保持原样，禁止整文件重写造成全文件 diff |
-| 命名空间搬迁 | `RouteTable`、`RouteEntry` 是公开类型，迁到子命名空间属源码级破坏，消费方必须重编译（见第 10 节第 1 条） |
+| 命名空间搬迁 | 所有目录都映射同名子命名空间，22 个公开类型随目录迁移，属源码级破坏，消费方必须补 `using` 并重新编译（第 4.3 节、第 6.1 节） |
 
 ## 3. 现状问题清单
 
@@ -113,8 +113,7 @@ Src/SAEA.MVC/
 │  └─ MvcInvoker.cs                       （原 MVCInvoker.cs 改名，类型名不变）
 ├─ Controllers/
 │  ├─ Controller.cs
-│  ├─ WSController.cs
-│  └─ WSMessage.cs
+│  └─ WSController.cs
 ├─ Results/
 │  ├─ ActionResult.cs
 │  ├─ JsonResult.cs
@@ -128,8 +127,8 @@ Src/SAEA.MVC/
 │  ├─ IFilter.cs
 │  ├─ ActionFilterAttribute.cs
 │  ├─ OutputCacheAttribute.cs
-│  ├─ HttpGet.cs
-│  ├─ HttpPost.cs
+│  ├─ HttpGetAttribute.cs                  （原 HttpGet.cs 改名，类型改名 HttpGet → HttpGetAttribute）
+│  ├─ HttpPostAttribute.cs                 （原 HttpPost.cs 改名，类型改名 HttpPost → HttpPostAttribute）
 │  ├─ RouteAttribute.cs
 │  └─ WebSocketAttribute.cs
 ├─ Routing/
@@ -151,6 +150,7 @@ Src/SAEA.MVC/
 ├─ WebSockets/
 │  ├─ WebSocketsFeature.cs
 │  ├─ MVCWebSocketConnection.cs
+│  ├─ WSMessage.cs                         （含 WSMessageType）
 │  ├─ WebSocketHandshake.cs                （新增）
 │  └─ WebSocketConnectionRegistry.cs       （新增）
 ├─ Tool/
@@ -169,13 +169,13 @@ Src/SAEA.MVC/
 
 | 目录 | 文件 | 命名空间 |
 | --- | --- | --- |
-| `Hosting/` | `SAEAMvcApplication`、`SAEAMvcApplicationConfig`、`SAEAMvcApplicationConfigBuilder`、`HttpContext`、`MvcInvoker` | `SAEA.MVC` |
-| `Controllers/` | `Controller`、`WSController`、`WSMessage` | `SAEA.MVC` |
-| `Results/` | `ActionResult`、`JsonResult`、`ContentResult`、`DataResult`、`FileResult`、`BigDataResult`、`EventStream`、`EmptyResult` | `SAEA.MVC` |
-| `Attributes/` | `IFilter`、`ActionFilterAttribute`、`OutputCacheAttribute`、`HttpGet`、`HttpPost`、`RouteAttribute`、`WebSocketAttribute` | `SAEA.MVC` |
+| `Hosting/` | `SAEAMvcApplication`、`SAEAMvcApplicationConfig`、`SAEAMvcApplicationConfigBuilder`、`HttpContext`、`MvcInvoker` | `SAEA.MVC.Hosting` |
+| `Controllers/` | `Controller`、`WSController` | `SAEA.MVC.Controllers` |
+| `Results/` | `ActionResult`、`JsonResult`、`ContentResult`、`DataResult`、`FileResult`、`BigDataResult`、`EventStream`、`EmptyResult` | `SAEA.MVC.Results` |
+| `Attributes/` | `IFilter`、`ActionFilterAttribute`、`OutputCacheAttribute`、`HttpGetAttribute`、`HttpPostAttribute`、`RouteAttribute`、`WebSocketAttribute` | `SAEA.MVC.Attributes` |
 | `Routing/` | `RouteTable`、`RouteEntry`（原 `Routing`）、`AreaCollection`、`AttributeRouteTable`，新增 `AttributeRouteEntry`、`RouteTemplateParser`、`RoutePath`、`RouteSegmentMatcher` | `SAEA.MVC.Routing` |
 | `Invocation/` | 新增 `ActionResolver`、`FilterCollector`、`ActionInvoker`、`ParameterBinder`、`VerbPolicy`、`RequestPipeline` | `SAEA.MVC.Invocation` |
-| `WebSockets/` | `WebSocketsFeature`、`MVCWebSocketConnection`，新增 `WebSocketHandshake`、`WebSocketConnectionRegistry` | `SAEA.MVC.WebSockets` |
+| `WebSockets/` | `WebSocketsFeature`、`MVCWebSocketConnection`、`WSMessage`（含 `WSMessageType`），新增 `WebSocketHandshake`、`WebSocketConnectionRegistry` | `SAEA.MVC.WebSockets` |
 | `Tool/` | `APISdkCodeGenerator`、`CodeType` | `SAEA.MVC.Tool` |
 | `Tool/CodeGenerte/` | `ApiMapping`、`CSharpTemple`、`JsTemple` | `SAEA.MVC.Tool.CodeGenerte` |
 
@@ -183,14 +183,14 @@ Src/SAEA.MVC/
 
 > 目录名说明：指令给的目标目录写作 `Tool/CodeGenerate/`，现盘实际是 `Tool/CodeGenerte/`，且该目录下三个文件的命名空间是 `SAEA.MVC.Tool.CodeGenerte`。按「不改 `CodeGenerte` / `Temple` 拼写」的边界，本次**保留现盘目录名与命名空间**，只做搬迁；把目录名改成 `CodeGenerate` 会让目录与命名空间继续错位，属另立条目处理。
 
-### 4.3 唯一例外规则：作者面向的目录不映射子命名空间
+### 4.3 决策反转：四个作者面向目录同样映射子命名空间
 
-`Hosting/`、`Controllers/`、`Results/`、`Attributes/` 四个目录**不对应子命名空间**，其中的类型统一留在 `SAEA.MVC`。理由：
+原方案给 `Hosting/`、`Controllers/`、`Results/`、`Attributes/` 四个目录开了例外，让其中的类型统一留在 `SAEA.MVC`。**2026-11-19 决定取消该例外**：四个目录与其他目录一样映射同名子命名空间，`SAEA.MVC` 根命名空间下不再保留任何类型。
 
-- 这四类类型是使用者直接书写的（`Controller` 派生、`ActionResult` 派生、`[HttpGet]` 标注、`SAEAMvcApplication` 启动），命名空间一变，所有消费方都要补 `using`，属无收益的破坏。
-- 只有实现层子目录映射子命名空间：`Routing/` → `SAEA.MVC.Routing`、`Invocation/` → `SAEA.MVC.Invocation`、`WebSockets/` → `SAEA.MVC.WebSockets`、`Tool/` 与 `Tool/CodeGenerte/` 维持现有两个命名空间。
-
-因此「目录 = 职责」与「命名空间 = 作者可见面」是两条独立轴，不要用统一规则套。
+- 取消例外的理由：保留例外时「目录 = 命名空间」只能写成带例外的规则，读者按目录推断命名空间会推错，按目录补 `using` 的直觉也对不上；取消后规则是一句话——所有目录都映射同名子命名空间，没有例外（第 4.2 节）。
+- 影响范围：22 个公开类型随目录迁移——`Controllers/` 的 `Controller`、`WSController`，`Results/` 的 `ActionResult`、`JsonResult`、`ContentResult`、`DataResult`、`FileResult`、`BigDataResult`、`EventStream`、`EmptyResult`，`Attributes/` 的 `IFilter`、`ActionFilterAttribute`、`OutputCacheAttribute`、`HttpGetAttribute`、`HttpPostAttribute`、`RouteAttribute`、`WebSocketAttribute`，`Hosting/` 的 `SAEAMvcApplication`、`SAEAMvcApplicationConfig`、`SAEAMvcApplicationConfigBuilder`、`HttpContext`、`MvcInvoker`。
+- 代价：这是对外可见的破坏性变更，消费方只换包版本不够，必须为每个引用的类型补对应子命名空间的 `using` 后重新编译（第 6.1 节）；`Src/SAEA.Common/ConstHelper.cs` 的两条反射字符串同步改为新全名。因此本次变更需要升包版本号，并在发布说明里把命名空间重组单列为破坏性条目；版本号由版本管理方统一调整，不在本次代码改动里顺手改。
+- 连带口径：`SAEA.MVC` 根命名空间现已为空，`using SAEA.MVC;` 仍可编译但不再引入任何类型，文档示例一律改为写实际用到的子命名空间。
 
 ### 4.4 同文件保留的类型
 
@@ -198,7 +198,7 @@ Src/SAEA.MVC/
 
 | 文件 | 同文件类型 | 保留理由 |
 | --- | --- | --- |
-| `Controllers/WSMessage.cs` | `WSMessageType`（第 40 行）与 `WSMessage`（第 56 行） | 枚举只服务 `WSMessage.Type`，拆开后读者要在两个文件间来回对照，且 `WSMessage` 的构造函数只接受该枚举 |
+| `WebSockets/WSMessage.cs` | `WSMessageType`（第 40 行）与 `WSMessage`（第 56 行） | 枚举只服务 `WSMessage.Type`，拆开后读者要在两个文件间来回对照，且 `WSMessage` 的构造函数只接受该枚举 |
 | `Attributes/OutputCacheAttribute.cs` | `OutputCacheManager`（第 136 行，internal static） | 管理器只被该特性使用，拆开会让 internal 细节多一个公开入口文件 |
 | `Tool/CodeGenerte/CSharpTemple.cs` | `CSharpTemple`（第 41 行）与 `SaeaApiSdk`（第 57 行） | 模板文本与模板产出类型同源，改一处必看另一处；两者都在 `SAEA.MVC.Tool.CodeGenerte` |
 
@@ -279,7 +279,7 @@ namespace A.B { public class C { public B field; } }
 
 公开面冻结：`MvcInvoker.InvokeResult`（第 59–62 行）与 `MvcInvoker.InvokeResultAsync`（第 73–290 行）的名称、参数表、返回类型不变，签名行为也保持不变（同步入口继续是 `GetAwaiter().GetResult()`）。
 
-- `VerbPolicy`：`GetAllowedMethods`（297–324）、`IsMethodAllowed`（332–340）。仍按 `GetType().Name` 与 `ConstHelper.HTTPGET` / `HTTPPOST` 比较，不改判定方式。
+- `VerbPolicy`：`GetAllowedMethods`（297–324）、`IsMethodAllowed`（332–340）。按 `is HttpGetAttribute` / `is HttpPostAttribute` 类型判断，取代原先的 `GetType().Name` 与 `ConstHelper.HTTPGET` / `HTTPPOST` 字符串比较；允许方法与 405 判定结果不变。
 - `ParameterBinder`：`FillParameters`（585–634）。`CancellationToken` 类型的参数不走 `ParamsHelper.FillPamars`，而是先剔除再按原声明顺序插回（第 609–633 行），这段必须原样保留。
 - `ActionInvoker`：`MethodInvokeAsync`（389–534）、`WaitWithTimeoutAsync`（542–563）、`RethrowLikeWait`（569–576）、`CancelQuietly`（640–654）、`ObserveAndDispose`（661–670）、`GetActionTimeoutSeconds`（359–366）。超时返回 408 的两段文案（第 477、506 行）、`AggregateException` 的复现形态（第 438、457 行）、`cts` 的 `handedToTimeout` 释放协议（第 405、499、516 行）全部保留。
 
@@ -325,20 +325,20 @@ namespace A.B { public class C { public B field; } }
 
 | 工程 | 类型 | 实际需要改动 | 核对依据 |
 | --- | --- | --- | --- |
-| `Src/SAEA.MVC.Tests` | SDK 式，`net10.0`，在 sln 内 | 2 个文件补 `using SAEA.MVC.Routing;`：`Tests/AttributeRouteBuildTests.cs`（第 157、162、189 行显式写 `RouteTable`）、`Tests/RouteTokenTests.cs`（第 335 行 `new RouteTable()`）；2 处反射字符串改为 `SAEA.MVC.Routing.AttributeRouteTable`：`AttributeRouteBuildTests.cs` 第 179 行、`RouteTokenTests.cs` 第 325 行 | 逐文件检索 `RouteTable` / `AttributeRouteTable` 得到的命中共 2 个文件 |
-| `Src/SAEA.MVCTest` | 旧式 csproj，`net4.6.2`，在 sln 内 | **0 处必需改动**：全工程没有任何文件显式写出 `RouteTable` / `Routing` / `AreaCollection` / `AttributeRouteTable` / `WebSocketsFeature`，唯一涉及路由的 `Controllers/SaeaSdkTestController.cs` 用 `var` 接 `ApiMapping.GetMapping()`（第 36 行）并只做成员访问 | 检索 22 个 `.cs` 后无命中 |
-| `Src/SAEA.Mvc.ServiceTest` | 旧式 csproj，`net4.6.2`，在 sln 内 | **0 处必需改动**：`Controllers/HomeController.cs` 第 18 行、`Service1.cs` 第 1 行的 `using SAEA.MVC;` 仍然有效，未出现迁移类型的名字 | 检索 14 个 `.cs` 后无命中 |
-| `Src/SAEA.MVC`（库内调用方） | 库工程自身，`netstandard2.0` | 补 `using SAEA.MVC.Routing;` 的 5 个文件：`MvcInvoker.cs`（第 59、73 行公开签名里的 `RouteTable`）、`HttpContext.cs`（第 52、54、62、64 行，以及第 292、294、323、325 行的 `RouteTable.Types`）、`SAEAMvcApplication.cs`（第 49、121、123、131、135 行的 `AreaCollection` 与 `AttributeRouteTable`）、`Tool/CodeGenerte/ApiMapping.cs`（第 45、52 行 `AreaCollection`、第 65 行 `RouteTable.Types`、第 113 行 `AttributeRouteTable.TryGetDeclaredRoute`）、`Tool/APISdkCodeGenerator.cs`（第 53、70、147、212 行的 `Routing`，位于 `namespace SAEA.MVC.Tool`，类型改名后为 `RouteEntry`）；补 `using SAEA.MVC.WebSockets;` 的 3 个文件：`MvcInvoker.cs`（第 108 行 `WebSocketsFeature`）、`HttpContext.cs`（第 80、90 行 `WebSocketsFeature`）、`SAEAMvcApplication.cs`（第 138、256 行 `WebSocketsFeature`），即前三个文件两个 `using` 都要补；改类型名 `Routing` → `RouteEntry`：`RouteTable.cs`（第 46、61、65、107、117、215、225 行，同命名空间无需 using）、`Tool/CodeGenerte/ApiMapping.cs`（第 59、61、89、99、232 行）、`Tool/APISdkCodeGenerator.cs`（第 53、70、147、212 行，含第 29 行 banner 描述里的 `Routing.Template`） | 在 `Src/SAEA.MVC` 内逐文件检索 `RouteTable` / `Routing` / `AreaCollection` / `AttributeRouteTable` / `WebSocketsFeature` 得到的命中共 5 个文件 |
+| `Src/SAEA.MVC.Tests` | SDK 式，`net10.0`，在 sln 内 | 2 个文件补 `using SAEA.MVC.Routing;`：`Tests/AttributeRouteBuildTests.cs`（第 157、162、189 行显式写 `RouteTable`）、`Tests/RouteTokenTests.cs`（第 335 行 `new RouteTable()`）；2 处反射字符串改为 `SAEA.MVC.Routing.AttributeRouteTable`：`AttributeRouteBuildTests.cs` 第 179 行、`RouteTokenTests.cs` 第 325 行；另有 2 个控制器补 `using SAEA.MVC.WebSockets;`：`Controllers/EchoController.cs`（第 48 行）、`Controllers/RouteWsController.cs`（第 59 行），因为 `MessageAsync(WSMessage message)` 的参数类型迁了命名空间；测试控制器里的 `[HttpGet]` 已统一写成 `[HttpGetAttribute]`（等价写法），`[HttpGet]` 简写仍可用。四个作者面向目录改子命名空间后，本工程所有直接书写这些类型的文件（`Controllers/` 与 `Attributes/` 下的全部文件，以及 `Tests/` 里声明 `ActionResult`、调用 `SAEAMvcApplication` / `HttpContext` 的用例）还要补 `SAEA.MVC.Controllers` / `SAEA.MVC.Results` / `SAEA.MVC.Attributes` / `SAEA.MVC.Hosting` 中实际用到的 using | 逐文件检索 `RouteTable` / `AttributeRouteTable` 得到的命中共 2 个文件；检索 `Controller` / `ActionResult` / 特性命中 `Controllers/`、`Attributes/` 全部文件与部分测试文件 |
+| `Src/SAEA.MVCTest` | 旧式 csproj，`net4.6.2`，在 sln 内 | `Controllers/ChatController.cs` 第 165 行的 `MessageAsync(WSMessage message)` 需要补 `using SAEA.MVC.WebSockets;`；四个作者面向目录改子命名空间后，`Attrubutes/` 的 2 个过滤器、`Controllers/` 的 13 个控制器与 `Program.cs`（共 16 个文件）要补 `SAEA.MVC.Controllers` / `SAEA.MVC.Results` / `SAEA.MVC.Attributes` / `SAEA.MVC.Hosting` 中实际用到的 using；其余 6 个文件不写这些类型，无需改。全工程没有文件显式写出 `RouteTable` / `Routing` / `AreaCollection` / `AttributeRouteTable` / `WebSocketsFeature`，唯一涉及路由的 `Controllers/SaeaSdkTestController.cs` 用 `var` 接 `ApiMapping.GetMapping()`（第 36 行）并只做成员访问 | 检索 22 个 `.cs`：`RouteTable` / `Routing` / `AreaCollection` / `AttributeRouteTable` / `WebSocketsFeature` 无命中，`Controller` / `ActionResult` / 特性命中 16 个文件 |
+| `Src/SAEA.Mvc.ServiceTest` | 旧式 csproj，`net4.6.2`，在 sln 内 | 2 个文件要补 using：`Controllers/HomeController.cs` 写 `Controller` 与 `ActionResult`，需 `using SAEA.MVC.Controllers;` 与 `using SAEA.MVC.Results;`；`Service1.cs` 写 `SAEAMvcApplication` / `SAEAMvcApplicationConfig` / `SAEAMvcApplicationConfigBuilder`，需 `using SAEA.MVC.Hosting;`。`Program.cs` 不写这些类型，无需改；原 `using SAEA.MVC;` 可以保留，但它已不引入任何类型 | 检索 14 个 `.cs` 后命中 2 个文件 |
+| `Src/SAEA.MVC`（库内调用方） | 库工程自身，`netstandard2.0` | 补 `using SAEA.MVC.Routing;` 的 5 个文件：`MvcInvoker.cs`（第 59、73 行公开签名里的 `RouteTable`）、`HttpContext.cs`（第 52、54、62、64 行，以及第 292、294、323、325 行的 `RouteTable.Types`）、`SAEAMvcApplication.cs`（第 49、121、123、131、135 行的 `AreaCollection` 与 `AttributeRouteTable`）、`Tool/CodeGenerte/ApiMapping.cs`（第 45、52 行 `AreaCollection`、第 65 行 `RouteTable.Types`、第 113 行 `AttributeRouteTable.TryGetDeclaredRoute`）、`Tool/APISdkCodeGenerator.cs`（第 53、70、147、212 行的 `Routing`，位于 `namespace SAEA.MVC.Tool`，类型改名后为 `RouteEntry`）；补 `using SAEA.MVC.WebSockets;` 的 4 个文件：`MvcInvoker.cs`（第 108 行 `WebSocketsFeature`）、`HttpContext.cs`（第 80、90 行 `WebSocketsFeature`）、`SAEAMvcApplication.cs`（第 138、256 行 `WebSocketsFeature`）、`Controllers/WSController.cs`（第 67 行 `MessageAsync(WSMessage message)`），即前三个文件两个 `using` 都要补；改类型名 `Routing` → `RouteEntry`：`RouteTable.cs`（第 46、61、65、107、117、215、225 行，同命名空间无需 using）、`Tool/CodeGenerte/ApiMapping.cs`（第 59、61、89、99、232 行）、`Tool/APISdkCodeGenerator.cs`（第 53、70、147、212 行，含第 29 行 banner 描述里的 `Routing.Template`）；`RouteTable`、`MvcInvoker`、`ApiMapping` 的动词判定改为按 `HttpGetAttribute` / `HttpPostAttribute` 类型判断 | 在 `Src/SAEA.MVC` 内逐文件检索 `RouteTable` / `Routing` / `AreaCollection` / `AttributeRouteTable` / `WebSocketsFeature` 得到的命中共 5 个文件；`WSMessage` 引用另有 4 处，见同行 |
 
-因此「三个消费工程各补 using」这一预期不成立：**外部消费工程里真正必改的只有测试工程的两个文件**；库内影响见上表最后一行（5 个文件补 `using SAEA.MVC.Routing;`，其中前 3 个文件再各补一条 `using SAEA.MVC.WebSockets;`，另有 3 个文件把 `Routing` 类型名改成 `RouteEntry`）。`SAEAMvcApplication.cs` 第 138 行的 `ConnectionClosed += WebSocketsFeature.OnDisconnected` 是方法组订阅 `EventHandler`，类型迁到 `SAEA.MVC.WebSockets` 后签名不变，补 `using` 即可，不需要改成实例订阅。两个演示工程保留原 `using SAEA.MVC;` 即可，但仍要跑一次构建确认（原因见第 10 节第 3 条）。
+因此改动面比「三个消费工程各补 using」的原预期更宽：`Routing/`、`WebSockets/` 的迁移仍以上表逐文件列出的位置为准，而四个作者面向目录改子命名空间后，凡是直接书写 `Controller`、`WSController`、`ActionResult` 及结果类型、`SAEAMvcApplication` 及其配置类、`HttpContext`、`MvcInvoker`、`[HttpGet]` / `[HttpPost]` / `[Route]` / `[OutputCache]` / `[WebSocket]` / `IFilter` / `ActionFilterAttribute` 的文件，都要补对应子命名空间的 `using`：控制器文件通常补 `Controllers` + `Results` + `Attributes`，启动文件补 `Hosting`，WebSocket 控制器再补 `WebSockets`。库内影响另见上表最后一行（5 个文件补 `using SAEA.MVC.Routing;`，其中前 3 个文件再各补一条 `using SAEA.MVC.WebSockets;`，`Controllers/WSController.cs` 同样补这一条，另有 3 个文件把 `Routing` 类型名改成 `RouteEntry`；四个新子命名空间之间的交叉引用同样要补 `using`）。`SAEAMvcApplication.cs` 第 138 行的 `ConnectionClosed += WebSocketsFeature.OnDisconnected` 是方法组订阅 `EventHandler`，类型迁到 `SAEA.MVC.WebSockets` 后签名不变，补 `using` 即可，不需要改成实例订阅。三个消费工程改完都要各跑一次构建取证据（原因见第 10 节第 3 条），不能只凭库工程构建通过收工。
 
-**确认不改**：`Src/SAEA.Common/ConstHelper.cs` 第 52 行的 `"SAEA.MVC.Controller"` 与第 336 行的 `"SAEA.MVC.OutputCacheAttribute"` 是反射字符串，指向本次留在 `SAEA.MVC` 的 `Controller` 与 `OutputCacheAttribute`，不得改动；不要按「批量替换 `SAEA.MVC.*` 字符串」处理。
+**反射字符串已随本次变更新全名**：`Src/SAEA.Common/ConstHelper.cs` 第 52 行的 `"SAEA.MVC.Controllers.Controller"` 与第 336 行的 `"SAEA.MVC.Attributes.OutputCacheAttribute"`（第 29 行 banner 描述同步说明）。这两条是类型全名字符串，必须与 `Controller`、`OutputCacheAttribute` 的实际命名空间一致；类型再迁移时同步改这里，不要按「批量替换 `SAEA.MVC.*` 字符串」处理。
 
 ### 6.2 README 同步
 
-- `Src/SAEA.MVC/README.md` 与 `Src/SAEA.MVC/README.en.md` 各 1109 行，行号一一对应。
-- 两份里 `using SAEA.MVC;` 各出现 **11 次**（两份都在第 41、75、545、675、700、785、805、840、867、905、1013 行），全部是普通引入，没有 `using SAEA.MVC.Tool;` 混在其中。这 11 处示例本身不需要改（`Controller`、`ActionResult`、`[HttpGet]` 等仍在 `SAEA.MVC`），但示例之外必须新增内容：
-  1. 新增「目录与命名空间结构」章节（建议紧随现有的「核心类」章节，即 `README.md` 第 642 行之前/之后），给出第 4.2 节那张表。
+- `Src/SAEA.MVC/README.md` 与 `Src/SAEA.MVC/README.en.md` 各 1185 行，行号一一对应。
+- 两份里写出 `using SAEA.MVC.*` 的代码块各 15 处，全部按块内实际用到的类型带上子命名空间（`SAEA.MVC.Hosting` / `SAEA.MVC.Controllers` / `SAEA.MVC.Results` / `SAEA.MVC.Attributes` / `SAEA.MVC.Routing` / `SAEA.MVC.WebSockets`），示例里不再保留只写 `using SAEA.MVC;` 的引入行，也没有 `using SAEA.MVC.Tool;` 混在其中。除示例之外还必须新增内容：
+  1. 新增「目录与命名空间结构」章节（紧随「核心类」章节），给出第 4.2 节那张表。
   2. 新增「旧 → 新命名空间对照表」，至少覆盖：
 
      | 旧写法 | 新写法 |
@@ -347,11 +347,16 @@ namespace A.B { public class C { public B field; } }
      | `SAEA.MVC.Routing`（类型） | `SAEA.MVC.Routing.RouteEntry`（改名） |
      | `SAEA.MVC.AreaCollection`（internal） | `SAEA.MVC.Routing.AreaCollection` |
      | `SAEA.MVC.AttributeRouteTable`（internal） | `SAEA.MVC.Routing.AttributeRouteTable` |
-     | 其余公开类型 | 不变 |
+     | `SAEA.MVC.WSMessage` / `SAEA.MVC.WSMessageType` | `SAEA.MVC.WebSockets.WSMessage` / `SAEA.MVC.WebSockets.WSMessageType` |
+     | `SAEA.MVC.SAEAMvcApplication`、`SAEAMvcApplicationConfig`、`SAEAMvcApplicationConfigBuilder`、`HttpContext`、`MvcInvoker` | `SAEA.MVC.Hosting.*` |
+     | `SAEA.MVC.Controller`、`WSController` | `SAEA.MVC.Controllers.*` |
+     | `SAEA.MVC.ActionResult`、`JsonResult`、`ContentResult`、`DataResult`、`FileResult`、`BigDataResult`、`EventStream`、`EmptyResult` | `SAEA.MVC.Results.*` |
+     | `SAEA.MVC.IFilter`、`ActionFilterAttribute`、`OutputCacheAttribute`、`HttpGetAttribute`、`HttpPostAttribute`、`RouteAttribute`、`WebSocketAttribute` | `SAEA.MVC.Attributes.*` |
 
-  3. 凡示例直接出现 `RouteTable` / `RouteEntry` 类型名的地方补 `using SAEA.MVC.Routing;`（现有 11 处示例都不涉及，新增示例必须补）。
-  4. 两份 README 第 141 行都把令牌替换后的绝对路径写作 `Routing.Template`，随类型改名改为 `RouteEntry.Template`（中英同批，各自保持现语句式）。
-  5. 两份 README 里另有写出 `RouteTable` 的位置（`README.md` 第 293 行 ASCII 结构图、第 659 行核心类表格，`README.en.md` 同行一一对应），实测都是简单类型名、没有命名空间前缀，**不需要改**；新增的「目录与命名空间结构」章节按第 4.2 节写清 `RouteTable` 位于 `SAEA.MVC.Routing` 即可。
+  3. 凡示例直接出现 `RouteTable` / `RouteEntry` 类型名的地方补 `using SAEA.MVC.Routing;`（现有示例只有「目录与命名空间结构」章节那一处涉及，已带该 `using`；新增示例必须补）。
+  4. 两份 README 的「属性路由写法」章节都把令牌替换后的绝对路径写作 `RouteEntry.Template`（中英同批，各自保持现语句式）。
+  5. 两份 README 的 ASCII 结构图与「核心类」表格里也出现 `RouteTable`，实测都是简单类型名、没有命名空间前缀，**不需要改**；「目录与命名空间结构」章节按第 4.2 节写清 `RouteTable` 位于 `SAEA.MVC.Routing` 即可；WebSocket 长连接示例的 `using` 块必须带 `using SAEA.MVC.WebSockets;`，否则 `MessageAsync(WSMessage message)` 编译不过。
+  6. 两份 README 的核心类表与「目录与命名空间结构」表里的 `HttpGet` / `HttpPost` 类型名改为 `HttpGetAttribute` / `HttpPostAttribute`，并说明 `[HttpGet]` / `[HttpPost]` 简写仍可用；示例代码不变。
 - 中英两份必须同批改完、内容对齐，不允许只改一份。
 
 ### 6.3 文档与注释
@@ -405,16 +410,16 @@ namespace A.B { public class C { public B field; } }
 
 ### 第 1 步：纯搬迁
 
-- 34 个文件移入第 4.1 节目录树（`MVCInvoker.cs` 改名为 `MvcInvoker.cs`；`Routing.cs` 改名为 `RouteEntry.cs` 且类型同名改名）。
-- `Routing/` 与 `WebSockets/` 下现有的 6 个文件（`RouteTable`、`Routing`、`AreaCollection`、`AttributeRouteTable`、`WebSocketsFeature`、`MVCWebSocketConnection`）把 `namespace` 改为 `SAEA.MVC.Routing` / `SAEA.MVC.WebSockets`；`Hosting/`、`Controllers/`、`Results/`、`Attributes/` 保持 `SAEA.MVC`，`Tool/` 与 `Tool/CodeGenerte/` 沿用现有命名空间；`Invocation/` 在第 2 步才新增。
-- banner 口径：只有内容发生变化的文件才同步 banner——6 个 `namespace` 变化的文件改「命名空间」字段并整体覆盖「修改标记」（`Routing.cs` 同时命中改名口径）；2 个改名的文件（`MVCInvoker.cs`、`Routing.cs`）改「文件名」「描述」并覆盖「修改标记」；补 `using` 的 8 处落在 5 个文件（`MvcInvoker.cs`、`HttpContext.cs`、`SAEAMvcApplication.cs`、`Tool/CodeGenerte/ApiMapping.cs`、`Tool/APISdkCodeGenerator.cs`），只覆盖「修改标记」。纯物理移动到子目录、内容一字不变的文件不得改 banner、不得整文件重写。`Src/SAEA.MVC.Tests` 的存量文件按仓库约定不回填 banner。
-- 行尾与 BOM 必须保持原样：`Src/SAEA.MVC` 的 34 个 `.cs` 实测纯 LF 16 个、纯 CRLF 11 个、混合 7 个（`BigDataResult.cs`、`DataResult.cs`、`EventStream.cs`、`Tool/APISdkCodeGenerator.cs`、`Tool/CodeGenerte/CSharpTemple.cs`、`Tool/CodeGenerte/JsTemple.cs`、`Tool/CodeType.cs`）、无 BOM 7 个（`AttributeRouteTable.cs`、`MVCWebSocketConnection.cs`、`RouteAttribute.cs`、`WebSocketAttribute.cs`、`WebSocketsFeature.cs`、`WSController.cs`、`WSMessage.cs`）。其中 `AttributeRouteTable.cs`、`MVCWebSocketConnection.cs`、`WebSocketsFeature.cs` 同时命中「无 BOM + 必须改 `namespace`」，只能逐行编辑，重写整文件会去掉 BOM。
-- 消费工程按第 6.1 节改 2 个测试文件 + 2 处反射字符串；库内按第 6.1 节最后一行补 `using` 并同步类型改名。
-- `README.md` 与 `README.en.md` 同步补「目录与命名空间结构」章节与对照表。
+- 34 个文件移入第 4.1 节目录树（4 个改名的文件：`MVCInvoker.cs` 改名为 `MvcInvoker.cs`；`Routing.cs` 改名为 `RouteEntry.cs` 且类型同名改名；`HttpGet.cs` 改名为 `HttpGetAttribute.cs`、`HttpPost.cs` 改名为 `HttpPostAttribute.cs`，两个类型同名改名）。
+- `Routing/` 与 `WebSockets/` 下现有的 7 个文件（`RouteTable`、`Routing`、`AreaCollection`、`AttributeRouteTable`、`WebSocketsFeature`、`MVCWebSocketConnection`、`WSMessage`）把 `namespace` 改为 `SAEA.MVC.Routing` / `SAEA.MVC.WebSockets`，其中 `WSMessage.cs` 同文件的 `WSMessageType` 一并改为 `SAEA.MVC.WebSockets`；`Hosting/`、`Controllers/`、`Results/`、`Attributes/` 下的 22 个文件同样把 `namespace` 改为 `SAEA.MVC.Hosting` / `SAEA.MVC.Controllers` / `SAEA.MVC.Results` / `SAEA.MVC.Attributes`（第 4.3 节），`SAEA.MVC` 根命名空间随之为空；`Tool/` 与 `Tool/CodeGenerte/` 沿用现有命名空间；`Invocation/` 在第 2 步才新增。
+- banner 口径：只有内容发生变化的文件才同步 banner——29 个 `namespace` 变化的文件（`Routing/`、`WebSockets/` 的 7 个与四个作者面向目录的 22 个）改「命名空间」字段并整体覆盖「修改标记」（`Routing.cs` 同时命中改名口径）；4 个改名的文件（`MVCInvoker.cs`、`Routing.cs`、`HttpGet.cs`、`HttpPost.cs`）改「文件名」「描述」并覆盖「修改标记」。补 `using` 的范围包括原先列出的 `Routing` / `WebSockets` 位置、四个新子命名空间之间的交叉引用，以及消费方引用这 22 个类型的每一处（第 6.1 节），文件清单以构建报错为准逐个补齐；测试/演示工程的存量文件按仓库约定不回填 banner。纯物理移动到子目录、内容一字不变的文件不得改 banner、不得整文件重写。`Src/SAEA.MVC.Tests` 的存量文件同样不回填 banner。
+- 行尾与 BOM 必须保持原样：`Src/SAEA.MVC` 的 34 个 `.cs` 实测纯 LF 16 个、纯 CRLF 11 个、混合 7 个（`BigDataResult.cs`、`DataResult.cs`、`EventStream.cs`、`Tool/APISdkCodeGenerator.cs`、`Tool/CodeGenerte/CSharpTemple.cs`、`Tool/CodeGenerte/JsTemple.cs`、`Tool/CodeType.cs`）、无 BOM 7 个（`AttributeRouteTable.cs`、`MVCWebSocketConnection.cs`、`RouteAttribute.cs`、`WebSocketAttribute.cs`、`WebSocketsFeature.cs`、`WSController.cs`、`WSMessage.cs`）。其中 `AttributeRouteTable.cs`、`MVCWebSocketConnection.cs`、`WebSocketsFeature.cs`、`WSMessage.cs` 同时命中「无 BOM + 必须改 `namespace`」，只能逐行编辑，重写整文件会去掉 BOM。
+- 消费工程按第 6.1 节补齐 using：`Routing` / `WebSockets` 的迁移位置 + 四个新子命名空间带来的全部引用点；库内同批补 `using` 并同步类型改名与 `ConstHelper.cs` 的两条反射字符串。
+- `README.md` 与 `README.en.md` 同步补「目录与命名空间结构」章节与对照表，示例 `using` 全部换成实际用到的子命名空间（第 6.2 节）。
 - 验收：
   - `dotnet build Src/SAEA.Sockets.sln -c Debug`（0 errors）
   - `dotnet test Src/SAEA.MVC.Tests/SAEA.MVC.Tests.csproj -c Release`
-  - 验收基线（仓库副本上的可行性演练，按第 4.1、4.2、4.5 节完整走了一遍本步）：上述构建 0 个错误，单测 88 个用例全部通过，两个旧式演示工程 `Src/SAEA.MVCTest`、`Src/SAEA.Mvc.ServiceTest` 产物正常生成、无需改动。正式执行仍需在本仓库重跑上述命令取证据。
+  - 旧规则下的验收基线（仓库副本上的可行性演练，按第 4.1、4.2、4.5 节走完本步）为构建 0 错误、单测 88 个用例通过、两个旧式演示工程正常生成；该基线不含命名空间反转带来的消费工程改动，正式执行仍需在本仓库重跑上述命令，并覆盖 `Src/SAEA.MVCTest`、`Src/SAEA.Mvc.ServiceTest` 两个演示工程取证据。
 
 ### 第 2 步：切割线 1–5
 
@@ -433,7 +438,7 @@ namespace A.B { public class C { public B field; } }
 ## 9. 明确不做
 
 - 不改 `Tool/CodeGenerte/`、`CSharpTemple`、`JsTemple` 的拼写（属公开 API 变更，单独立项）。
-- 不重命名 `MvcInvoker`、`WSMessage`、`WSMessageType`、`RouteTable` 等公开名称；`Routing` → `RouteEntry` 属本次唯一例外，理由见第 4.5 节。
+- 不重命名 `MvcInvoker`、`WSMessage`、`WSMessageType`、`RouteTable` 等公开名称；本次例外共三处：`Routing` → `RouteEntry`（理由见第 4.5 节）、`WSMessage` / `WSMessageType` 名称不变但迁入 `SAEA.MVC.WebSockets`（第 4.2 节，属命名空间搬迁而非改名）、`HttpGet` / `HttpPost` → `HttpGetAttribute` / `HttpPostAttribute`（第 4.2 节、第 5.3 节）。
 - 不把 `Tool/` 拆成独立包：`ApiMapping` 依赖 internal 的 `AreaCollection`（`ApiMapping.cs` 第 45、52、63 行）与 `AttributeRouteTable.TryGetDeclaredRoute`（第 113 行），拆包就得把这些内部类型公开化。
 - 不动 `SAEA.Http` 的 `Http*Result` 系列与 `IHttpResult` 契约（第 5.6 节）。
 - 不机械按「一文件一类型」拆分强绑定类型（第 4.4 节三处保持同文件）。
@@ -443,10 +448,10 @@ namespace A.B { public class C { public B field; } }
 
 ## 10. 风险与待确认
 
-1. **「公开 API 冻结」需要界定到哪一层。** `RouteTable`、`RouteEntry` 迁入 `SAEA.MVC.Routing` 后，类型全名变化会让 `MvcInvoker.InvokeResult(RouteTable, ...)`、`RouteTable.GetOrAdd`、`RouteEntry.ParmaTypes` 等引用处在元数据层面一起变化，消费方必须重编译。这不是成员增删，但确属源码级破坏。请确认「冻结」= 不改名、不增删成员、不换参数与返回类型，**接受命名空间搬迁带来的重编译**；本次不留语义变更：第 5.1 节的合并只去掉重复实现，`BindingFlags` 差异按 `isPost` 保留。本次除命名空间搬迁导致的重编译外，还有一处类型改名（`Routing` → `RouteEntry`，第 4.5 节），消费方至少要改 `RouteTable.GetOrAdd` 的返回值类型声明与 README 示例里的 `Routing.Template`。
+1. **「公开 API 冻结」需要界定到哪一层。** `RouteTable`、`RouteEntry` 迁入 `SAEA.MVC.Routing` 后，类型全名变化会让 `MvcInvoker.InvokeResult(RouteTable, ...)`、`RouteTable.GetOrAdd`、`RouteEntry.ParmaTypes` 等引用处在元数据层面一起变化，消费方必须重编译。这不是成员增删，但确属源码级破坏。已确认「冻结」= 不改名、不增删成员、不换参数与返回类型，**接受命名空间搬迁带来的重编译**；本次不留语义变更：第 5.1 节的合并只去掉重复实现，`BindingFlags` 差异按 `isPost` 保留。本次除命名空间搬迁导致的重编译外，还有三处公开 API 变更：类型改名 `Routing` → `RouteEntry`（第 4.5 节）、`WSMessage` / `WSMessageType` 的命名空间迁移（第 4.2 节，消费方若在控制器里写 `MessageAsync(WSMessage message)` 需补 `using SAEA.MVC.WebSockets;`）、`HttpGet` / `HttpPost` 改名为 `HttpGetAttribute` / `HttpPostAttribute`（第 4.2 节、第 5.3 节）。写 `typeof(HttpGet)` / `typeof(HttpPost)` 或按 `GetType().Name` 字符串比较的消费代码必须改用 `HttpGetAttribute` / `HttpPostAttribute`；`[HttpGet]` 标注写法不受影响。消费方至少要改 `RouteTable.GetOrAdd` 的返回值类型声明，并为引用的 22 个类型补对应子命名空间 `using`（第 4.3 节、第 6.1 节）。
 2. **负缓存语义必须原样保留。** 现有实现依赖「`ConcurrentDictionary.GetOrAdd` 把 null 当缓存值」（`RouteTable.cs` 第 77–81、185–189 行）。切 1 若把 `ActionResolver` 改成「返回空列表 + 另存状态」，很容易顺手改成「不缓存未命中」，结果是每个未知 action 请求都重新反射全类型方法，属于性能回归且难以从用例看出。兜底条件是 `Controller_UnknownPostAction_Returns404`（`HttpRoutingTests.cs` 第 149 行）的双请求断言必须继续通过，且 GET 侧应补一条同样的双请求用例（当前只有单请求，见第 3.3 节）。
-3. **旧式 csproj 演示工程是验证盲区。** `Src/SAEA.MVCTest`、`Src/SAEA.Mvc.ServiceTest` 都在 `Src/SAEA.Sockets.sln` 内（sln 第 62、40 行），但它们是 `ToolsVersion 15.0` + `packages/` 的旧式工程，`dotnet build` 下的还原与构建不保证与 SDK 式工程一致。核对结论是两者无需改 `using`，所以本步遗漏风险实际集中在 `SAEA.MVC.Tests`，由 `dotnet test` 兜住；但仍需人工确认两个演示工程没有隐性引用迁移类型。
-4. **「根不反向依赖 WebSockets 内部类型」在当前代码里已经不成立。** 根命名空间有四处直接指向 `WebSocketsFeature`：`SAEAMvcApplication.cs` 第 138 行订阅 `WebSocketsFeature.OnDisconnected`、第 256 行调用 `WebSocketsFeature.StopAll()`；`MVCInvoker.cs` 第 108 行 `HttpContext.Current.WebSockets as WebSocketsFeature` 并调用 `Attach`（第 115 行）与 `HandleActionException`（第 228、244 行）；`HttpContext.cs` 第 80–94 行构造 `WebSocketsFeature`。切 4 之后这些引用会变成「根 → 子命名空间」，方向本身允许（子命名空间可引用根），但字面意义上的「根不反向依赖」做不到。建议把要求改写为「根只通过两个静态入口（`StopAll`、`OnDisconnected`）与一次类型转换接触 WebSockets，且不直接摸 `WebSocketConnectionRegistry` 的内部状态」。
+3. **旧式 csproj 演示工程是验证盲区。** `Src/SAEA.MVCTest`、`Src/SAEA.Mvc.ServiceTest` 都在 `Src/SAEA.Sockets.sln` 内（sln 第 62、40 行），但它们是 `ToolsVersion 15.0` + `packages/` 的旧式工程，`dotnet build` 下的还原与构建不保证与 SDK 式工程一致。命名空间反转后两者都要补 `using`（第 6.1 节），所以遗漏风险同时落在 `SAEA.MVC.Tests` 和这两个演示工程上；`dotnet test` 只能兜住测试工程，两个演示工程必须单独构建确认。
+4. **「根不反向依赖 WebSockets 内部类型」这一要求在当前结构里已经不成立。** 四处代码直接指向 `WebSocketsFeature`：`Hosting/SAEAMvcApplication.cs` 订阅 `WebSocketsFeature.OnDisconnected`、调用 `WebSocketsFeature.StopAll()`；`Hosting/MvcInvoker.cs` 把 `HttpContext.Current.WebSockets` 转成 `WebSocketsFeature` 并调用 `Attach` 与 `HandleActionException`；`Hosting/HttpContext.cs` 构造 `WebSocketsFeature`。四个作者面向目录改子命名空间后，这些引用是 `SAEA.MVC.Hosting` 与 `SAEA.MVC.WebSockets` 两个同级子命名空间之间的引用，方向本身允许，但「根命名空间不反向依赖」这条表述已经没有对应的根命名空间。建议把要求改写为「`Hosting` 只通过两个静态入口（`StopAll`、`OnDisconnected`）与一次类型转换接触 WebSockets，且不直接摸 `WebSocketConnectionRegistry` 的内部状态」。
 5. **`Tool/` 目录名与命名空间拼写不一致会被本次结构放大。** 目标表写 `Tool/CodeGenerate/`，现盘是 `Tool/CodeGenerte/`，命名空间是 `SAEA.MVC.Tool.CodeGenerte`。本次按第 4.2 节的说明保留现盘目录，结果是「目录 = 职责」这一目标在该目录上打了折扣。若希望目录与命名空间同时正确，需要连带改三个文件的 `namespace`，那就是公开 API 变更，与第 9 节第一条冲突，须另立条目。
 
 ## 11. 决策记录
@@ -455,12 +460,14 @@ namespace A.B { public class C { public B field; } }
 
 | 序号 | 决策 | 结论 |
 | --- | --- | --- |
-| 1 | 命名空间策略 | 实现层目录映射子命名空间（`Routing/` → `SAEA.MVC.Routing`、`Invocation/`、`WebSockets/`，`Tool/` 沿用现有），作者面向的 `Hosting/`、`Controllers/`、`Results/`、`Attributes/` 四个目录留在 `SAEA.MVC`（第 4.3 节） |
-| 2 | 根命名空间 | 作者面向的公开 API 保留在 `SAEA.MVC`，不为「目录 = 命名空间」的一致性把它们搬进子命名空间 |
+| 1 | 命名空间策略 | 所有目录都映射同名子命名空间，没有例外：`Hosting/` → `SAEA.MVC.Hosting`、`Controllers/` → `SAEA.MVC.Controllers`、`Results/` → `SAEA.MVC.Results`、`Attributes/` → `SAEA.MVC.Attributes`、`Routing/` → `SAEA.MVC.Routing`、`Invocation/` → `SAEA.MVC.Invocation`、`WebSockets/` → `SAEA.MVC.WebSockets`，`Tool/` 与 `Tool/CodeGenerte/` 沿用现有两个命名空间（第 4.2 节、第 4.3 节）。2026-11-19 取消「作者面向目录留在根命名空间」的例外 |
+| 2 | 根命名空间 | `SAEA.MVC` 根命名空间下不再保留任何类型；22 个作者面向的类型随目录迁入子命名空间，消费方补 `using` 后重新编译（第 4.3 节、第 6.1 节） |
 | 3 | 巨型类切分 | 允许按职责拆分 6 个巨型类，新增类型全部 `internal`，公开面只保留原入口（第 5 节） |
 | 4 | GET/POST 合并 | `RouteTable` 的 GET/POST 双份实现合并为一处，`isPost` 入参只决定 `BindingFlags`，`DeclaredOnly` 差异保持不变，行为零变更（第 5.1 节）；语义统一另立项 |
 | 5 | 静态上下文 | 新类型内部不再读静态环境，由公开入口取一次 `HttpContext.Current` 后显式传参（第 5.3 节） |
 | 6 | WebSocket 计时器 | `StopAll()` 顺手修复 `_sweeper` 泄漏：`Dispose` 计时器并把字段置 `null`（第 5.4 节） |
 | 7 | 拼写 | 不改 `CodeGenerte` 目录名与 `Temple` 类名拼写，只做搬迁（第 4.2 节、第 9 节） |
 | 8 | 结果类型 | 不与 `SAEA.Http` 的 `Http*Result` 系列合并，记作独立立项（第 5.6 节） |
-| 9 | 类型改名 | 类型 `Routing` 改名为 `RouteEntry`，文件 `Routing.cs` 同步改名为 `RouteEntry.cs`，命名空间仍为 `SAEA.MVC.Routing`；这是本次唯一一处公开类型改名（第 4.5 节） |
+| 9 | 类型改名 | 类型 `Routing` 改名为 `RouteEntry`，文件 `Routing.cs` 同步改名为 `RouteEntry.cs`，命名空间仍为 `SAEA.MVC.Routing`；这是本次第一处公开类型改名（第 4.5 节）；命名空间迁移见第 10 条，特性改名见第 11 条 |
+| 10 | WSMessage 归属 | `WSMessage` / `WSMessageType` 移入 `WebSockets/` 并把命名空间改为 `SAEA.MVC.WebSockets`，作为本次第二处公开 API 变更；名称不改，4 处引用补 `using`（第 4.2 节、第 6.1 节） |
+| 11 | 特性改名 | `HttpGet` / `HttpPost` 改名为 `HttpGetAttribute` / `HttpPostAttribute`，动词判定改为类型判断；`[HttpGet]` 简写仍可用，`ConstHelper.HTTPGET` / `HTTPPOST` 保留但不再被本仓库引用（第 5.3 节、第 9 节） |

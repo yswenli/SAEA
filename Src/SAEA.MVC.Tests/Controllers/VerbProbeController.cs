@@ -29,6 +29,9 @@
 *描述：新增，只提供两段式地址，覆盖只声明 GET、只声明 POST、两者都声明与都不声明四种情况
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+
 namespace SAEA.MVC.Tests.Controllers
 {
     /// <summary>

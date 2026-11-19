@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Controllers
 *文件名： Controller
 *版本号： v26.4.23.1
 *唯一标识：8ec22772-ea97-4cc1-870c-612ff454cf00
@@ -23,18 +23,20 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:32
+*修改时间：2026/11/19 15:26:46
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.16.1
+*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
 *
 *****************************************************************************/
 using SAEA.Common.IO;
 using SAEA.Common.Serialization;
 
+using SAEA.MVC.Results;
+using SAEA.MVC.Hosting;
 using System.IO;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Controllers
 {
     /// <summary>
     /// MVC控制器

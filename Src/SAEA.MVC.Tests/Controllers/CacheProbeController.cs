@@ -28,6 +28,9 @@
 *描述：新增，提供带真实执行计数的输出缓存入口以验证 query 参与缓存键
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Hosting;
 using System.Threading;
 
 namespace SAEA.MVC.Tests.Controllers

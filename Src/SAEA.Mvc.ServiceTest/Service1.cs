@@ -1,4 +1,4 @@
-﻿using SAEA.MVC;
+﻿using SAEA.MVC.Hosting;
 using System.ServiceProcess;
 
 namespace SAEA.Mvc.ServiceTest

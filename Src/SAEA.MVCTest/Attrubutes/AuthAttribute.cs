@@ -15,12 +15,14 @@
 *版本号： v7.0.0.1
 *描    述：
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Hosting;
+using SAEA.MVC.Results;
 using System;
 
 using JWT.Net;
 using JWT.Net.Exceptions;
 
-using SAEA.MVC;
 using SAEA.MVCTest.Model;
 
 namespace SAEA.MVCTest.Attrubutes

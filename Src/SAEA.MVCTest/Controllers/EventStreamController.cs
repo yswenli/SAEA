@@ -15,10 +15,11 @@
 *版本号： v7.0.0.1
 *描    述：
 *****************************************************************************/
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
 using System;
 using System.Threading;
 
-using SAEA.MVC;
 using SAEA.MVCTest.Attrubutes;
 
 namespace SAEA.MVCTest.Controllers

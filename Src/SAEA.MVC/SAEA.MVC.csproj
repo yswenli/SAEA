@@ -32,6 +32,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SAEA.MVC.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\..\favicon.png">
       <Pack>True</Pack>
       <PackagePath></PackagePath>

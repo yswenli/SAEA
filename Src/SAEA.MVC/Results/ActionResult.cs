@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Results
 *文件名： ActionResult
 *版本号： v26.4.23.1
 *唯一标识：1572eda9-e299-43e9-919b-62ea1b76e444
@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/29 15:01:17
+*修改时间：2026/11/19 15:26:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ActionResult接口
+*版本号： v26.11.16.1
+*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
 *
 *****************************************************************************/
 using SAEA.Http.Model;
@@ -34,7 +34,7 @@ using System.Net;
 using System.Runtime.Serialization;
 using System.Text;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Results
 {
     /// <summary>
     /// 封装一个操作方法的结果并用于代表该操作方法执行框架级操作。

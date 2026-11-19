@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Attributes
 *文件名： ActionFilterAttribute
 *版本号： v26.4.23.1
 *唯一标识：4978b882-2c96-45b6-bc3c-58e40a93ae52
@@ -23,15 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2018/10/28 14:19:50
+*修改时间：2026/11/19 15:26:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：ActionFilterAttribute接口
+*版本号： v26.11.16.1
+*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
 *
 *****************************************************************************/
+using SAEA.MVC.Results;
 using System;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Attributes
 {
     /// <summary>
     /// 拦截器

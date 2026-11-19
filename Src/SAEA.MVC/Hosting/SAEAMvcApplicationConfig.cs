@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Hosting
 *文件名： SAEAMvcApplicationConfig
 *版本号： v26.4.23.1
 *唯一标识：41bc0126-6f22-46ff-bd77-b716325c8978
@@ -23,13 +23,13 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 14:05:00
+*修改时间：2026/11/19 15:26:46
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：修正 ActionTimeout 注释：默认 0 不再沿用 Timeout，而是不启用超时包装，只有大于 0 才返回 408；WebSocket 入口固定走超时路径
+*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
 *
 *****************************************************************************/
-namespace SAEA.MVC
+namespace SAEA.MVC.Hosting
 {
     /// <summary>
     /// SAEA MVC 应用程序配置类

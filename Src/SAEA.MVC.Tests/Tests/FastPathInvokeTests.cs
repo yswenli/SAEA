@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 13:47:00
+*修改时间：2026/11/19 15:25:17
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增，锁住直调快路径的 200、500 文案与异步结果取值
+*描述：用例名随 MethodInvoke 删除正名为 InvokeResult
 *
 *****************************************************************************/
 using System.Net;
@@ -50,7 +50,7 @@ namespace SAEA.MVC.Tests
         /// </summary>
         /// <returns>该用例的异步执行任务。</returns>
         [TestMethod]
-        public async Task MethodInvoke_SyncActionWithoutActionTimeout_Returns200()
+        public async Task InvokeResult_SyncActionWithoutActionTimeout_Returns200()
         {
             var port = TestAppFactory.GetFreePort();
             var rootName = TestAppFactory.CreateRootName();
@@ -82,7 +82,7 @@ namespace SAEA.MVC.Tests
         /// </summary>
         /// <returns>该用例的异步执行任务。</returns>
         [TestMethod]
-        public async Task MethodInvoke_SyncActionThrows_Returns500WithLegacyMessage()
+        public async Task InvokeResult_SyncActionThrows_Returns500WithLegacyMessage()
         {
             var port = TestAppFactory.GetFreePort();
             var rootName = TestAppFactory.CreateRootName();
@@ -116,7 +116,7 @@ namespace SAEA.MVC.Tests
         /// </summary>
         /// <returns>该用例的异步执行任务。</returns>
         [TestMethod]
-        public async Task MethodInvoke_AsyncActionWithoutActionTimeout_ReturnsTaskResult()
+        public async Task InvokeResult_AsyncActionWithoutActionTimeout_ReturnsTaskResult()
         {
             var port = TestAppFactory.GetFreePort();
             var rootName = TestAppFactory.CreateRootName();

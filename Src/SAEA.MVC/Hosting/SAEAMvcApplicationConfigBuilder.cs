@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Hosting
 *文件名： SAEAMvcApplicationConfigBuilder
 *版本号： v26.4.23.1
 *唯一标识：f1c374af-4156-43a5-bee4-4c864cbae890
@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:32
+*修改时间：2026/11/19 15:26:46
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.16.1
+*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -34,7 +34,7 @@ using SAEA.Common.IO;
 using SAEA.Common.Serialization;
 using System;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Hosting
 {
     /// <summary>
     /// SAEAMvcApplicationConfig.json 配置的读写入口

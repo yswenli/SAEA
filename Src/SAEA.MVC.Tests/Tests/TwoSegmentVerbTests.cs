@@ -79,7 +79,7 @@ namespace SAEA.MVC.Tests
         }
 
         /// <summary>
-        /// 只声明 GET 的动作收到 POST 时返回 405，Allow 只声明 GET。
+        /// 只声明 GET 的动作收到 POST 时返回 405，Allow 为 GET 与隐式允许的 HEAD。
         /// </summary>
         /// <returns>该用例的异步执行任务。</returns>
         [TestMethod]
@@ -102,7 +102,7 @@ namespace SAEA.MVC.Tests
                     var allow = ReadAllowValues(response);
 
                     Assert.IsNotNull(allow, "405 响应必须带 Allow 头");
-                    CollectionAssert.AreEqual(new[] { "GET" }, allow, "只声明 GET 时 Allow 应只有 GET");
+                    CollectionAssert.AreEqual(new[] { "GET", "HEAD" }, allow, "只声明 GET 时 Allow 应给出 GET 与隐式允许的 HEAD");
                 }
             }
             finally
@@ -245,7 +245,7 @@ namespace SAEA.MVC.Tests
                         var allow = ReadAllowValues(response);
 
                         Assert.IsNotNull(allow, "405 响应必须带 Allow 头");
-                        CollectionAssert.AreEqual(new[] { "GET", "POST" }, allow, "两种动词都声明时 Allow 应按 GET、POST 顺序列出");
+                        CollectionAssert.AreEqual(new[] { "GET", "HEAD", "POST" }, allow, "同时声明 GET 与 POST 时 Allow 应按 GET、HEAD、POST 顺序列出");
                     }
                 }
             }

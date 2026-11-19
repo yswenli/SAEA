@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 17:07:24
+*修改时间：2026/11/19 16:44:02
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：报头与查询串改为下标扫描，去掉报头文本、报头行与路径段的中间数组拷贝；解析请求行前跳过前导空行
+*描述：multipart 表单识别改为按正文长度与内容类型判断，PUT/PATCH 携带的表单同样解析
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -157,8 +157,8 @@ namespace SAEA.Http.Base
                 }
             }
 
-            //post数据分析
-            if (httpMessage.Method == ConstHelper.POST)
+            //带正文的表单分析：PUT/PATCH 的请求体同样可以是 multipart，按内容类型判断而不是只看 POST
+            if (httpMessage.ContentLength > 0)
             {
                 //form-data
                 if (httpMessage.ContentType != null && httpMessage.ContentType.AsSpan().Contains(ConstHelper.FormData.AsSpan(), StringComparison.InvariantCultureIgnoreCase))

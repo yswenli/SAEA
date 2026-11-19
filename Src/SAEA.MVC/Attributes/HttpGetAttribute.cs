@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Attributes
 *文件名： HttpGetAttribute
 *版本号： v26.4.23.1
 *唯一标识：17715aa6-8e1a-4440-9794-c79eaa6ee0f8
@@ -23,26 +23,27 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 16:35:00
+*修改时间：2026/11/19 15:55:14
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：新增可选路由模板构造与 Template 属性，供属性路由读取
+*描述：改为继承 HttpMethodAttribute，动词与模板统一由基类承载
 *
 *****************************************************************************/
+using SAEA.Common;
+
 using System;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Attributes
 {
     /// <summary>
     /// 标记方法为GET
     /// </summary>
-    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-    public sealed class HttpGetAttribute : Attribute, IFilter
+    public sealed class HttpGetAttribute : HttpMethodAttribute
     {
         /// <summary>
         /// 不声明路径，仅限定 GET
         /// </summary>
-        public HttpGetAttribute()
+        public HttpGetAttribute() : base(ConstHelper.GET, null)
         {
         }
 
@@ -50,19 +51,8 @@ namespace SAEA.MVC
         /// 以路由模板限定 GET
         /// </summary>
         /// <param name="template">路由模板，如 users/{id}</param>
-        public HttpGetAttribute(string template)
+        public HttpGetAttribute(string template) : base(ConstHelper.GET, template)
         {
-            Template = template;
         }
-
-        /// <summary>
-        /// 声明的路由模板，未声明时为 null
-        /// </summary>
-        public string Template { get; }
-
-        /// <summary>
-        /// 过滤器执行顺序
-        /// </summary>
-        public int Order { get; set; }
     }
 }

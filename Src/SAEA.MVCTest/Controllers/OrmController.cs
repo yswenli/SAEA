@@ -15,7 +15,8 @@
 *版本号： v7.0.0.1
 *描    述：
 *****************************************************************************/
-using SAEA.MVC;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
 using SAEA.MVCTest.Entities;
 
 namespace SAEA.MVCTest.Controllers

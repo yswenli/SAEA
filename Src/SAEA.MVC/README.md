@@ -38,7 +38,7 @@ dotnet add package SAEA.MVC
 ### Step 2: 创建 MVC 应用（仅需5行代码）
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Hosting;
 
 var config = SAEAMvcApplicationConfigBuilder.Read();
 var app = new SAEAMvcApplication(config);
@@ -49,6 +49,10 @@ app.Start();
 ### Step 3: 创建第一个 Controller
 
 ```csharp
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
+
 public class HomeController : Controller
 {
     [HttpGet]
@@ -72,7 +76,9 @@ public class HomeController : Controller
 ### 属性路由写法
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
 
 [Route("api/v1/users")]              // 类级前缀
 public class UserController : Controller
@@ -131,14 +137,74 @@ public class ProductController : Controller
 }
 ```
 
-- `[Route(template)]` 只声明路径，不限定请求方法，GET/POST/PUT/DELETE 都接受。
-- `[HttpGet(template)]` / `[HttpPost(template)]` 既声明路径又限定动词。
-- 类上的 `[Route]` 与方法模板按 `/` 拼接；方法上只有 `[HttpGet]` / `[HttpPost]`（无模板）时，类级模板本身就是路径。
+- `[Route(template)]` 只声明路径，不限定请求方法，七个谓词都接受。
+- `[HttpGet(template)]`、`[HttpPost(template)]`、`[HttpPut(template)]`、`[HttpDelete(template)]`、`[HttpPatch(template)]`、`[HttpHead(template)]`、`[HttpOptions(template)]` 既声明路径又限定动词。
+- 类上的 `[Route]` 与方法模板按 `/` 拼接；方法上的动词特性不带模板时，类级模板本身就是路径。
 - 类上只有 `[Route]`、方法上没有任何路由特性的 action 不进入属性路由，继续走两段式，避免类级模板吞掉全部 action。
 - 模板里可以用 `[controller]` / `[action]` 令牌代替手写控制器名与方法名，令牌识别与后缀剥离都忽略大小写；地址本身的比较同样忽略大小写，所以模板替换出 `Product`、`Get` 后，`/api/v1/product/get/5` 照样命中。
 - 类级模板里也可以写 `[action]`，按每个 action 分别替换：`[Route("api/v1/[controller]/[action]")]` 会让该控制器的每个 action 各走自己的地址。
 
 令牌在属性路由表构建期完成替换，替换后的绝对路径就是 `RouteEntry.Template`；SDK 生成器输出与冲突检测都使用替换后的结果。
+
+### RESTful 控制器示例
+
+同一资源上的不同操作按谓词分开声明，路径模板只在类上写一次：
+
+```csharp
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
+
+[Route("api/v1/articles")]
+public class ArticleController : Controller
+{
+    [HttpGet]                        // GET /api/v1/articles       —— 列表
+    public ActionResult List()
+    {
+        return Json(new[] { new { Id = 1, Title = "Hello" } });
+    }
+
+    [HttpGet("{id}")]                // GET /api/v1/articles/5     —— 单条；HEAD 同样命中但不发送正文
+    public ActionResult Get(string id)
+    {
+        return Json(new { Id = id, Title = "Hello" });
+    }
+
+    [HttpPost]                       // POST /api/v1/articles      —— 新建
+    public ActionResult Create(string title)
+    {
+        return Json(new { Id = 3, Title = title });
+    }
+
+    [HttpPut("{id}")]                // PUT /api/v1/articles/5     —— 全量替换
+    public ActionResult Replace(string id, string title)
+    {
+        return Json(new { Id = id, Title = title });
+    }
+
+    [HttpPatch("{id}")]              // PATCH /api/v1/articles/5   —— 局部更新
+    public ActionResult Patch(string id, string title)
+    {
+        return Json(new { Id = id, Title = title });
+    }
+
+    [HttpDelete("{id}")]             // DELETE /api/v1/articles/5  —— 删除
+    public ActionResult Delete(string id)
+    {
+        return Empty();
+    }
+
+    [HttpOptions]                    // OPTIONS /api/v1/articles   —— 可选：显式接管，不写则由框架回 204 + Allow
+    public ActionResult Options()
+    {
+        return Empty();
+    }
+}
+```
+
+- 同一路径不同谓词分别命中各自动作；`[HttpPut("{id}")]` 与 `[HttpPatch("{id}")]` 共用同一形状的模板，只有动词不同，启动期不冲突。
+- 没有声明 `[HttpOptions]` 时，OPTIONS 由框架统一应答 204 + `Allow`，不需要每个控制器都写一遍。
+- `[HttpHead]` 可选：不声明时 HEAD 自动复用 GET 的动作。
 
 ### 模板语义
 
@@ -168,11 +234,39 @@ public class ProductController : Controller
 
 ### 请求方法
 
-- `[Route]` 不限动词；`[HttpGet]` / `[HttpPost]` 限定为对应动词。
-- 属性路由路径命中但动词不符时返回 **405 Method Not Allowed**，响应头 `Allow` 列出该路径声明的动词，不会回落到两段式。
+框架提供七个谓词特性，全部派生自公开基类 `HttpMethodAttribute`（`SAEA.MVC.Attributes`），构造形式统一为 `()` 与 `(string template)`：
+
+| 特性 | 限定的动词 |
+| --- | --- |
+| `[HttpGet]` | GET |
+| `[HttpPost]` | POST |
+| `[HttpPut]` | PUT |
+| `[HttpDelete]` | DELETE |
+| `[HttpPatch]` | PATCH |
+| `[HttpHead]` | HEAD |
+| `[HttpOptions]` | OPTIONS |
+
+- `[Route]` 不限动词；任一动词特性限定为对应动词，属性路由与两段式两条路径按同一口径判定。
+- 属性路由路径命中但动词不符时返回 **405 Method Not Allowed**，响应头 `Allow` 列出该路径声明的动词（规则见下方「Allow 头」），不会回落到两段式。
 - 该路径完全没有属性路由条目时不算冲突，继续走两段式。
-- 两段式 action 用同一口径判定：action 上一个 `[HttpGet]` / `[HttpPost]` 都没有时不限动词，GET/POST/PUT/DELETE 照旧全部放行；声明了其中之一或两者时，允许动词取声明的并集（两者都声明即 GET 与 POST），请求方法与允许集合忽略大小写比较，不符时返回 **405 Method Not Allowed** 并带 `Allow`，action、过滤器与 WebSocket 入口都不执行。`WebConfig.DefaultRoute` 默认路由与 `/{Controller}/{Action}` 两条两段式分支都生效。
-- `OPTIONS` 请求在进入路由前直接返回空响应，不参与这项判定。
+- 两段式 action 没有任何动词特性时不限动词，GET/POST/PUT/DELETE/PATCH/HEAD 全部放行，OPTIONS 由框架按 204 + `Allow` 应答；声明了一个或多个时，允许动词取声明的并集，请求方法与允许集合忽略大小写比较，不符时返回 **405 Method Not Allowed** 并带 `Allow`，action、过滤器与 WebSocket 入口都不执行。`WebConfig.DefaultRoute` 默认路由与 `/{Controller}/{Action}` 两条两段式分支都生效。
+
+### Allow 头
+
+`Allow` 由 action 上**显式声明**的动词生成，固定顺序 `GET, HEAD, POST, PUT, DELETE, PATCH`；显式声明了 `[HttpOptions]` 时在末位追加 `OPTIONS`：
+
+- 只列出声明过的动词，其余省略；声明 `[HttpGet]` 时同时列出 `HEAD`，因为 HEAD 复用 GET 的结果。
+- 声明 `[HttpHead]` 不会反过来补 `GET`。
+- 只有显式声明 `[HttpOptions]` 时 `OPTIONS` 才排在末位，未声明则一律不出现；只声明 `[HttpOptions]` 的路径对其它谓词返回 405 时 `Allow` 就是 `OPTIONS`，满足 405 必须带 `Allow` 的要求（RFC 7231 §6.5.5）。
+- 只声明 `[Route]`、没有任何谓词特性的属性路由条目等价于放行全部 6 个可声明动词：GET/POST/PUT/DELETE/PATCH/HEAD 都执行该 action，OPTIONS 不执行，由框架回 204 + `Allow: GET, HEAD, POST, PUT, DELETE, PATCH`。
+- 未声明任何动词特性的 action 不限动词，不会产生 405；`Allow` 只出现在 405 与框架自动应答的 OPTIONS 响应里。
+
+### HEAD 与 OPTIONS
+
+- **HEAD**：复用 GET 的结果。`[HttpGet]` 声明的 action 也响应 HEAD，执行流程与 GET 一致（过滤器、输出缓存、参数绑定都照跑），只是不发送响应正文；`Content-Length` 仍是同一资源 GET 正文的长度，客户端可以据此判断资源大小。
+- 显式 `[HttpHead]` 优先于 GET 别名：同一路径同时声明 `[HttpGet]` 与 `[HttpHead]` 时，HEAD 请求执行 `[HttpHead]` 的 action；只有没有显式 `[HttpHead]` 时才回落到 GET 的 action。
+- **OPTIONS**：先匹配显式 `[HttpOptions]` action，命中就正常执行；没有声明时返回 **204 No Content** 并带 `Allow` 头，`Allow` 按上方规则生成。未声明任何动词特性的 action 收到 OPTIONS 也不会被执行，同样返回 204 + `Allow`。
+- OPTIONS 不再像以前那样在进入路由前直接返回空响应短路：现在先路由，命中 `[HttpOptions]` 就交给它，否则由框架按 `Allow` 统一应答。
 
 ### 启动期校验
 
@@ -202,7 +296,9 @@ public class ProductController : Controller
 | `GET /API/V1/Users/5/` | 同上 | 忽略大小写与尾斜杠 |
 | `GET /api/v1/users/5?x=1` | 同上 | query 不参与匹配 |
 | `POST /api/v1/users` | `UserController.Create` | 同路径不同动词 |
-| `DELETE /api/v1/users` | 405，`Allow: GET, POST` | 路径命中但动词不符 |
+| `HEAD /api/v1/users` | `UserController.List` | HEAD 复用 GET，不发送正文，`Content-Length` 与 GET 一致 |
+| `DELETE /api/v1/users` | 405，`Allow: GET, HEAD, POST` | 路径命中但动词不符 |
+| `OPTIONS /api/v1/users` | 204，`Allow: GET, HEAD, POST` | 未声明 `[HttpOptions]`，由框架统一应答 |
 | `GET /api/v1/orders/9` | `OrderController.Get` | 方法级模板即绝对路径 |
 | `POST /api/v1/orders/9` | 同上 | `[Route]` 不限动词 |
 | `GET /health` | `HealthController.Ping` | 单段属性路由 |
@@ -210,7 +306,35 @@ public class ProductController : Controller
 | `GET /API/V1/PRODUCT/GET/5` | 同上 | 令牌替换结果与路径比较都忽略大小写 |
 | `GET /home/index` | `HomeController.Index` | 未声明属性路由，走两段式 |
 | `GET /test/sleep` | `TestController.SleepAsync` | 两段式省略 `Async` 后缀 |
-| `POST /home/index` | 405，`Allow: GET` | 两段式 action 只标了 `[HttpGet]`，同样拦截 |
+| `POST /home/index` | 405，`Allow: GET, HEAD` | 两段式 action 只标了 `[HttpGet]`，同样拦截 |
+
+### 路由表与调用入口
+
+`RouteTable.GetOrAdd` 新增 `(Type controllerType, string actionName, string method)` 重载，`method` 直接传谓词字符串：
+
+```csharp
+using SAEA.MVC.Routing;
+
+var table = new RouteTable();
+RouteEntry get = table.GetOrAdd(typeof(HomeController), "Index", "GET");
+RouteEntry put = table.GetOrAdd(typeof(HomeController), "Index", "PUT");
+```
+
+原有的 `(Type, string, bool isPost)` 重载保留，等价于 `isPost ? "POST" : "GET"`，既有调用方不用改。
+
+`MvcInvoker.InvokeResult(...)` 与 `MvcInvoker.InvokeResultAsync(...)` 各新增一个末尾参数为 `string method` 的重载，可用任意谓词同步/异步调用 action；原 `bool isPost` 重载同样保留并映射到 `GET`/`POST`。
+
+### 兼容性变更与已知限制
+
+升级时注意两条行为变化：
+
+- **405 的 `Allow` 增加 `HEAD`**：属性路由与两段式的 405 响应中，声明 GET 的路径现在会同时列出 `HEAD`（如 `Allow: GET, HEAD`）。
+- **OPTIONS 行为改变**：以前 OPTIONS 在进入路由前直接返回空响应；现在先路由，命中 `[HttpOptions]` 就执行，否则返回 204 + `Allow`。依赖「OPTIONS 一律空响应」的客户端或中间件需要复核。
+
+已知限制：
+
+- HEAD 指向 `EventStream`（SSE）时仍会写出流内容，不支持 HEAD 语义：SSE 是持续输出，无法预先给出与 GET 一致的 `Content-Length`。
+- `ApiMapping` / SDK 代码生成器仍只产出 GET/POST 两种方法；其 `HttpMethods` 元数据已包含全部动词，生成器本身尚未跟上。
 
 ***
 
@@ -223,6 +347,7 @@ public class ProductController : Controller
 | 📦 **轻量级**      | 无复杂依赖                 | 启动快，内存占用低       |
 | 🎯 **完整 MVC**   | Controller/Action/路由  | 标准 MVC 开发体验     |
 | 🔧 **AOP 过滤器**  | ActionFilterAttribute | 方法拦截、日志、权限控制    |
+| 🔀 **RESTful 谓词** | 七个 HTTP 方法特性          | 属性路由与两段式通用      |
 | 💾 **输出缓存**     | OutputCacheAttribute  | 方法级缓存，提升响应速度    |
 | 📡 **SSE 推送**   | Server-Sent Events    | 实时服务器推送         |
 | 📁 **静态文件**     | 自动缓存、大文件分块            | 智能区分大小文件传输      |
@@ -542,7 +667,8 @@ public ActionResult Upload()
 
 ```csharp
 using SAEA.Common.Serialization;
-using SAEA.MVC;
+using SAEA.MVC.Hosting;
+using SAEA.MVC.Results;
 
 var app = new SAEAMvcApplication(config);
 
@@ -566,7 +692,7 @@ public class CorsFilter : ActionFilterAttribute
     {
         var headers = HttpContext.Current.Response.Headers;
         headers["Access-Control-Allow-Origin"] = "*";
-        headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE";
+        headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,PATCH,HEAD,OPTIONS";
         headers["Access-Control-Allow-Headers"] = "Content-Type";
 
         // 返回 EmptyResult 表示放行，继续执行 action
@@ -578,6 +704,8 @@ public class CorsFilter : ActionFilterAttribute
     }
 }
 ```
+
+这里的 `Access-Control-Allow-Methods` 是 CORS 预检响应里的允许方法列表，与框架自动生成的响应 `Allow` 头不是一回事：前者供浏览器判断可发起哪些方法，包含 `OPTIONS`；后者按 action 上显式声明的动词生成，仅在 action 显式声明 `[HttpOptions]` 时把 `OPTIONS` 列在末位。
 
 ### Q6: 如何实现 SSE 服务器推送？
 
@@ -652,7 +780,8 @@ sc create SAEAMvc binPath="path/to/your/app.exe" start=auto
 | `FileResult`               | 文件下载结果                |
 | `BigDataResult`            | 大文件流式传输结果             |
 | `SSEActionResult`          | Server-Sent Events 结果 |
-| `HttpGet` / `HttpPost`     | HTTP 方法特性             |
+| `HttpGetAttribute` 等七个谓词特性 | HTTP 方法特性：`[HttpGet]`、`[HttpPost]`、`[HttpPut]`、`[HttpDelete]`、`[HttpPatch]`、`[HttpHead]`、`[HttpOptions]`，均可用无参或带模板构造 |
+| `HttpMethodAttribute`      | 谓词特性抽象基类（`Method` / `Template` / `Order`） |
 | `RouteAttribute`           | 路由模板特性                |
 | `ActionFilterAttribute`    | AOP 过滤器基类             |
 | `OutputCacheAttribute`     | 输出缓存特性                |
@@ -663,7 +792,7 @@ sc create SAEAMvc binPath="path/to/your/app.exe" start=auto
 | `IWebSocketConnection`     | 已建立的 WebSocket 连接     |
 | `HttpContext`              | HTTP 上下文              |
 | `HttpRequest`              | HTTP 请求对象             |
-| `HttpResponse`             | HTTP 响应对象             |
+| `HttpResponse`             | HTTP 响应对象（`SuppressBody` 为 true 时不发送正文，用于 HEAD） |
 
 ***
 
@@ -673,26 +802,27 @@ sc create SAEAMvc binPath="path/to/your/app.exe" start=auto
 
 | 目录 | 文件（类型） | 命名空间 |
 | -------------------------- | --------------------- | ------------------------- |
-| `Hosting/` | `SAEAMvcApplication`、`SAEAMvcApplicationConfig`、`SAEAMvcApplicationConfigBuilder`、`HttpContext`、`MvcInvoker` | `SAEA.MVC` |
-| `Controllers/` | `Controller`、`WSController`、`WSMessage`（含 `WSMessageType`） | `SAEA.MVC` |
-| `Results/` | `ActionResult`、`JsonResult`、`ContentResult`、`DataResult`、`FileResult`、`BigDataResult`、`EventStream`、`EmptyResult` | `SAEA.MVC` |
-| `Attributes/` | `IFilter`、`ActionFilterAttribute`、`OutputCacheAttribute`、`HttpGet`、`HttpPost`、`RouteAttribute`、`WebSocketAttribute` | `SAEA.MVC` |
-| `Routing/` | `RouteTable`、`RouteEntry`、`AreaCollection`（internal）、`AttributeRouteTable`（internal） | `SAEA.MVC.Routing` |
-| `WebSockets/` | `WebSocketsFeature`（internal）、`MVCWebSocketConnection`（internal） | `SAEA.MVC.WebSockets` |
+| `Hosting/` | `SAEAMvcApplication`、`SAEAMvcApplicationConfig`、`SAEAMvcApplicationConfigBuilder`、`HttpContext`、`MvcInvoker` | `SAEA.MVC.Hosting` |
+| `Controllers/` | `Controller`、`WSController` | `SAEA.MVC.Controllers` |
+| `Results/` | `ActionResult`、`JsonResult`、`ContentResult`、`DataResult`、`FileResult`、`BigDataResult`、`EventStream`、`EmptyResult` | `SAEA.MVC.Results` |
+| `Attributes/` | `IFilter`、`ActionFilterAttribute`、`OutputCacheAttribute`、`HttpMethodAttribute`、`HttpGetAttribute`、`HttpPostAttribute`、`HttpPutAttribute`、`HttpDeleteAttribute`、`HttpPatchAttribute`、`HttpHeadAttribute`、`HttpOptionsAttribute`、`RouteAttribute`、`WebSocketAttribute` | `SAEA.MVC.Attributes` |
+| `Routing/` | `RouteTable`、`RouteEntry`、`AreaCollection`（internal）、`AttributeRouteTable`（internal）、`AttributeRouteEntry`（internal）、`RoutePath`（internal）、`RouteSegmentMatcher`（internal）、`RouteTemplateParser`（internal） | `SAEA.MVC.Routing` |
+| `Invocation/` | `ActionResolver`（internal）、`FilterCollector`（internal）、`VerbPolicy`（internal）、`ParameterBinder`（internal）、`ActionInvoker`（internal）、`RequestPipeline`（internal） | `SAEA.MVC.Invocation` |
+| `WebSockets/` | `WebSocketsFeature`（internal）、`MVCWebSocketConnection`（internal）、`WSMessage`（含 `WSMessageType`）、`WebSocketHandshake`（internal）、`WebSocketConnectionRegistry`（internal） | `SAEA.MVC.WebSockets` |
 | `Tool/` | `APISdkCodeGenerator`、`CodeType` | `SAEA.MVC.Tool` |
 | `Tool/CodeGenerte/` | `ApiMapping`、`CSharpTemple`（含 `SaeaApiSdk`）、`JsTemple` | `SAEA.MVC.Tool.CodeGenerte` |
 
-命名空间规则：
+命名空间规则：所有目录都映射到同名子命名空间，没有例外——`Hosting/` → `SAEA.MVC.Hosting`，`Controllers/` → `SAEA.MVC.Controllers`，`Results/` → `SAEA.MVC.Results`，`Attributes/` → `SAEA.MVC.Attributes`，`Routing/` → `SAEA.MVC.Routing`，`Invocation/` → `SAEA.MVC.Invocation`，`WebSockets/` → `SAEA.MVC.WebSockets`，`Tool/` → `SAEA.MVC.Tool`，`Tool/CodeGenerte/` → `SAEA.MVC.Tool.CodeGenerte`。`SAEA.MVC` 根命名空间下不再有任何类型。
 
-- 实现层目录映射到子命名空间：`Routing/` → `SAEA.MVC.Routing`，`WebSockets/` → `SAEA.MVC.WebSockets`。
-- 作者面向的四个目录留在根命名空间 `SAEA.MVC`：`Hosting/`、`Controllers/`、`Results/`、`Attributes/`。这些类型只是文件位置变了，命名空间没变，所以 `using SAEA.MVC;` 与既有示例代码都不用改。
+这属于对外可见的破坏性变更：升级后只有 `using SAEA.MVC;` 的代码在用到本包类型时都要补对应子命名空间的 `using` 并重新编译。控制器文件通常需要 `using SAEA.MVC.Attributes;`、`using SAEA.MVC.Controllers;`、`using SAEA.MVC.Results;`，启动与配置文件需要 `using SAEA.MVC.Hosting;`，类型全名（如 `SAEA.MVC.Hosting.HttpContext`）同样要按新命名空间写。
 
 > **本次改名**：类型 `Routing` 改名为 `RouteEntry`，与它「单条 action 的路由条目」的职责对齐；目录名 `Routing/` 沿用原名。
+>
+> 类型 `HttpGet` / `HttpPost` 已改名为 `HttpGetAttribute` / `HttpPostAttribute`，并新增 `HttpPutAttribute`、`HttpDeleteAttribute`、`HttpPatchAttribute`、`HttpHeadAttribute`、`HttpOptionsAttribute`；控制器里继续写 `[HttpGet]` / `[HttpPost]` 等简写即可（特性名后缀约定）。代码里写 `typeof(HttpGet)` 或按类型名字符串比较的需改用新名。
 
 引用 `SAEA.MVC.Routing` 下的类型时要补一行 `using SAEA.MVC.Routing;`，例如：
 
 ```csharp
-using SAEA.MVC;
 using SAEA.MVC.Routing;
 
 var table = new RouteTable();
@@ -712,9 +842,13 @@ RouteEntry entry = table.GetOrAdd(typeof(HomeController), "Index", false);
 | `AttributeRouteTable` | `SAEA.MVC` | `SAEA.MVC.Routing` |
 | `WebSocketsFeature` | `SAEA.MVC` | `SAEA.MVC.WebSockets` |
 | `MVCWebSocketConnection` | `SAEA.MVC` | `SAEA.MVC.WebSockets` |
-| `Controller`、`ActionResult` 系列、`HttpGet`/`HttpPost`/`RouteAttribute`、`WSController`/`WSMessage`、`SAEAMvcApplication`、`HttpContext`、`MvcInvoker` | `SAEA.MVC` | 不变（仅文件位置变化） |
+| `WSMessage`、`WSMessageType` | `SAEA.MVC` | `SAEA.MVC.WebSockets` |
+| `SAEAMvcApplication`、`SAEAMvcApplicationConfig`、`SAEAMvcApplicationConfigBuilder`、`HttpContext`、`MvcInvoker` | `SAEA.MVC` | `SAEA.MVC.Hosting` |
+| `Controller`、`WSController` | `SAEA.MVC` | `SAEA.MVC.Controllers` |
+| `ActionResult`、`JsonResult`、`ContentResult`、`DataResult`、`FileResult`、`BigDataResult`、`EventStream`、`EmptyResult` | `SAEA.MVC` | `SAEA.MVC.Results` |
+| `IFilter`、`ActionFilterAttribute`、`OutputCacheAttribute`、`HttpMethodAttribute`、`HttpGetAttribute`、`HttpPostAttribute`、`HttpPutAttribute`、`HttpDeleteAttribute`、`HttpPatchAttribute`、`HttpHeadAttribute`、`HttpOptionsAttribute`、`RouteAttribute`、`WebSocketAttribute` | `SAEA.MVC` | `SAEA.MVC.Attributes` |
 
-只写 `using SAEA.MVC;` 的既有代码，只有用到 `RouteTable`、`RouteEntry`、`AreaCollection`、`AttributeRouteTable`、`WebSocketsFeature`、`MVCWebSocketConnection` 时才需要补 using。
+上表每一行都要补 `using`：把原先的一条 `using SAEA.MVC;` 换成实际用到的子命名空间组合，控制器文件一般是 `SAEA.MVC.Controllers` + `SAEA.MVC.Results` + `SAEA.MVC.Attributes`，启动代码是 `SAEA.MVC.Hosting`，WebSocket 控制器再加 `SAEA.MVC.WebSockets`。
 
 ***
 
@@ -723,7 +857,7 @@ RouteEntry entry = table.GetOrAdd(typeof(HomeController), "Index", false);
 ### 启动 MVC 应用
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Hosting;
 
 // 读取配置
 var config = SAEAMvcApplicationConfigBuilder.Read();
@@ -748,7 +882,9 @@ Console.WriteLine($"MVC 服务已启动，端口: {config.Port}");
 ### 定义 Controller
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
 
 [LogAttribute]  // 类级别过滤器
 public class HomeController : Controller
@@ -833,7 +969,7 @@ return Empty();
 ### SSE 服务器推送
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Results;
 
 public ActionResult StreamEvents()
 {
@@ -853,7 +989,9 @@ public ActionResult StreamEvents()
 ### AOP 过滤器
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
 
 // 自定义过滤器
 public class LogAttribute : ActionFilterAttribute
@@ -888,7 +1026,7 @@ public class UserController : Controller
 ### 配置项
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Hosting;
 
 var config = new SAEAMvcApplicationConfig
 {
@@ -915,7 +1053,7 @@ MVC 内部已经装好 HTTP/WebSocket 协议节点与链尾异常终结器，`Co
 ```csharp
 using System;
 using System.Threading.Tasks;
-using SAEA.MVC;
+using SAEA.MVC.Hosting;
 using SAEA.Sockets.Pipeline;
 
 public sealed class MyHandler : InboundHandlerAdapter
@@ -953,7 +1091,7 @@ app.Start();
 
 ```csharp
 using System.Security.Authentication;
-using SAEA.MVC;
+using SAEA.MVC.Hosting;
 using SAEA.Sockets.Ssl;
 
 var app = new SAEAMvcApplication(root: "wwwroot", port: 28443);
@@ -987,6 +1125,10 @@ app.Start();
 ### 异步 Action
 
 ```csharp
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
+
 public class AsyncController : Controller
 {
     [HttpGet]
@@ -1008,6 +1150,9 @@ public class AsyncController : Controller
 
 ```csharp
 using System.Threading;
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
 
 public class ExportController : Controller
 {
@@ -1029,7 +1174,7 @@ public class ExportController : Controller
 ```
 
 - 声明了 `CancellationToken` 形参时，令牌由框架按每次请求注入。
-- 不声明形参时，从 `((SAEA.MVC.HttpContext)HttpContext.Current).RequestAborted` 读取；`HttpContext.Current` 的静态类型是 `SAEA.Http.Model.IHttpContext`，取用前需要判型或强转。
+- 不声明形参时，从 `((SAEA.MVC.Hosting.HttpContext)HttpContext.Current).RequestAborted` 读取；`HttpContext.Current` 的静态类型是 `SAEA.Http.Model.IHttpContext`，取用前需要判型或强转。
 - 只有显式配置 `ActionTimeout > 0` 才启用动作超时包装：单次调用超过 `ActionTimeout` 秒仍未完成时，框架返回 **408 Request Timeout**，并 `Cancel()` 该令牌。默认（`ActionTimeout = 0`）不启用超时包装：同步 action 阻塞会直接占用消费线程，没有 408 兜底；异步 action 由框架真正 `await`，等待期间线程归还线程池，不会被单个请求占死。`Timeout` 只负责连接空闲回收，单独调小它不会改变动作超时，但会提前回收空闲连接；只为缩短动作超时而调小 `Timeout` 会先回收连接、导致 408 写不出去，应改用 `ActionTimeout`。
 - 令牌只在本次 action 调用期间有效：action 返回后取消源即释放，不要继续注册回调或交给后台任务长期持有。未进入 action 的请求（404、405、静态文件、`RequestDelegate`）读到的是不可取消的默认令牌。
 - 这是**协作式取消**：只有观察令牌的代码才会停止，比如 `token.ThrowIfCancellationRequested()`、`Task.Delay(..., token)`、向令牌注册的回调。没有观察令牌的同步代码无法被强制终止，会继续在后台跑完，其后续异常由框架观察并丢弃，不会再写响应。
@@ -1061,7 +1206,9 @@ public class ExportController : Controller
 WebSocket 复用同一个端口和同一套路由，不需要额外监听端口：继承 `WSController`，在 `OpenAsync` 上标记 `[WebSocket]` 即可。入口默认是 `/{controller}/open`，也可以在 `OpenAsync` 上加 `[Route]` / `[HttpGet]` 声明任意路径。
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.WebSockets;
 using System;
 using System.Threading.Tasks;
 
@@ -1119,7 +1266,7 @@ ws.send("hello");
 - 不提供广播辅助类。多连接广播需要自行维护 `IWebSocketConnection` 集合（可按 `ws.Id` 索引）。
 - 服务端不会主动发起 Ping，需要保活请在业务层定时发送消息或自行实现心跳。
 - 握手失败（非升级请求、缺少 `Sec-WebSocket-Key` 等）直接返回 400/426，不进入 MVC 的 `OnException` 异常链。
-- 升级后的连接不再参与 HTTP 会话超时回收；正常与异常断开都由 `WebConfig.ConnectionClosed` 通知到 `WebSocketsFeature.OnDisconnected` 统一收尾。通知在连接发布前到达时 `Register` 会补一次存活检查，连接表另有 5 分钟一次的扫描兜底清理 `Closed` 或底层已断开的残项。
+- 升级后的连接不再参与 HTTP 会话超时回收；正常与异常断开都由 `WebConfig.ConnectionClosed` 通知到 `WebSocketConnectionRegistry.OnDisconnected` 统一收尾。通知在连接发布前到达时 `WebSocketConnectionRegistry.Register` 会补一次存活检查，连接表另有 5 分钟一次的扫描兜底清理 `Closed` 或底层已断开的残项。
 - `Request` 与 `Session` 是握手那一刻的快照：WS 消息不会刷新 `Session` 的滑动过期，需要长会话状态请放到连接对象自己的字段/字典里。
 - Controller 实例按路由共享，**连接相关的状态不能放在 Controller 字段上**，请用 `WebSockets.Current` 或自建字典按连接 id 管理。
 - 每条长连接会一直占用一个 `MaxConnects` 配额，需要按实际并发调大配置。

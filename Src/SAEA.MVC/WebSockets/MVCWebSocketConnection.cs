@@ -23,16 +23,17 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 11:16:00
+*修改时间：2026/11/19 14:18:04
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：文件移入 WebSockets/ 并改用命名空间 SAEA.MVC.WebSockets，无逻辑变更
+*描述：Unregister 调用改为 WebSocketConnectionRegistry
 *
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Common.Caching;
 using SAEA.Http.Base;
 using SAEA.Http.Model;
+using SAEA.MVC.Controllers;
 using SAEA.Sockets.Base;
 using SAEA.WebSocket.Model;
 using SAEA.WebSocket.Type;
@@ -345,7 +346,7 @@ namespace SAEA.MVC.WebSockets
         }
 
         /// <summary>
-        /// 底层连接断开（由 WebConfig.ConnectionClosed 经 WebSocketsFeature.OnDisconnected 触发）
+        /// 底层连接断开（由 WebConfig.ConnectionClosed 经 WebSocketConnectionRegistry.OnDisconnected 触发）
         /// </summary>
         internal void HandleDisconnected()
         {
@@ -432,7 +433,7 @@ namespace SAEA.MVC.WebSockets
                 {
                 }
 
-                WebSocketsFeature.Unregister(Id);
+                WebSocketConnectionRegistry.Unregister(Id);
 
                 try
                 {

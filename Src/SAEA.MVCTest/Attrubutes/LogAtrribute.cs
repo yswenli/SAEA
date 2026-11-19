@@ -21,15 +21,16 @@
 *描述：
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Results;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
 using SAEA.Common;
 using SAEA.Common.Serialization;
-using SAEA.MVC;
 
-using HttpContext = SAEA.MVC.HttpContext;
+using HttpContext = SAEA.MVC.Hosting.HttpContext;
 
 namespace SAEA.MVCTest.Attrubutes
 {

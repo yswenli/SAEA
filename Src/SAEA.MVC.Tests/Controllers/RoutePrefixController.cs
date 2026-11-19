@@ -29,6 +29,9 @@
 *描述：新增，验证类级模板与方法级模板按 / 拼接
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+
 namespace SAEA.MVC.Tests.Controllers
 {
     /// <summary>

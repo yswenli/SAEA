@@ -206,12 +206,12 @@ WS 升级沿用 `GetActionResult` 的同一条路径，属性路由对 WS 入口
 | --- | --- |
 | `Src/SAEA.MVC/RouteAttribute.cs` | 新增 |
 | `Src/SAEA.MVC/HttpGet.cs`、`HttpPost.cs` | 加可选模板构造与 `Template` 属性 |
-| `Src/SAEA.MVC/AttributeRouteTable.cs` | 新增：构建、归一化、冲突校验、匹配、405 判定（internal） |
-| `Src/SAEA.MVC/Routing.cs` | 加 `Template`、`HttpMethods` |
+| `Src/SAEA.MVC/Routing/AttributeRouteTable.cs` | 新增：构建、归一化、冲突校验、匹配、405 判定（internal） |
+| `Src/SAEA.MVC/Routing/RouteEntry.cs` | 加 `Template`、`HttpMethods` |
 | `Src/SAEA.MVC/AreaCollection.cs` | 记录本次发现的类型供构建器使用 |
 | `Src/SAEA.MVC/SAEAMvcApplication.cs` | 构造期构建属性路由表并注入 |
 | `Src/SAEA.MVC/HttpContext.cs` | 匹配入口前置、`RoutingPath`、路径参数写入 `Parmas`、405 |
-| `Src/SAEA.MVC/MVCInvoker.cs` | 两段式 action 的动词校验与 405 + `Allow` |
+| `Src/SAEA.MVC/Hosting/MvcInvoker.cs` | 两段式 action 的动词校验与 405 + `Allow` |
 | `Src/SAEA.MVC/OutputCacheAttribute.cs` | 缓存键改为动词 + 规范路径 + 规范化 query |
 | `Src/SAEA.MVC/Tool/**` | 生成器读模板、修 NRE |
 
@@ -256,7 +256,7 @@ WS 升级沿用 `GetActionResult` 的同一条路径，属性路由对 WS 入口
 ## 13. 补充修订（2026-11-17）
 
 1. **两段式 `Async` 回退放开到所有 Controller**（`RouteTable.ResolveActions`）：先按地址里的 action 名精确匹配，未命中再尝试 `actionName + "Async"`，`/{Controller}/{Action}` 与 `WebConfig.DefaultRoute` 两条两段式分支都生效，所以 `/test/sleep` 命中 `TestController.SleepAsync`。精确名优先，`Foo` 与 `FooAsync` 同时存在时 `/controller/foo` 命中 `Foo`；回退不限定返回类型；属性路由按模板匹配，与方法名无关，不走这套回退；`WSController` 派生类未 override 时回落到基类 `OpenAsync` 的兜底仍只对其派生类生效。
-2. **action 超时的协作式取消与观察兜底**（`MVCInvoker.MethodInvoke`、`HttpContext.RequestAborted`）：每次调用创建一个 `CancellationTokenSource`，声明 `CancellationToken` 形参时由框架注入，否则从 `RequestAborted` 读取；等待超过 action 超时秒数返回 408 并 `Cancel()` 该令牌（action 超时读 `WebConfig.ActionTimeout`，为 0 时沿用 `Timeout`），未完成的 Task 交给观察回调收尾——异常被丢弃，不会再写响应。取消放在线程池执行（`Task.Run` 调 `CancelQuietly`），因为 `CancellationTokenSource.Cancel()` 会在调用线程同步执行用户注册的回调，阻塞的回调会把 408 拖后甚至自锁；取消与任务完成后的释放可能并发，取消回调自身抛出的异常被吞掉。`Timeout` 仍是 `SAEA.Http` 的连接空闲回收时间，只为缩短动作超时而调小它会在 408 写出前回收连接，这种场景应改配 `ActionTimeout`。不观察令牌的同步代码无法被强制终止，会继续在后台跑完。
+2. **action 超时的协作式取消与观察兜底**（`MvcInvoker.InvokeResultAsync` 调用 `ActionInvoker.InvokeAsync`：超时等待在 `ActionInvoker.WaitWithTimeoutAsync`，静默取消在 `ActionInvoker.CancelQuietly`，后台任务观察在 `ActionInvoker.ObserveAndDispose`；令牌来自 `HttpContext.RequestAborted`）：每次调用创建一个 `CancellationTokenSource`，声明 `CancellationToken` 形参时由框架注入，否则从 `RequestAborted` 读取；等待超过 action 超时秒数返回 408 并 `Cancel()` 该令牌（action 超时读 `WebConfig.ActionTimeout`，为 0 时沿用 `Timeout`），未完成的 Task 交给观察回调收尾——异常被丢弃，不会再写响应。取消放在线程池执行（`Task.Run` 调 `CancelQuietly`），因为 `CancellationTokenSource.Cancel()` 会在调用线程同步执行用户注册的回调，阻塞的回调会把 408 拖后甚至自锁；取消与任务完成后的释放可能并发，取消回调自身抛出的异常被吞掉。`Timeout` 仍是 `SAEA.Http` 的连接空闲回收时间，只为缩短动作超时而调小它会在 408 写出前回收连接，这种场景应改配 `ActionTimeout`。不观察令牌的同步代码无法被强制终止，会继续在后台跑完。
 3. **文案与内容类型修正**：404 的「找不到：Controller/Action 当前请求为:」输出请求行的真实方法（GET/POST/PUT/DELETE），不再是特性名 `HttpGet`/`HttpPost`（`MVCInvoker`）；405 文案改用原始 request-target `Request.RelativeUrl`，数字末段不会再被 `SAEA.Http` 的请求解析剥掉（`HttpContext`）；`ContentResult(string, Encoding)` 的默认内容类型由 `text/plane` 修正为 `text/plain; charset=utf-8`（`ContentResult`）。404/405 正文按 `text/html` 输出，因此拼进正文的 action 名与完整 request-target（含查询串）都先做 HTML 编码。
 
 ## 14. 补充修订（2026-11-18）

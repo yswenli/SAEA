@@ -29,6 +29,9 @@
 *描述：新增，验证两个令牌在方法级模板中替换为类名与方法名
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+
 namespace SAEA.MVC.Tests.Controllers
 {
     /// <summary>

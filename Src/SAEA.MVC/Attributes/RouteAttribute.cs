@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Attributes
 *文件名： RouteAttribute
 *版本号： v26.11.16.1
 *唯一标识：3f9c2a61-7d4e-4b8a-9c15-2e6d8f0a1b73
@@ -23,15 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 16:35:00
+*修改时间：2026/11/19 15:26:46
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：新增属性路由
+*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
 *
 *****************************************************************************/
 using System;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Attributes
 {
     /// <summary>
     /// 声明控制器或 action 的路由模板

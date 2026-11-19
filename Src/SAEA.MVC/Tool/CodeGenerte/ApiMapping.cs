@@ -23,13 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 11:16:00
+*修改时间：2026/11/19 16:15:31
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：补 Routing 子命名空间引用，类型 Routing 改为 RouteEntry，无逻辑变更
+*描述：GetDeclaredVerbs 改为复用 VerbPolicy.GetAllowedMethods，识别全部 7 个谓词特性并改为 internal 供单测调用
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Invocation;
 using SAEA.MVC.Routing;
 using System;
 using System.Collections.Generic;
@@ -194,34 +197,11 @@ namespace SAEA.MVC.Tool.CodeGenerte
         /// 取 action 上声明的动词特性，供两段式路由判定允许的请求方法
         /// </summary>
         /// <param name="action">action 方法</param>
-        /// <returns>声明的动词数组；未声明动词特性时为 null，表示不限动词</returns>
-        static string[] GetDeclaredVerbs(MethodInfo action)
+        /// <returns>按 HttpMethodCatalog.All 顺序去重后的动词数组；未声明动词特性时为 null，表示不限谓词</returns>
+        internal static string[] GetDeclaredVerbs(MethodInfo action)
         {
-            var attrs = action.GetCustomAttributes(true);
-
-            if (attrs == null || attrs.Length == 0) return null;
-
-            var isGet = false;
-            var isPost = false;
-
-            // 与属性路由同一口径：按特性类型名匹配，取并集
-            for (var i = 0; i < attrs.Length; i++)
-            {
-                var name = attrs[i].GetType().Name;
-
-                if (string.Compare(name, ConstHelper.HTTPGET, true) == 0)
-                    isGet = true;
-                else if (string.Compare(name, ConstHelper.HTTPPOST, true) == 0)
-                    isPost = true;
-            }
-
-            if (isGet && isPost) return new[] { ConstHelper.GET, ConstHelper.POST };
-
-            if (isGet) return new[] { ConstHelper.GET };
-
-            if (isPost) return new[] { ConstHelper.POST };
-
-            return null;
+            // 与运行期 405 判定共用同一口径：认全部谓词特性，避免为只声明新谓词的 action 生成必然 405 的 GET/POST
+            return VerbPolicy.GetAllowedMethods(action);
         }
 
         /// <summary>

@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Attributes
 *文件名： WebSocketAttribute
 *版本号： v26.11.5.1
 *唯一标识：be8234e4-406b-47a1-9ae2-c7fa3d07048a
@@ -23,15 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:11:19
+*修改时间：2026/11/19 15:26:46
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：规范文件头 banner
+*版本号： v26.11.16.1
+*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
 *
 *****************************************************************************/
 using System;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Attributes
 {
     /// <summary>
     /// 标记一个 action 为 WebSocket 入口。

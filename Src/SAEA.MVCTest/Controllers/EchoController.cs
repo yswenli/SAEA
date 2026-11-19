@@ -6,7 +6,7 @@
  *描述：不 override OpenAsync 的派生类，验证回落到 WSController 的默认实现
  *=====================================================================
  *****************************************************************************/
-using SAEA.MVC;
+using SAEA.MVC.Controllers;
 
 namespace SAEA.MVCTest.Controllers
 {

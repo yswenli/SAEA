@@ -28,6 +28,7 @@
 *描述：新增，验证同一端口承载 HTTPS 与 WSS
 *
 *****************************************************************************/
+using SAEA.MVC.Hosting;
 using System;
 using System.Net;
 using System.Security.Authentication;

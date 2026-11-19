@@ -29,6 +29,9 @@
 *描述：新增，提供静态路径、路径参数、动词限定、单段路由、编码段与输出缓存入口
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+
 namespace SAEA.MVC.Tests.Controllers
 {
     /// <summary>

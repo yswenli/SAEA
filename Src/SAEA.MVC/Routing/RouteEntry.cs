@@ -29,6 +29,8 @@
 *描述：文件由 Routing.cs 改名为 RouteEntry.cs，类型 Routing 改为 RouteEntry，并移入 Routing/ 使用命名空间 SAEA.MVC.Routing，无逻辑变更
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
 using System;
 using System.Collections.Generic;
 using System.Reflection;

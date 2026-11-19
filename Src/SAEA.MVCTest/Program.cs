@@ -1,8 +1,9 @@
 
+using SAEA.MVC.Hosting;
+using SAEA.MVC.Results;
 using System;
 
 using SAEA.Common;
-using SAEA.MVC;
 using SAEA.MVC.Tool;
 
 namespace SAEA.MVCTest

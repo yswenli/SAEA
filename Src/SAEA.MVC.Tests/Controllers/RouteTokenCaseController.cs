@@ -29,6 +29,9 @@
 *描述：新增，验证 [Controller] 与 [ACTION] 与全小写令牌等价
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+
 namespace SAEA.MVC.Tests.Controllers
 {
     /// <summary>

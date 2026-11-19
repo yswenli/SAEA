@@ -23,18 +23,19 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 11:16:00
+*修改时间：2026/11/19 15:55:14
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：文件移入 Routing/ 并改用命名空间 SAEA.MVC.Routing，类型 Routing 引用改为 RouteEntry，无逻辑变更
+*描述：路由键改为按请求方法分键，新增 string method 重载；未声明动词时按 HttpMethodCatalog.All 补写全部动词键
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Invocation;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 
 namespace SAEA.MVC.Routing
 {
@@ -60,253 +61,104 @@ namespace SAEA.MVC.Routing
         /// <returns>匹配到的路由；找不到 action 或 controllerType 为 null 时返回 null</returns>
         public RouteEntry GetOrAdd(Type controllerType, string actionName, bool isPost)
         {
-            if (controllerType == null) return null;
-
-            RouteEntry routing = null;
-
-            var getKey = controllerType.Name + actionName + "_" + ConstHelper.GET;
-
-            var postKey = controllerType.Name + actionName + "_" + ConstHelper.POST;
-
-            if (!isPost)
-            {
-                routing = _cDic.GetOrAdd(getKey, (k) =>
-                {
-                    var actions = ResolveActions(controllerType, actionName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
-
-                    if (actions == null || !actions.Any())
-                    {
-                        // 未知 action 属于请求错误，返回 null 交给上层回 404；GetOrAdd 会把 null 作为该键的缓存值，后续请求直接命中
-                        return null;
-                    }
-                    else if (actions.Count > 2)
-                    {
-                        throw new Exception($"{controllerType.Name}/{actionName}有多个重复的的action!");
-                    }
-                    else
-                    {
-                        var instance = Activator.CreateInstance(controllerType);
-
-                        List<IFilter> iAttrs = null;
-
-                        //类上面的过滤
-                        var classAttrs = controllerType.GetCustomAttributes(true);
-
-                        if (classAttrs != null && classAttrs.Length > 0)
-                        {
-                            var actionAttrs = classAttrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList().ConvertAll(b => b as IFilter);
-
-                            if (actionAttrs != null && actionAttrs.Count > 0)
-
-                                iAttrs = actionAttrs.OrderBy(b => b.Order).ToList();
-
-                        }
-
-                        foreach (var action in actions)
-                        {
-                            routing = new RouteEntry()
-                            {
-                                ControllerName= controllerType.Name,
-                                ActionName = actionName,
-                                Instance = (Controller)instance,
-                                FilterAtrrs = iAttrs,
-                                Action = action,
-                                IsPost = false
-                            };
-
-                            var routing2 = new RouteEntry()
-                            {
-                                ControllerName = controllerType.Name,
-                                ActionName = actionName,
-                                Instance = (Controller)instance,
-                                FilterAtrrs = iAttrs,
-                                Action = action,
-                                IsPost = true
-                            };
-
-                            //action上面的过滤
-                            var actionAttrs = action.GetCustomAttributes(true);
-
-                            if (actionAttrs != null && actionAttrs.Length > 0)
-                            {
-                                var filterAttrs = actionAttrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
-
-                                if (filterAttrs != null && filterAttrs.Count > 0)
-                                {
-                                    var filters = filterAttrs.ConvertAll(b => b as IFilter);
-
-                                    if (filters != null && filters.Any())
-                                    {
-                                        routing.ActionFilterAtrrs = routing2.ActionFilterAtrrs = filters.OrderBy(b => b.Order).ToList();
-
-                                        var dPost = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPPOST).FirstOrDefault();
-                                        if (dPost != null)
-                                        {
-                                            _cDic.TryAdd(postKey, routing2);
-                                        }
-
-                                        var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
-                                        if (dGet != null)
-                                        {
-                                            _cDic.TryAdd(getKey, routing);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        _cDic.TryAdd(getKey, routing);
-
-                                        _cDic.TryAdd(postKey, routing2);
-                                    }
-                                }
-                                else
-                                {
-                                    _cDic.TryAdd(getKey, routing);
-
-                                    _cDic.TryAdd(postKey, routing2);
-                                }
-                            }
-                            else
-                            {
-                                _cDic.TryAdd(getKey, routing);
-
-                                _cDic.TryAdd(postKey, routing2);
-                            }
-                        }
-                        return routing;
-                    }
-                });
-            }
-            else
-            {
-                routing = _cDic.GetOrAdd(postKey, (k) =>
-                {
-                    var actions = ResolveActions(controllerType, actionName, BindingFlags.Instance | BindingFlags.Public);
-
-                    if (actions == null || actions.Count == 0)
-                    {
-                        // 未知 action 属于请求错误，返回 null 交给上层回 404；GetOrAdd 会把 null 作为该键的缓存值，后续请求直接命中
-                        return null;
-                    }
-                    else if (actions.Count > 2)
-                    {
-                        throw new Exception($"{controllerType.Name}/{actionName}有多个重复的的action!");
-                    }
-                    else
-                    {
-                        var instance = Activator.CreateInstance(controllerType);
-
-                        List<IFilter> iAttrs = null;
-
-                        //类上面的过滤
-                        var classAttrs = controllerType.GetCustomAttributes(true);
-
-                        if (classAttrs != null && classAttrs.Length > 0)
-                        {
-                            var actionAttrs = classAttrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
-
-                            if (actionAttrs != null && actionAttrs.Count > 0)
-
-                                iAttrs = actionAttrs.ConvertAll(b => b as IFilter).OrderBy(b => b.Order).ToList();
-
-                        }
-
-                        foreach (var action in actions)
-                        {
-                            routing = new RouteEntry()
-                            {
-                                ActionName = actionName,
-                                ControllerName = controllerType.Name,
-                                Instance = (Controller)instance,
-                                FilterAtrrs = iAttrs,
-                                Action = action,
-                                IsPost = true
-                            };
-
-                            var routing2 = new RouteEntry()
-                            {
-                                ControllerName = controllerType.Name,
-                                ActionName = actionName,
-                                Instance = (Controller)instance,
-                                FilterAtrrs = iAttrs,
-                                Action = action,
-                                IsPost = false
-                            };
-                            //action上面的过滤
-                            var actionAttrs = action.GetCustomAttributes(true);
-
-                            if (actionAttrs != null && actionAttrs.Length > 0)
-                            {
-                                var filterAttrs = actionAttrs.Where(b => b.GetType().BaseType.Name == ConstHelper.ACTIONFILTERATTRIBUTE).ToList();
-
-                                if (filterAttrs != null && filterAttrs.Count > 0)
-
-                                    routing.ActionFilterAtrrs = routing2.ActionFilterAtrrs = filterAttrs.ToList().ConvertAll(b => b as IFilter).OrderBy(b => b.Order).ToList();
-
-
-                                var dGet = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPGET).FirstOrDefault();
-                                if (dGet != null)
-                                {
-                                    _cDic.TryAdd(getKey, routing2);
-                                }
-
-                                var dPost = actionAttrs.Where(b => b.GetType().Name == ConstHelper.HTTPPOST).FirstOrDefault();
-                                if (dPost != null)
-                                {
-                                    _cDic.TryAdd(postKey, routing);
-                                }
-                            }
-                            else
-                            {
-                                _cDic.TryAdd(getKey, routing2);
-
-                                _cDic.TryAdd(postKey, routing);
-                            }
-                        }
-                        return routing;
-                    }
-                });
-            }
-
-            return routing;
+            return GetOrAdd(controllerType, actionName, isPost ? ConstHelper.POST : ConstHelper.GET);
         }
 
         /// <summary>
-        /// 解析 action 方法：先按 action 名精确匹配；未命中时再尝试 action 名加 Async 后缀回退，
-        /// 使两段式地址 /{controller}/{action} 与 WebConfig.DefaultRoute 都能省略 Async 后缀。
-        /// 精确名优先，Foo 与 FooAsync 同时声明时 /controller/foo 命中 Foo；回退不限定返回类型。
-        /// 属性路由按声明模板匹配，与 action 方法名无关，不走本方法。
-        /// WSController 的入口方法声明为 OpenAsync 而地址保持 /chat/open，派生类未 override 时还要
-        /// 回落到基类声明的那一层；该回落只对 WSController 派生类生效，否则基类的 OpenAsync、
-        /// MessageAsync 等会被误挂到普通控制器上。
-        /// GET 与 POST 必须用同一套回退规则，否则 POST /chat/open 会查不到 action 而返回 404
+        /// 按请求方法获取routing中的缓存
+        /// 若不存在则创建
         /// </summary>
         /// <param name="controllerType">控制器类型</param>
-        /// <param name="actionName">路由地址里的 action 段原文</param>
-        /// <param name="flags">反射取方法的范围，GET 分支声明层限定，POST 分支包含继承成员</param>
-        /// <returns>匹配到的 action 方法；精确名与 Async 后缀都未命中时返回空列表</returns>
-        static List<MethodInfo> ResolveActions(Type controllerType, string actionName, BindingFlags flags)
+        /// <param name="actionName">动作名称</param>
+        /// <param name="method">请求方法，如 GET；为空时按 GET 处理</param>
+        /// <returns>匹配到的路由；找不到 action 或 controllerType 为 null 时返回 null</returns>
+        public RouteEntry GetOrAdd(Type controllerType, string actionName, string method)
         {
-            var actions = controllerType.GetMethods(flags)
-                .Where(b => string.Compare(b.Name, actionName, true) == 0).ToList();
+            if (controllerType == null) return null;
 
-            if (actions.Count > 0) return actions;
+            // 未给出方法时按 GET 处理，保持旧的重载与空方法调用等价
+            if (string.IsNullOrEmpty(method)) method = ConstHelper.GET;
 
-            var asyncName = actionName + "Async";
+            var key = controllerType.Name + actionName + "_" + method;
 
-            actions = controllerType.GetMethods(flags)
-                .Where(b => string.Compare(b.Name, asyncName, true) == 0).ToList();
+            // 只对当前请求动词的键做 GetOrAdd，其它动词的键由工厂内按声明补写；
+            // 解析为空时工厂返回 null 并作为该键的缓存值，后续请求直接命中
+            return _cDic.GetOrAdd(key, (k) => BuildEntry(controllerType, actionName, method, key));
+        }
 
-            if (actions.Count > 0) return actions;
+        /// <summary>
+        /// 解析 action 并构造当前动词的路由条目，同时按 action 声明的动词补写其它动词的键
+        /// </summary>
+        /// <param name="controllerType">控制器类型</param>
+        /// <param name="actionName">动作名称</param>
+        /// <param name="method">请求方法，决定 action 的解析范围与条目的动词标记</param>
+        /// <param name="key">当前动词的路由缓存键</param>
+        /// <returns>当前动词对应的路由条目；找不到 action 时返回 null</returns>
+        RouteEntry BuildEntry(Type controllerType, string actionName, string method, string key)
+        {
+            var actions = ActionResolver.Resolve(controllerType, actionName, method);
 
-            // WSController 派生类未 override OpenAsync 时，回落到基类声明的那一层
-            if (typeof(WSController).IsAssignableFrom(controllerType))
+            if (actions == null || actions.Count == 0)
             {
-                actions = typeof(WSController)
-                    .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
-                    .Where(b => string.Compare(b.Name, asyncName, true) == 0).ToList();
+                // 未知 action 属于请求错误，返回 null 交给上层回 404；GetOrAdd 会把 null 作为该键的缓存值，后续请求直接命中
+                return null;
             }
 
-            return actions;
+            if (actions.Count > 2)
+            {
+                throw new Exception($"{controllerType.Name}/{actionName}有多个重复的的action!");
+            }
+
+            // 一次解析只创建一个控制器实例，同一 action 的各个动词条目共用
+            var instance = Activator.CreateInstance(controllerType);
+
+            var classFilters = FilterCollector.CollectClassFilters(controllerType);
+
+            RouteEntry entry = null;
+
+            foreach (var action in actions)
+            {
+                entry = new RouteEntry()
+                {
+                    ControllerName = controllerType.Name,
+                    ActionName = actionName,
+                    Instance = (Controller)instance,
+                    FilterAtrrs = classFilters,
+                    Action = action,
+                    IsPost = string.Compare(method, ConstHelper.POST, true) == 0
+                };
+
+                var actionFilters = FilterCollector.CollectActionFilters(action);
+
+                if (actionFilters != null)
+                {
+                    entry.ActionFilterAtrrs = actionFilters;
+                }
+
+                var methodAttributes = HttpMethodCatalog.FromAttributes(action.GetCustomAttributes(true));
+
+                if (methodAttributes.Length > 0)
+                {
+                    // 声明了动词特性时只写命中的键：未声明的动词留给它自己的解析，不提前固化别的动词的条目；
+                    // 即使当前动词未被声明也返回非 null 条目，让上层按声明给出 405 而不是 404
+                    for (var i = 0; i < methodAttributes.Length; i++)
+                    {
+                        if (string.Compare(methodAttributes[i].Method, method, true) != 0) continue;
+
+                        _cDic.TryAdd(key, entry);
+                    }
+                }
+                else
+                {
+                    // 未声明动词时对所有已知动词放行，按全部动词补写缓存键
+                    for (var i = 0; i < HttpMethodCatalog.All.Length; i++)
+                    {
+                        _cDic.TryAdd(controllerType.Name + actionName + "_" + HttpMethodCatalog.All[i], entry);
+                    }
+                }
+            }
+
+            return entry;
         }
     }
 

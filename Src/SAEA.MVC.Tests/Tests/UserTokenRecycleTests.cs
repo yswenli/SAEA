@@ -29,6 +29,7 @@
 *描述：日志断言补入令牌复用与计数异常文案，改为日志静默一个泵周期即判定刷盘完成
 *
 *****************************************************************************/
+using SAEA.MVC.Hosting;
 using System;
 using System.Collections.Concurrent;
 using System.IO;

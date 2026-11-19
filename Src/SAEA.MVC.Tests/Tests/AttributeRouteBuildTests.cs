@@ -23,16 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 18:20:00
+*修改时间：2026/11/19 15:13:26
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增，用反射直接调 internal Build 验证冲突与非法模板，负向类型不进程序集扫描
+*描述：InternalsVisibleTo 打开后改为直调 AttributeRouteTable.Build，去掉类型全名字符串与反射拆包
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
-using System.Runtime.ExceptionServices;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -172,28 +171,12 @@ namespace SAEA.MVC.Tests
         }
 
         /// <summary>
-        /// 反射调用 internal 的 AttributeRouteTable.Build，把只在测试内定义的类型交给构建期校验。
+        /// 直调 internal 的 AttributeRouteTable.Build，把只在测试内定义的类型交给构建期校验。
         /// </summary>
         /// <param name="controllerTypes">参与构建的类型，不要求继承 Controller</param>
         private static void BuildAttributeRouteTable(params Type[] controllerTypes)
         {
-            var tableType = typeof(SAEAMvcApplication).Assembly.GetType("SAEA.MVC.Routing.AttributeRouteTable", true);
-
-            Assert.IsNotNull(tableType, "应能取到 SAEA.MVC.AttributeRouteTable 类型");
-
-            var build = tableType.GetMethod("Build", BindingFlags.NonPublic | BindingFlags.Static);
-
-            Assert.IsNotNull(build, "应能取到 AttributeRouteTable.Build 静态方法");
-
-            try
-            {
-                build.Invoke(null, new object[] { new RouteTable(), new List<Type>(controllerTypes) });
-            }
-            catch (TargetInvocationException ex)
-            {
-                // 反射会把校验异常包成 TargetInvocationException，拆开才能让 Assert 看到真实类型与消息
-                ExceptionDispatchInfo.Capture(ex.InnerException ?? ex).Throw();
-            }
+            AttributeRouteTable.Build(new RouteTable(), new List<Type>(controllerTypes));
         }
 
         /// <summary>

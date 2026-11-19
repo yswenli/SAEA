@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 16:48:11
+*修改时间：2026/11/19 17:02:06
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：报头改为「先算长度再直接编码进目标帧」，报头字符串与字节共用同一份分段描述；Cookie 分段写出；Date 头按秒缓存
+*描述：新增 SuppressBody：ToBytes 与 SendData 在置位时只发报头，Content-Length 仍按正文长度给出
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -63,6 +63,11 @@ namespace SAEA.Http
         /// 是否已直接写过原始响应（如握手失败的 400/426）
         /// </summary>
         public bool IsHandled { get; private set; }
+
+        /// <summary>
+        /// 只发报头不发正文；HEAD 请求置位，Content-Length 仍按等价 GET 的正文长度给出
+        /// </summary>
+        public bool SuppressBody { get; set; }
 
         internal IWebHost WebHost { get; set; }
 
@@ -494,13 +499,16 @@ namespace SAEA.Http
             var lineLen = _newLineBytes.Length;
             var headerLen = GetHeaderByteCount(headerEncoding, _newLineBytes);
 
-            var result = new byte[headerLen + lineLen + bodyLen];
+            // HEAD 只回报头：Content-Length 仍按等价 GET 的正文长度给出，帧里不追加正文
+            var sentBodyLen = SuppressBody ? 0 : bodyLen;
+
+            var result = new byte[headerLen + lineLen + sentBodyLen];
 
             var headerOffset = WriteHeaderBytes(result, 0, headerEncoding, _newLineBytes);
             Buffer.BlockCopy(_newLineBytes, 0, result, headerOffset, lineLen);
 
-            if (bodyLen > 0)
-                Buffer.BlockCopy(bdata, 0, result, headerOffset + lineLen, bodyLen);
+            if (sentBodyLen > 0)
+                Buffer.BlockCopy(bdata, 0, result, headerOffset + lineLen, sentBodyLen);
 
             return result;
         }
@@ -684,6 +692,9 @@ namespace SAEA.Http
         private async Task SendDataCoreAsync(byte[] data)
         {
             if (IsUpgraded || IsHandled) return;
+
+            // HEAD 只回报头：分段写场景（SSE、大文件）在这里统一丢弃正文，避免各调用方重复判断
+            if (SuppressBody) return;
 
             await SendToHostAsync(Channel, data).ConfigureAwait(false);
         }

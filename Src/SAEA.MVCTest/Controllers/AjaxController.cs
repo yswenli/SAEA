@@ -1,4 +1,5 @@
-﻿using SAEA.MVC;
+﻿using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
 using SAEA.MVCTest.Model;
 
 namespace SAEA.MVCTest.Controllers

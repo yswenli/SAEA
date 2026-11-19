@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:40:45
+*修改时间：2026/11/19 17:05:40
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.16.1
+*描述：新增 PATCH、HEAD 方法名常量，并同步控制器与输出缓存特性全名
 *
 *****************************************************************************/
 using System;
@@ -49,7 +49,7 @@ namespace SAEA.Common
         /// <summary>
         /// MVC 控制器基类的全名
         /// </summary>
-        public const string CONTROLLERFULLNAME = "SAEA.MVC.Controller";
+        public const string CONTROLLERFULLNAME = "SAEA.MVC.Controllers.Controller";
 
         /// <summary>
         /// HttpGet 特性名
@@ -80,6 +80,16 @@ namespace SAEA.Common
         /// HTTP 方法名 DELETE
         /// </summary>
         public const string DELETE = "DELETE";
+
+        /// <summary>
+        /// HTTP 方法名 PATCH
+        /// </summary>
+        public const string PATCH = "PATCH";
+
+        /// <summary>
+        /// HTTP 方法名 HEAD，语义与 GET 相同但不返回报文体
+        /// </summary>
+        public const string HEAD = "HEAD";
 
         /// <summary>
         /// HTTP 方法名 OPTIONS，用于跨域预检
@@ -333,7 +343,7 @@ namespace SAEA.Common
         /// <summary>
         /// 输出缓存特性的全名
         /// </summary>
-        public const string OUTPUTCACHEATTRIBUTE = "SAEA.MVC.OutputCacheAttribute";
+        public const string OUTPUTCACHEATTRIBUTE = "SAEA.MVC.Attributes.OutputCacheAttribute";
 
 
 

@@ -29,6 +29,9 @@
 *描述：新增，验证类级与方法级模板各自解析自己的令牌
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+
 namespace SAEA.MVC.Tests.Controllers
 {
     /// <summary>

@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Results
 *文件名： FileResult
 *版本号： v26.4.23.1
 *唯一标识：cc603ca5-0648-467c-9f39-2193f1d715cb
@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:32
+*修改时间：2026/11/19 15:26:46
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.16.1
+*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
 *
 *****************************************************************************/
 using System.IO;
@@ -38,7 +38,7 @@ using SAEA.Http.Base;
 using SAEA.Http.Common;
 using SAEA.Http.Model;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Results
 {
     /// <summary>
     /// 小文件或数据

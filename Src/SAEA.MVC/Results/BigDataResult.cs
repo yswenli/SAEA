@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Results
 *文件名： BigDataResult
 *版本号： v26.4.23.1
 *唯一标识：5d662b36-82da-46c3-b5ec-8e195fbc83fe
@@ -23,21 +23,22 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/05/20 14:37:39
+*修改时间：2026/11/19 16:47:18
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：BigDataResult接口
+*版本号： v26.11.16.1
+*描述：HEAD 场景在写出报头后直接结束，不再发送报文体
 *
 *****************************************************************************/
 using SAEA.Common.IO;
 using SAEA.Http.Base;
 using SAEA.Http.Model;
+using SAEA.MVC.Hosting;
 using System;
 using System.IO;
 using System.Net;
 using System.Text;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Results
 {
     /// <summary>
     /// 大数据结果
@@ -62,6 +63,19 @@ namespace SAEA.MVC
             HttpContext.Current.Response.Headers["Connection"] = "close";
             HttpContext.Current.Response.Status = status;
             HttpContext.Current.Response.SendHeader(total);
+
+            // 报头已写出，后续发生异常不能再改状态码
+            (HttpContext.Current as HttpContext)?.MarkResponseStarted();
+
+            // HEAD 只要报头：Content-Length 已按完整长度写出，正文一个字节都不发
+            if (HttpContext.Current.Response.SuppressBody)
+            {
+                HttpContext.Current.Response.SendEnd();
+
+                stream.Close();
+
+                return;
+            }
 
             var buffer = new byte[10240];
             stream.Position = 0;

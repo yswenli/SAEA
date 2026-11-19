@@ -55,7 +55,7 @@ namespace SAEA.MVC.Tests
         [TestMethod]
         public void ContentResult_DefaultContentType_IsTextPlain()
         {
-            var result = new SAEA.MVC.ContentResult("x", Encoding.UTF8);
+            var result = new SAEA.MVC.Results.ContentResult("x", Encoding.UTF8);
 
             Assert.AreEqual("text/plain; charset=utf-8", result.ContentType, "默认内容类型应为 text/plain; charset=utf-8");
         }

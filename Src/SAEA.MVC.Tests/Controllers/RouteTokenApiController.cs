@@ -29,6 +29,8 @@
 *描述：新增，验证多段静态前缀与两个令牌混排、异步方法名的 Async 后缀剥离
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
 using System.Threading.Tasks;
 
 namespace SAEA.MVC.Tests.Controllers

@@ -38,7 +38,7 @@ dotnet add package SAEA.MVC
 ### Step 2: Create MVC Application (only 5 lines of code)
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Hosting;
 
 var config = SAEAMvcApplicationConfigBuilder.Read();
 var app = new SAEAMvcApplication(config);
@@ -49,6 +49,10 @@ app.Start();
 ### Step 3: Create Your First Controller
 
 ```csharp
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
+
 public class HomeController : Controller
 {
     [HttpGet]
@@ -72,7 +76,9 @@ The two-segment route and the `WebConfig.DefaultRoute` default route both ignore
 ### Attribute routing
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
 
 [Route("api/v1/users")]              // class-level prefix
 public class UserController : Controller
@@ -131,14 +137,74 @@ public class ProductController : Controller
 }
 ```
 
-- `[Route(template)]` declares a path only and accepts GET/POST/PUT/DELETE.
-- `[HttpGet(template)]` / `[HttpPost(template)]` declare a path and restrict the verb.
-- A class-level `[Route]` is joined with the method template by `/`; when the method only carries `[HttpGet]` / `[HttpPost]` without a template, the class template alone is the path.
+- `[Route(template)]` declares a path only and accepts all seven verbs.
+- `[HttpGet(template)]`, `[HttpPost(template)]`, `[HttpPut(template)]`, `[HttpDelete(template)]`, `[HttpPatch(template)]`, `[HttpHead(template)]` and `[HttpOptions(template)]` declare a path and restrict the verb.
+- A class-level `[Route]` is joined with the method template by `/`; when the method carries a verb attribute without a template, the class template alone is the path.
 - An action whose class carries `[Route]` but which has no routing attribute of its own stays on two-segment routing, so a class prefix never swallows every action.
 - A template may use the `[controller]` / `[action]` tokens instead of spelling out the controller and method names; token recognition and suffix stripping are case-insensitive, and so is path comparison, so a template that resolves to `Product` and `Get` still matches `/api/v1/product/get/5`.
 - A class-level template may also contain `[action]`, replaced separately for each action: `[Route("api/v1/[controller]/[action]")]` gives every action of that controller its own address.
 
 Tokens are replaced while the attribute route table is built. The resulting absolute path is `RouteEntry.Template`; the SDK generator output and conflict detection both use the replaced result.
+
+### RESTful controller example
+
+Different operations on the same resource declare their own verbs, and the path template is written once on the class:
+
+```csharp
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
+
+[Route("api/v1/articles")]
+public class ArticleController : Controller
+{
+    [HttpGet]                        // GET /api/v1/articles      - list
+    public ActionResult List()
+    {
+        return Json(new[] { new { Id = 1, Title = "Hello" } });
+    }
+
+    [HttpGet("{id}")]                // GET /api/v1/articles/5    - single item; HEAD also matches but sends no body
+    public ActionResult Get(string id)
+    {
+        return Json(new { Id = id, Title = "Hello" });
+    }
+
+    [HttpPost]                       // POST /api/v1/articles     - create
+    public ActionResult Create(string title)
+    {
+        return Json(new { Id = 3, Title = title });
+    }
+
+    [HttpPut("{id}")]                // PUT /api/v1/articles/5    - full replace
+    public ActionResult Replace(string id, string title)
+    {
+        return Json(new { Id = id, Title = title });
+    }
+
+    [HttpPatch("{id}")]              // PATCH /api/v1/articles/5  - partial update
+    public ActionResult Patch(string id, string title)
+    {
+        return Json(new { Id = id, Title = title });
+    }
+
+    [HttpDelete("{id}")]             // DELETE /api/v1/articles/5 - delete
+    public ActionResult Delete(string id)
+    {
+        return Empty();
+    }
+
+    [HttpOptions]                    // OPTIONS /api/v1/articles  - optional: take over explicitly; without it the framework returns 204 + Allow
+    public ActionResult Options()
+    {
+        return Empty();
+    }
+}
+```
+
+- The same path with different verbs reaches the respective action; `[HttpPut("{id}")]` and `[HttpPatch("{id}")]` share the same template shape and differ only by verb, so they do not conflict at startup.
+- Without `[HttpOptions]`, OPTIONS is answered by the framework with 204 + `Allow`, so it does not need to be repeated in every controller.
+- `[HttpHead]` is optional: without it HEAD reuses the GET action automatically.
 
 ### Template semantics
 
@@ -168,11 +234,39 @@ Matched path parameters are written to `Request.Parmas` and override same-named 
 
 ### HTTP methods
 
-- `[Route]` does not restrict the verb; `[HttpGet]` / `[HttpPost]` restrict it.
-- When an attribute-route path matches but the verb does not, the response is **405 Method Not Allowed** with an `Allow` header listing the verbs declared for that path, and it does not fall back to two-segment routing.
+Seven verb attributes are available, all deriving from the public base class `HttpMethodAttribute` (`SAEA.MVC.Attributes`), each with the same `()` and `(string template)` constructors:
+
+| Attribute | Verb it restricts |
+| --- | --- |
+| `[HttpGet]` | GET |
+| `[HttpPost]` | POST |
+| `[HttpPut]` | PUT |
+| `[HttpDelete]` | DELETE |
+| `[HttpPatch]` | PATCH |
+| `[HttpHead]` | HEAD |
+| `[HttpOptions]` | OPTIONS |
+
+- `[Route]` does not restrict the verb; any verb attribute restricts it to that verb, and attribute routing and two-segment routing are judged the same way.
+- When an attribute-route path matches but the verb does not, the response is **405 Method Not Allowed** with an `Allow` header listing the verbs declared for that path (see "`Allow` header" below), and it does not fall back to two-segment routing.
 - A path with no attribute-route entry at all is not a conflict and continues to two-segment routing.
-- A two-segment action is judged the same way: with no `[HttpGet]` / `[HttpPost]` on the action, no verb is restricted and GET/POST/PUT/DELETE all run as before; with one or both declared, the allowed set is their union (both declared means GET and POST), compared with the request method case-insensitively, and a mismatch returns **405 Method Not Allowed** with `Allow` without running the action, the filters or the WebSocket entry. Both the `WebConfig.DefaultRoute` default route and the `/{Controller}/{Action}` branch are covered.
-- An `OPTIONS` request returns an empty response before routing and is not subject to this check.
+- A two-segment action with no verb attribute restricts no verb and accepts GET/POST/PUT/DELETE/PATCH/HEAD, while OPTIONS is answered by the framework with 204 + `Allow`; with one or more declared, the allowed set is their union, compared with the request method case-insensitively, and a mismatch returns **405 Method Not Allowed** with `Allow` without running the action, the filters or the WebSocket entry. Both the `WebConfig.DefaultRoute` default route and the `/{Controller}/{Action}` branch are covered.
+
+### `Allow` header
+
+`Allow` is generated from the verbs **explicitly declared** on the action, in the fixed order `GET, HEAD, POST, PUT, DELETE, PATCH`; when `[HttpOptions]` is explicitly declared, `OPTIONS` is appended at the end:
+
+- Only declared verbs are listed; the rest are omitted. Declaring `[HttpGet]` also lists `HEAD`, because HEAD reuses the GET result.
+- Declaring `[HttpHead]` does not add `GET` back.
+- `OPTIONS` is placed at the end only when `[HttpOptions]` is explicitly declared and never appears otherwise; a path that declares only `[HttpOptions]` therefore returns 405 for the other verbs with `Allow: OPTIONS`, satisfying the requirement that a 405 must carry `Allow` (RFC 7231 §6.5.5).
+- An attribute-route entry that declares only `[Route]` and no verb attribute is equivalent to allowing all 6 declarable verbs: GET/POST/PUT/DELETE/PATCH/HEAD all run that action, OPTIONS does not, and the framework answers 204 + `Allow: GET, HEAD, POST, PUT, DELETE, PATCH`.
+- An action with no verb attribute restricts no verb and never produces 405; `Allow` only appears in 405 responses and in OPTIONS responses answered automatically by the framework.
+
+### HEAD and OPTIONS
+
+- **HEAD** reuses the GET result. An action declared with `[HttpGet]` also answers HEAD and runs exactly the same pipeline (filters, output cache, parameter binding), but sends no response body; `Content-Length` is still the length of the GET body for the same resource, so clients can use it to judge the resource size.
+- An explicit `[HttpHead]` wins over the GET alias: when the same path declares both `[HttpGet]` and `[HttpHead]`, a HEAD request runs the `[HttpHead]` action; only when no explicit `[HttpHead]` exists does it fall back to the GET action.
+- **OPTIONS** first matches an explicit `[HttpOptions]` action and runs it when present; without one the response is **204 No Content** with an `Allow` header generated by the rules above. An action with no verb attribute is not executed for OPTIONS either and also gets 204 + `Allow`.
+- OPTIONS no longer short-circuits with an empty response before routing: it now routes first, hands the request to `[HttpOptions]` when present, and otherwise answers from the framework with `Allow`.
 
 ### Startup validation
 
@@ -202,7 +296,9 @@ The attribute route table is built and validated in the `SAEAMvcApplication` con
 | `GET /API/V1/Users/5/` | same as above | case and trailing slash ignored |
 | `GET /api/v1/users/5?x=1` | same as above | query string is not matched |
 | `POST /api/v1/users` | `UserController.Create` | same path, different verb |
-| `DELETE /api/v1/users` | 405 with `Allow: GET, POST` | path matched but verb differs |
+| `HEAD /api/v1/users` | `UserController.List` | HEAD reuses GET, sends no body, `Content-Length` matches GET |
+| `DELETE /api/v1/users` | 405 with `Allow: GET, HEAD, POST` | path matched but verb differs |
+| `OPTIONS /api/v1/users` | 204 with `Allow: GET, HEAD, POST` | no `[HttpOptions]`, answered by the framework |
 | `GET /api/v1/orders/9` | `OrderController.Get` | method template is the absolute path |
 | `POST /api/v1/orders/9` | same as above | `[Route]` accepts any verb |
 | `GET /health` | `HealthController.Ping` | single-segment attribute route |
@@ -210,7 +306,35 @@ The attribute route table is built and validated in the `SAEAMvcApplication` con
 | `GET /API/V1/PRODUCT/GET/5` | same as above | token replacement and path comparison are both case-insensitive |
 | `GET /home/index` | `HomeController.Index` | no attribute route, two-segment routing |
 | `GET /test/sleep` | `TestController.SleepAsync` | two-segment route omits the `Async` suffix |
-| `POST /home/index` | 405 with `Allow: GET` | two-segment action that only carries `[HttpGet]`, blocked as well |
+| `POST /home/index` | 405 with `Allow: GET, HEAD` | two-segment action that only carries `[HttpGet]`, blocked as well |
+
+### Route table and invocation entry points
+
+`RouteTable.GetOrAdd` gains a `(Type controllerType, string actionName, string method)` overload; `method` takes the verb string directly:
+
+```csharp
+using SAEA.MVC.Routing;
+
+var table = new RouteTable();
+RouteEntry get = table.GetOrAdd(typeof(HomeController), "Index", "GET");
+RouteEntry put = table.GetOrAdd(typeof(HomeController), "Index", "PUT");
+```
+
+The existing `(Type, string, bool isPost)` overload is kept and is equivalent to `isPost ? "POST" : "GET"`, so existing callers need no change.
+
+`MvcInvoker.InvokeResult(...)` and `MvcInvoker.InvokeResultAsync(...)` each gain an overload whose last parameter is `string method`, so an action can be invoked synchronously or asynchronously with any verb; the original `bool isPost` overloads are kept as well and map to `GET`/`POST`.
+
+### Compatibility changes and known limitations
+
+Two behavior changes matter when upgrading:
+
+- **405 `Allow` now includes `HEAD`**: for both attribute and two-segment routing, a 405 for a path that declares GET now lists `HEAD` as well (for example `Allow: GET, HEAD`).
+- **OPTIONS behavior changed**: previously OPTIONS returned an empty response before routing; now it routes first, runs `[HttpOptions]` when present, and otherwise returns 204 + `Allow`. Clients or middleware that rely on "OPTIONS always returns an empty response" need to be re-checked.
+
+Known limitations:
+
+- HEAD against `EventStream` (SSE) still writes the stream contents and does not support HEAD semantics: SSE keeps producing output and cannot provide a `Content-Length` matching GET in advance.
+- `ApiMapping` / the SDK code generator still emits only GET and POST; its `HttpMethods` metadata already carries all verbs, but the generator itself has not caught up.
 
 ***
 
@@ -223,6 +347,7 @@ The attribute route table is built and validated in the `SAEAMvcApplication` con
 | 📦 **Lightweight** | No complex dependencies | Fast startup, low memory footprint |
 | 🎯 **Complete MVC** | Controller/Action/Routing | Standard MVC development experience |
 | 🔧 **AOP Filters** | ActionFilterAttribute | Method interception, logging, permission control |
+| 🔀 **RESTful Verbs** | Seven HTTP method attributes | Works with attribute and two-segment routing |
 | 💾 **Output Caching** | OutputCacheAttribute | Method-level caching, improved response speed |
 | 📡 **SSE Push** | Server-Sent Events | Real-time server push |
 | 📁 **Static Files** | Auto caching, large file chunking | Smart handling of small and large file transfers |
@@ -542,7 +667,8 @@ public ActionResult Upload()
 
 ```csharp
 using SAEA.Common.Serialization;
-using SAEA.MVC;
+using SAEA.MVC.Hosting;
+using SAEA.MVC.Results;
 
 var app = new SAEAMvcApplication(config);
 
@@ -566,7 +692,7 @@ public class CorsFilter : ActionFilterAttribute
     {
         var headers = HttpContext.Current.Response.Headers;
         headers["Access-Control-Allow-Origin"] = "*";
-        headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE";
+        headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,PATCH,HEAD,OPTIONS";
         headers["Access-Control-Allow-Headers"] = "Content-Type";
 
         // Returning EmptyResult lets the action run
@@ -578,6 +704,8 @@ public class CorsFilter : ActionFilterAttribute
     }
 }
 ```
+
+The `Access-Control-Allow-Methods` here is the allowed-method list for CORS preflight responses, not the same thing as the `Allow` response header the framework generates: the former tells the browser which methods it may use and includes `OPTIONS`, while the latter is built from the verbs explicitly declared on the action and lists `OPTIONS` at the end only when `[HttpOptions]` is explicitly declared.
 
 ### Q6: How to implement SSE server push?
 
@@ -652,7 +780,8 @@ sc create SAEAMvc binPath="path/to/your/app.exe" start=auto
 | `FileResult` | File Download Result |
 | `BigDataResult` | Large File Streaming Result |
 | `SSEActionResult` | Server-Sent Events Result |
-| `HttpGet` / `HttpPost` | HTTP Method Attributes |
+| `HttpGetAttribute` and six other verb attributes | HTTP method attributes: `[HttpGet]`, `[HttpPost]`, `[HttpPut]`, `[HttpDelete]`, `[HttpPatch]`, `[HttpHead]`, `[HttpOptions]`, each with a parameterless and a template constructor |
+| `HttpMethodAttribute` | Abstract base class for the verb attributes (`Method` / `Template` / `Order`) |
 | `RouteAttribute` | Route template attribute |
 | `ActionFilterAttribute` | AOP Filter Base Class |
 | `OutputCacheAttribute` | Output Cache Attribute |
@@ -663,7 +792,7 @@ sc create SAEAMvc binPath="path/to/your/app.exe" start=auto
 | `IWebSocketConnection` | Established WebSocket connection |
 | `HttpContext` | HTTP Context |
 | `HttpRequest` | HTTP Request Object |
-| `HttpResponse` | HTTP Response Object |
+| `HttpResponse` | HTTP Response Object (`SuppressBody` = true suppresses the body, used for HEAD) |
 
 ***
 
@@ -673,26 +802,27 @@ Files are grouped by responsibility, and each directory maps one-to-one to a nam
 
 | Directory | Files (types) | Namespace |
 | -------------------------- | --------------------- | ------------------------- |
-| `Hosting/` | `SAEAMvcApplication`, `SAEAMvcApplicationConfig`, `SAEAMvcApplicationConfigBuilder`, `HttpContext`, `MvcInvoker` | `SAEA.MVC` |
-| `Controllers/` | `Controller`, `WSController`, `WSMessage` (including `WSMessageType`) | `SAEA.MVC` |
-| `Results/` | `ActionResult`, `JsonResult`, `ContentResult`, `DataResult`, `FileResult`, `BigDataResult`, `EventStream`, `EmptyResult` | `SAEA.MVC` |
-| `Attributes/` | `IFilter`, `ActionFilterAttribute`, `OutputCacheAttribute`, `HttpGet`, `HttpPost`, `RouteAttribute`, `WebSocketAttribute` | `SAEA.MVC` |
-| `Routing/` | `RouteTable`, `RouteEntry`, `AreaCollection` (internal), `AttributeRouteTable` (internal) | `SAEA.MVC.Routing` |
-| `WebSockets/` | `WebSocketsFeature` (internal), `MVCWebSocketConnection` (internal) | `SAEA.MVC.WebSockets` |
+| `Hosting/` | `SAEAMvcApplication`, `SAEAMvcApplicationConfig`, `SAEAMvcApplicationConfigBuilder`, `HttpContext`, `MvcInvoker` | `SAEA.MVC.Hosting` |
+| `Controllers/` | `Controller`, `WSController` | `SAEA.MVC.Controllers` |
+| `Results/` | `ActionResult`, `JsonResult`, `ContentResult`, `DataResult`, `FileResult`, `BigDataResult`, `EventStream`, `EmptyResult` | `SAEA.MVC.Results` |
+| `Attributes/` | `IFilter`, `ActionFilterAttribute`, `OutputCacheAttribute`, `HttpMethodAttribute`, `HttpGetAttribute`, `HttpPostAttribute`, `HttpPutAttribute`, `HttpDeleteAttribute`, `HttpPatchAttribute`, `HttpHeadAttribute`, `HttpOptionsAttribute`, `RouteAttribute`, `WebSocketAttribute` | `SAEA.MVC.Attributes` |
+| `Routing/` | `RouteTable`, `RouteEntry`, `AreaCollection` (internal), `AttributeRouteTable` (internal), `AttributeRouteEntry` (internal), `RoutePath` (internal), `RouteSegmentMatcher` (internal), `RouteTemplateParser` (internal) | `SAEA.MVC.Routing` |
+| `Invocation/` | `ActionResolver` (internal), `FilterCollector` (internal), `VerbPolicy` (internal), `ParameterBinder` (internal), `ActionInvoker` (internal), `RequestPipeline` (internal) | `SAEA.MVC.Invocation` |
+| `WebSockets/` | `WebSocketsFeature` (internal), `MVCWebSocketConnection` (internal), `WSMessage` (including `WSMessageType`), `WebSocketHandshake` (internal), `WebSocketConnectionRegistry` (internal) | `SAEA.MVC.WebSockets` |
 | `Tool/` | `APISdkCodeGenerator`, `CodeType` | `SAEA.MVC.Tool` |
 | `Tool/CodeGenerte/` | `ApiMapping`, `CSharpTemple` (including `SaeaApiSdk`), `JsTemple` | `SAEA.MVC.Tool.CodeGenerte` |
 
-Namespace rules:
+Namespace rule: every directory maps to a sub-namespace of the same name, with no exceptions — `Hosting/` → `SAEA.MVC.Hosting`, `Controllers/` → `SAEA.MVC.Controllers`, `Results/` → `SAEA.MVC.Results`, `Attributes/` → `SAEA.MVC.Attributes`, `Routing/` → `SAEA.MVC.Routing`, `Invocation/` → `SAEA.MVC.Invocation`, `WebSockets/` → `SAEA.MVC.WebSockets`, `Tool/` → `SAEA.MVC.Tool`, `Tool/CodeGenerte/` → `SAEA.MVC.Tool.CodeGenerte`. The root `SAEA.MVC` namespace no longer contains any type.
 
-- Implementation-level directories map to sub-namespaces: `Routing/` → `SAEA.MVC.Routing`, `WebSockets/` → `SAEA.MVC.WebSockets`.
-- The four directories authors work with stay in the root namespace `SAEA.MVC`: `Hosting/`, `Controllers/`, `Results/`, `Attributes/`. Only the file location changed for those types, not the namespace, so a plain `using SAEA.MVC;` and all existing sample code keep working.
+This is a publicly visible breaking change: after upgrading, code that had only `using SAEA.MVC;` must add the sub-namespace `using` for every type it touches and recompile. A controller file usually needs `using SAEA.MVC.Attributes;`, `using SAEA.MVC.Controllers;` and `using SAEA.MVC.Results;`; startup and configuration code needs `using SAEA.MVC.Hosting;`; fully qualified names (such as `SAEA.MVC.Hosting.HttpContext`) must use the new namespace too.
 
 > **Renamed in this change**: the type `Routing` is now `RouteEntry`, which matches its job of describing a single action's route entry; the directory keeps the name `Routing/`.
+>
+> The types `HttpGet` / `HttpPost` are now `HttpGetAttribute` / `HttpPostAttribute`, and `HttpPutAttribute`, `HttpDeleteAttribute`, `HttpPatchAttribute`, `HttpHeadAttribute` and `HttpOptionsAttribute` are new; keep writing the `[HttpGet]` / `[HttpPost]` and other shorthands in controllers (the attribute-name suffix convention). Code that writes `typeof(HttpGet)` or compares by type name must switch to the new names.
 
 Types under `SAEA.MVC.Routing` need an extra `using SAEA.MVC.Routing;` line, for example:
 
 ```csharp
-using SAEA.MVC;
 using SAEA.MVC.Routing;
 
 var table = new RouteTable();
@@ -712,9 +842,13 @@ RouteEntry entry = table.GetOrAdd(typeof(HomeController), "Index", false);
 | `AttributeRouteTable` | `SAEA.MVC` | `SAEA.MVC.Routing` |
 | `WebSocketsFeature` | `SAEA.MVC` | `SAEA.MVC.WebSockets` |
 | `MVCWebSocketConnection` | `SAEA.MVC` | `SAEA.MVC.WebSockets` |
-| `Controller`, the `ActionResult` family, `HttpGet`/`HttpPost`/`RouteAttribute`, `WSController`/`WSMessage`, `SAEAMvcApplication`, `HttpContext`, `MvcInvoker` | `SAEA.MVC` | Unchanged (file location only) |
+| `WSMessage`, `WSMessageType` | `SAEA.MVC` | `SAEA.MVC.WebSockets` |
+| `SAEAMvcApplication`, `SAEAMvcApplicationConfig`, `SAEAMvcApplicationConfigBuilder`, `HttpContext`, `MvcInvoker` | `SAEA.MVC` | `SAEA.MVC.Hosting` |
+| `Controller`, `WSController` | `SAEA.MVC` | `SAEA.MVC.Controllers` |
+| `ActionResult`, `JsonResult`, `ContentResult`, `DataResult`, `FileResult`, `BigDataResult`, `EventStream`, `EmptyResult` | `SAEA.MVC` | `SAEA.MVC.Results` |
+| `IFilter`, `ActionFilterAttribute`, `OutputCacheAttribute`, `HttpMethodAttribute`, `HttpGetAttribute`, `HttpPostAttribute`, `HttpPutAttribute`, `HttpDeleteAttribute`, `HttpPatchAttribute`, `HttpHeadAttribute`, `HttpOptionsAttribute`, `RouteAttribute`, `WebSocketAttribute` | `SAEA.MVC` | `SAEA.MVC.Attributes` |
 
-Existing code that only writes `using SAEA.MVC;` needs an extra using only when it touches `RouteTable`, `RouteEntry`, `AreaCollection`, `AttributeRouteTable`, `WebSocketsFeature`, or `MVCWebSocketConnection`.
+Every row above needs a new `using`: replace the single `using SAEA.MVC;` with the sub-namespaces actually in use — `SAEA.MVC.Controllers` + `SAEA.MVC.Results` + `SAEA.MVC.Attributes` for a controller file, `SAEA.MVC.Hosting` for startup code, plus `SAEA.MVC.WebSockets` for a WebSocket controller.
 
 ***
 
@@ -723,7 +857,7 @@ Existing code that only writes `using SAEA.MVC;` needs an extra using only when 
 ### Start MVC Application
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Hosting;
 
 // Read configuration
 var config = SAEAMvcApplicationConfigBuilder.Read();
@@ -748,7 +882,9 @@ Console.WriteLine($"MVC service started, port: {config.Port}");
 ### Define Controller
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
 
 [LogAttribute]  // Class-level filter
 public class HomeController : Controller
@@ -833,7 +969,7 @@ return Empty();
 ### SSE Server Push
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Results;
 
 public ActionResult StreamEvents()
 {
@@ -853,7 +989,9 @@ public ActionResult StreamEvents()
 ### AOP Filters
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
 
 // Custom filter
 public class LogAttribute : ActionFilterAttribute
@@ -888,7 +1026,7 @@ public class UserController : Controller
 ### Configuration Options
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Hosting;
 
 var config = new SAEAMvcApplicationConfig
 {
@@ -915,7 +1053,7 @@ MVC already installs the HTTP/WebSocket protocol nodes and the tail exception te
 ```csharp
 using System;
 using System.Threading.Tasks;
-using SAEA.MVC;
+using SAEA.MVC.Hosting;
 using SAEA.Sockets.Pipeline;
 
 public sealed class MyHandler : InboundHandlerAdapter
@@ -953,7 +1091,7 @@ Plain HTTP requests are handed to `RequestDelegate` (or MVC routing) by the disp
 
 ```csharp
 using System.Security.Authentication;
-using SAEA.MVC;
+using SAEA.MVC.Hosting;
 using SAEA.Sockets.Ssl;
 
 var app = new SAEAMvcApplication(root: "wwwroot", port: 28443);
@@ -987,6 +1125,10 @@ These limits come from the default `HttpRequestSplitter` constructor; `WebConfig
 ### Async Action
 
 ```csharp
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
+
 public class AsyncController : Controller
 {
     [HttpGet]
@@ -1008,6 +1150,9 @@ When an action should exit early on timeout, add a `CancellationToken` parameter
 
 ```csharp
 using System.Threading;
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
 
 public class ExportController : Controller
 {
@@ -1029,7 +1174,7 @@ public class ExportController : Controller
 ```
 
 - When the action declares a `CancellationToken` parameter, the framework injects the token per request.
-- When it does not, read it from `((SAEA.MVC.HttpContext)HttpContext.Current).RequestAborted`; the static type of `HttpContext.Current` is `SAEA.Http.Model.IHttpContext`, so cast or type-check it first.
+- When it does not, read it from `((SAEA.MVC.Hosting.HttpContext)HttpContext.Current).RequestAborted`; the static type of `HttpContext.Current` is `SAEA.Http.Model.IHttpContext`, so cast or type-check it first.
 - The action timeout wrapper is enabled only when `ActionTimeout > 0` is explicitly configured: if a single invocation does not finish within `ActionTimeout` seconds, the framework returns **408 Request Timeout** and calls `Cancel()` on that token. By default (`ActionTimeout = 0`) no timeout wrapper is applied: a blocking synchronous action occupies the consumer thread with no 408 fallback, and an asynchronous action is truly awaited by the framework, so the thread returns to the thread pool while waiting and a single request cannot pin it. `Timeout` only governs idle connection reclamation; lowering it alone does not change the action timeout but reclaims idle connections sooner. Do not lower `Timeout` just to shorten the action timeout — the connection can be reclaimed before the 408 is written; set `ActionTimeout` instead.
 - The token is valid only for the current action invocation: the source is released once the action returns, so do not register callbacks afterwards or hand the token to a long-lived background task. Requests that never enter an action (404, 405, static files, `RequestDelegate`) see a default token that cannot be cancelled.
 - This is **cooperative cancellation**: only code that observes the token stops, for example `token.ThrowIfCancellationRequested()`, `Task.Delay(..., token)` or a callback registered on the token. Synchronous code that never observes the token cannot be terminated; it keeps running to completion in the background, and the framework observes and discards its later exceptions without writing another response.
@@ -1061,7 +1206,9 @@ Conventions:
 WebSocket shares the same port and the same routing, so no extra listener is needed: inherit from `WSController` and mark `OpenAsync` with `[WebSocket]`. The entry point defaults to `/{controller}/open`, and `[Route]` / `[HttpGet]` on `OpenAsync` can declare any path you want.
 
 ```csharp
-using SAEA.MVC;
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.WebSockets;
 using System;
 using System.Threading.Tasks;
 
@@ -1119,7 +1266,7 @@ Known limitations:
 - No broadcast helper is provided. Multi-connection broadcast requires maintaining your own `IWebSocketConnection` collection (indexed by `ws.Id`).
 - The server does not send Ping proactively; implement keep-alive at the application layer if needed.
 - Handshake failures (non-upgrade request, missing `Sec-WebSocket-Key`, etc.) return 400/426 directly and bypass MVC's `OnException` pipeline.
-- Upgraded connections are exempt from HTTP session timeout reclamation; both graceful and abnormal disconnects are reported through `WebConfig.ConnectionClosed` to `WebSocketsFeature.OnDisconnected`. If the notification arrives before the connection is published, `Register` performs an extra liveness check, and a 5-minute sweep reclaims leftover entries that are `Closed` or whose underlying connection is already gone.
+- Upgraded connections are exempt from HTTP session timeout reclamation; both graceful and abnormal disconnects are reported through `WebConfig.ConnectionClosed` to `WebSocketConnectionRegistry.OnDisconnected`. If the notification arrives before the connection is published, `WebSocketConnectionRegistry.Register` performs an extra liveness check, and a 5-minute sweep reclaims leftover entries that are `Closed` or whose underlying connection is already gone.
 - `Request` and `Session` are snapshots taken at handshake time: WS messages do not refresh the sliding expiration of `Session`. Keep long-lived session state in connection-scoped fields or a dictionary.
 - Controller instances are shared per route, so **never store connection state in Controller fields**. Use `WebSockets.Current` or your own dictionary keyed by connection id.
 - Every long-lived connection permanently occupies one `MaxConnects` slot; increase the configured limit according to your concurrency.

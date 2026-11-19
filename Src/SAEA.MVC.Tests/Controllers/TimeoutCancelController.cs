@@ -29,6 +29,9 @@
 *描述：新增 405 文案探针（属性路由与两段式）、混合参数令牌注入探针与同步/异步超时取消探针；ArmShortTimeout 改为只设 WebConfig.ActionTimeout
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Hosting;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -146,7 +149,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// <returns>取消后返回取消标记，否则返回未取消标记</returns>
         public string SlowSync()
         {
-            var context = HttpContext.Current as SAEA.MVC.HttpContext;
+            var context = HttpContext.Current as SAEA.MVC.Hosting.HttpContext;
 
             var deadline = DateTime.UtcNow.AddSeconds(10);
 

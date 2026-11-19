@@ -31,7 +31,8 @@ using JWT.Net;
 using SAEA.Common.Newtonsoft.Json;
 using SAEA.Common.Serialization;
 using SAEA.Http.Model;
-using SAEA.MVC;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Hosting;
 using SAEA.MVC.WebSockets;
 using SAEA.MVCTest.Model;
 

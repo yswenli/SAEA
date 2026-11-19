@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Attributes
 *文件名： OutputCacheAttribute
 *版本号： v26.4.23.1
 *唯一标识：d895af7f-65ac-42c6-ac64-b79ef86ed2f5
@@ -23,18 +23,20 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 22:00:00
+*修改时间：2026/11/19 15:26:46
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：缓存键加入规范化 query（按键 Ordinal 升序拼接），避免同路径不同 query 串号；纠正缓存键注释
+*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
+using SAEA.MVC.Results;
+using SAEA.MVC.Hosting;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Attributes
 {
     /// <summary>
     /// 缓存

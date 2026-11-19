@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Results
 *文件名： EventStream
 *版本号： v26.4.23.1
 *唯一标识：48b0010e-7dc1-4a5f-ba80-f0f36b0a913f
@@ -23,21 +23,23 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2021/01/06 19:27:25
+*修改时间：2026/11/19 15:26:46
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：EventStream流类
+*版本号： v26.11.16.1
+*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
 *
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Common.Serialization;
 using SAEA.Common.Threading;
+using SAEA.MVC.Hosting;
 using SAEA.Http.Model;
 
 using System.Net;
 using System.Text;
+using System.Threading;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Results
 {
     /// <summary>
     /// SSE服务器事件流
@@ -52,6 +54,16 @@ namespace SAEA.MVC
             get;
             private set;
         }
+
+        /// <summary>
+        /// 心跳间隔，单位毫秒
+        /// </summary>
+        private const int HeartbeatInterval = 1000;
+
+        /// <summary>
+        /// 心跳的取消源，连接失效后据此结束心跳线程
+        /// </summary>
+        private readonly CancellationTokenSource _heartbeatCts = new CancellationTokenSource();
 
         /// <summary>
         /// SSE服务器事件流
@@ -75,13 +87,33 @@ namespace SAEA.MVC
             HttpContext.Current.Response.Status = HttpStatusCode.OK;
             HttpContext.Current.Response.SendHeader(-1);
 
+            // 报头已写出，后续发生异常不能再改状态码
+            (HttpContext.Current as HttpContext)?.MarkResponseStarted();
+
             //心跳
             var pong = $"SAEAServer PONG {DateTimeHelper.Now:yyyy:MM:dd HH:mm:ss.fff}";
 
+            var token = _heartbeatCts.Token;
+
             TaskHelper.LongRunning(() =>
             {
-                ServerSent(Encoding.UTF8.GetBytes($": {SerializeHelper.Serialize(pong)}\n\n"));
-            }, 1000);
+                try
+                {
+                    while (!token.IsCancellationRequested)
+                    {
+                        Thread.Sleep(HeartbeatInterval);
+
+                        if (token.IsCancellationRequested) break;
+
+                        ServerSent(Encoding.UTF8.GetBytes($": {SerializeHelper.Serialize(pong)}\n\n"));
+                    }
+                }
+                catch
+                {
+                    // 客户端断开或连接已释放时写出会抛异常：结束心跳循环，避免线程跟着连接永久驻留
+                    StopHeartbeat();
+                }
+            });
 
             ServerSent(Encoding.UTF8.GetBytes($"retry: {retry}\n\n"));
         }
@@ -104,6 +136,14 @@ namespace SAEA.MVC
         {
             using var locker = ObjectLock.Create($"EventStream.ServerSent{HttpContext.Current.Request.UserHostAddress}");
             HttpContext.Current.Response.SendData(content);
+        }
+
+        /// <summary>
+        /// 停止心跳循环，可重复调用
+        /// </summary>
+        private void StopHeartbeat()
+        {
+            _heartbeatCts.Cancel();
         }
     }
 }

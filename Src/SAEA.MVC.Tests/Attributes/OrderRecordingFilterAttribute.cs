@@ -29,6 +29,8 @@
 *描述：新增，与 action 共用静态记录表以断言过滤器先于 action 执行
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Results;
 using System.Collections.Generic;
 
 namespace SAEA.MVC.Tests.Attributes

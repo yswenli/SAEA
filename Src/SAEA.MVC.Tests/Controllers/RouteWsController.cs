@@ -29,6 +29,8 @@
 *描述：新增，验证 WS 入口用 [Route] 声明后可升级并回显
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
 using SAEA.MVC.WebSockets;
 
 using System.Threading.Tasks;

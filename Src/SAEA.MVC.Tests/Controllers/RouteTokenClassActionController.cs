@@ -29,6 +29,9 @@
 *描述：新增，验证类级模板的 [action] 按每个 action 分别替换
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+
 namespace SAEA.MVC.Tests.Controllers
 {
     /// <summary>

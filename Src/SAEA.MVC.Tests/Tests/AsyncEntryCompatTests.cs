@@ -29,6 +29,7 @@
  *描述：新增，锁定只重写同步 HttpHandle 的派生类不被异步入口绕过，以及异步覆盖仍正常生效
  *
  *****************************************************************************/
+using SAEA.MVC.Results;
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -50,7 +51,7 @@ namespace SAEA.MVC.Tests
     public class AsyncEntryCompatTests
     {
         /// <summary>
-        /// 派生类只重写同步 <see cref="SAEA.MVC.HttpContext.HttpHandle"/> 时，请求应走同步入口。
+        /// 派生类只重写同步 <see cref="SAEA.MVC.Hosting.HttpContext.HttpHandle"/> 时，请求应走同步入口。
         /// </summary>
         /// <returns>该用例的异步执行任务。</returns>
         [TestMethod]
@@ -84,7 +85,7 @@ namespace SAEA.MVC.Tests
         }
 
         /// <summary>
-        /// 派生类只重写异步 <see cref="SAEA.MVC.HttpContext.HttpHandleAsync"/> 时，请求应走异步入口。
+        /// 派生类只重写异步 <see cref="SAEA.MVC.Hosting.HttpContext.HttpHandleAsync"/> 时，请求应走异步入口。
         /// </summary>
         /// <returns>该用例的异步执行任务。</returns>
         [TestMethod]
@@ -148,7 +149,7 @@ namespace SAEA.MVC.Tests
         /// <summary>
         /// 只重写同步入口的派生上下文，直接在同步入口写出固定正文，不调用基类实现。
         /// </summary>
-        public class SyncOnlyContext : SAEA.MVC.HttpContext
+        public class SyncOnlyContext : SAEA.MVC.Hosting.HttpContext
         {
             /// <summary>
             /// 以宿主服务创建上下文。
@@ -176,7 +177,7 @@ namespace SAEA.MVC.Tests
         /// <summary>
         /// 只重写异步入口的派生上下文，用于验证异步覆盖仍被派发到。
         /// </summary>
-        public class AsyncOnlyContext : SAEA.MVC.HttpContext
+        public class AsyncOnlyContext : SAEA.MVC.Hosting.HttpContext
         {
             /// <summary>
             /// 以宿主服务创建上下文。

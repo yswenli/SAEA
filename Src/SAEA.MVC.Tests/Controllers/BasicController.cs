@@ -29,6 +29,9 @@
 *描述：新增，为 GET/POST/JSON/过滤器/静态文件用例提供路由目标
 *
 *****************************************************************************/
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Results;
 using SAEA.MVC.Tests.Attributes;
 
 namespace SAEA.MVC.Tests.Controllers

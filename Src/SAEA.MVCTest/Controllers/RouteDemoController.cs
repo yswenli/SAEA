@@ -29,7 +29,10 @@
 *描述：新增属性路由演示
 *
 *****************************************************************************/
-using SAEA.MVC;
+using SAEA.MVC.Attributes;
+using SAEA.MVC.Controllers;
+using SAEA.MVC.Hosting;
+using SAEA.MVC.Results;
 
 namespace SAEA.MVCTest.Controllers
 {
@@ -109,7 +112,7 @@ namespace SAEA.MVCTest.Controllers
         [HttpGetAttribute("only-get")]
         public ActionResult OnlyGet()
         {
-            return Content("命中仅允许 GET 的路径 /routedemo/only-get；用 POST 访问应得到 405 且响应头 Allow: GET");
+            return Content("命中仅允许 GET 的路径 /routedemo/only-get；用 POST 访问应得到 405 且响应头 Allow: GET, HEAD");
         }
     }
 }
