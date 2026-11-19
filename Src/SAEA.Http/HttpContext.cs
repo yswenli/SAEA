@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 18:13:28
+*修改时间：2026/11/19 20:10:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：方法分发补 HEAD/PATCH，HEAD 置 SuppressBody 只回报头，未知方法由 505 改为 501
+*描述：声明为可复用上下文，同一条连接上的后续请求复用同一个实例
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -42,7 +42,7 @@ namespace SAEA.Http
     /// <summary>
     /// SAEA.Http http上下文
     /// </summary>
-    internal class HttpContext : HttpContextBase, IHttpContext
+    internal class HttpContext : HttpContextBase, IHttpContext, IReusableHttpContext
     {
         /// <summary>
         /// SAEA.Http http上下文

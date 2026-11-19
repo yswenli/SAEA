@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 16:05:00
+*修改时间：2026/11/19 20:10:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：抽出 InitContext 供同步与异步入口共用；新增 HttpHandleAsync 与 GetActionResultAsync 虚方法，默认实现仍走原同步入口
+*描述：新增 ResetForNextRequest 供可复用上下文复位；CallContext 改为每请求在 InitContext 里设置
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -140,8 +140,6 @@ namespace SAEA.Http.Base
             this.Server = _webHost.HttpUtility;
 
             IsStaticsCached = _webHost.WebConfig.IsStaticsCached;
-
-            CallContext<IHttpContext>.SetData("ContextBase.Current", this);
         }
 
         /// <summary>
@@ -175,6 +173,9 @@ namespace SAEA.Http.Base
         /// <param name="httpMessage">Http消息</param>
         protected void InitContext(IChannel channel, HttpMessage httpMessage)
         {
+            // 上下文可能跨请求复用，Current 必须每请求重新绑定到当前异步流；放在构造函数里对复用实例不会再执行
+            CallContext<IHttpContext>.SetData("ContextBase.Current", this);
+
             Request.Init(httpMessage);
 
             string sessionID;
@@ -247,6 +248,27 @@ namespace SAEA.Http.Base
         public virtual Task<IHttpResult> GetActionResultAsync()
         {
             return Task.FromResult(GetActionResult());
+        }
+
+        /// <summary>
+        /// 复位上下文，使同一个实例可以处理本连接的下一条请求。
+        /// <para>
+        /// 只有实现了 <see cref="SAEA.Http.Model.IReusableHttpContext"/> 的上下文会被框架复用并调用本方法；
+        /// 复位后的状态必须与新建实例一致，否则上一次请求的数据会串到下一次请求。
+        /// </para>
+        /// </summary>
+        public virtual void ResetForNextRequest()
+        {
+            Request.ResetForNextRequest();
+
+            Response.ResetForNextRequest();
+
+            // 新建实例的这两个属性都取自宿主，复位时按同一规则重新读取
+            Session = null;
+
+            WebConfig = _webHost.WebConfig;
+
+            IsStaticsCached = _webHost.WebConfig.IsStaticsCached;
         }
 
         /// <summary>

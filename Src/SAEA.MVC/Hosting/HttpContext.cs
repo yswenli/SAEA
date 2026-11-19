@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 15:26:46
+*修改时间：2026/11/19 20:10:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
+*描述：声明为可复用上下文并实现 ResetForNextRequest，复位路由路径、取消令牌、响应开始标记与 WebSocket 能力入口
 *
 *****************************************************************************/
 using SAEA.Http;
@@ -45,7 +45,7 @@ namespace SAEA.MVC.Hosting
     /// <summary>
     /// MVC 请求上下文，负责路由到控制器并生成响应
     /// </summary>
-    public class HttpContext : HttpContextBase, IHttpContext
+    public class HttpContext : HttpContextBase, IHttpContext, IReusableHttpContext
     {
         RouteTable _routeTable = null;
 
@@ -126,6 +126,24 @@ namespace SAEA.MVC.Hosting
             InitContext(channel, httpMessage);
 
             await new RequestPipeline(this, _routeTable, _attributeRoutes).HandleAsync().ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 复位上下文供本连接的下一条请求复用：清掉上一次请求的路由命中、取消令牌与响应开始标记，
+        /// 并丢弃缓存了控制器与待处理字节的 WebSocket 能力入口。
+        /// </summary>
+        public override void ResetForNextRequest()
+        {
+            base.ResetForNextRequest();
+
+            RoutingPath = null;
+
+            RequestAborted = default(CancellationToken);
+
+            IsResponseStarted = false;
+
+            // 能力入口会记住本次请求的 WSController 与早到字节，复用上下文时不能带进下一次请求，按需重建
+            _webSockets = null;
         }
 
         /// <summary>

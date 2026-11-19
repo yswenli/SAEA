@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/18 17:30:00
+ *修改时间：2026/11/19 20:10:00
  *修改人： yswenli
  *版本号： v26.11.16.1
- *描述：按上下文类型缓存入口判定，派生类只重写同步 HttpHandle 时回退到同步入口；其余情况仍走 HttpHandleAsync 并等待其完成
+ *描述：同一条连接复用实现了 IReusableHttpContext 的上下文实例，复用前复位；升级后的上下文不参与复用
  *
  *****************************************************************************/
 using System;
@@ -62,6 +62,9 @@ namespace SAEA.Http.Base.Net
         private static readonly ConcurrentDictionary<Type, bool> _asyncEntryCache = new ConcurrentDictionary<Type, bool>();
 
         private HttpConnectionSession _session;
+
+        // 可复用上下文按连接缓存：管道对同一连接串行处理消息，单个字段即可，不需要池或并发字典
+        private IReusableHttpContext _reusableContext;
 
         /// <summary>
         /// 创建派发处理器。
@@ -113,6 +116,9 @@ namespace SAEA.Http.Base.Net
             var session = _session;
             _session = null;
 
+            // 连接已失效，缓存的上下文随连接一起释放
+            _reusableContext = null;
+
             var channelId = session == null ? ctx.ChannelId : session.Channel.Id;
 
             var closed = _webHost.WebConfig == null ? null : _webHost.WebConfig.ConnectionClosed;
@@ -151,14 +157,29 @@ namespace SAEA.Http.Base.Net
 
             IHttpContext httpContext;
 
-            try
+            var reusable = _reusableContext;
+
+            if (reusable != null)
             {
-                httpContext = _webHost.CreateContext();
+                // 复用前先把上一次请求的状态复位成新建实例的值，InitContext 随后写入本次请求的数据
+                reusable.ResetForNextRequest();
+
+                httpContext = reusable;
             }
-            catch (Exception ex)
+            else
             {
-                LogHelper.Error("创建 HttpContext 失败:" + ctx.ChannelId, ex);
-                throw;
+                try
+                {
+                    httpContext = _webHost.CreateContext();
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Error("创建 HttpContext 失败:" + ctx.ChannelId, ex);
+                    throw;
+                }
+
+                // 只有显式声明可复用的实现才缓存，其余实现仍按请求创建并释放
+                _reusableContext = httpContext as IReusableHttpContext;
             }
 
             try
@@ -178,8 +199,10 @@ namespace SAEA.Http.Base.Net
             }
             finally
             {
-                // 已升级的上下文由 WebSocket 连接负责释放（Dispose 只清 Request/Response）。
-                if (!httpContext.Response.IsUpgraded)
+                // 已升级的上下文由 WebSocket 连接负责释放（Dispose 只清 Request/Response），也不能留给后续 HTTP 请求复用
+                if (httpContext.Response.IsUpgraded)
+                    _reusableContext = null;
+                else
                     httpContext.Dispose();
             }
         }

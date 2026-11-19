@@ -23,17 +23,19 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/18 16:20:00
+ *修改时间：2026/11/19 20:26:00
  *修改人： yswenli
  *版本号： net10.0
- *描述：文件与类改名为 HttpResponseWritePathTests，原 5 条用例前缀改为 HttpResponseWrite_；补充 WebHost.SendAsync 与 EndAsync 的真实 TCP 用例
+ *描述：补未声明 IReusableHttpContext 的上下文按请求新建的用例
  *
  *****************************************************************************/
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -109,6 +111,55 @@ namespace SAEA.Http.Tests
                 }
 
                 await Task.WhenAll(workers).WaitAsync(WaitTimeout).ConfigureAwait(false);
+            }
+            finally
+            {
+                StopQuietly(host);
+                DeleteRoot(rootName);
+            }
+        }
+
+        /// <summary>
+        /// 未声明 IReusableHttpContext 的上下文仍按请求新建：同一条保活连接上的两次请求必须落到不同实例。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task HttpContextReuse_NonOptInContext_CreatesNewInstancePerRequest()
+        {
+            var rootName = NewRootName();
+
+            var port = GetFreePort();
+
+            var host = CreateHost(port, rootName, context =>
+            {
+                // 把实例标识写进正文：同一连接上两条正文不同即说明不是同一个上下文
+                context.Response.Write(RuntimeHelpers.GetHashCode(context).ToString(CultureInfo.InvariantCulture));
+                context.Response.SetHeader(ResponseHeaderType.Connection, "keep-alive");
+                context.Response.Send();
+            });
+
+            try
+            {
+                host.Start();
+
+                using (var client = await ConnectAsync(port).ConfigureAwait(false))
+                using (var stream = client.GetStream())
+                {
+                    await SendAsync(stream, BuildRequest("/non-optin-1", port, null)).ConfigureAwait(false);
+
+                    var first = await ReadResponseAsync(stream).ConfigureAwait(false);
+
+                    await SendAsync(stream, BuildRequest("/non-optin-2", port, null)).ConfigureAwait(false);
+
+                    var second = await ReadResponseAsync(stream).ConfigureAwait(false);
+
+                    StringAssert.StartsWith(first.Header, "HTTP/1.1 200", "第一条请求应返回 200。");
+                    StringAssert.StartsWith(second.Header, "HTTP/1.1 200", "第二条请求应返回 200。");
+                    Assert.AreNotEqual(
+                        Encoding.UTF8.GetString(first.Body),
+                        Encoding.UTF8.GetString(second.Body),
+                        "未实现 IReusableHttpContext 的上下文必须每条请求新建，不能被复用。");
+                }
             }
             finally
             {

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:23:31
+*修改时间：2026/11/19 20:10:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补齐英文与乱码注释的中文说明
+*版本号： v26.11.16.1
+*描述：新增 ResetForNextRequest 供上下文复用复位，Dispose 改为幂等并在释放时摘掉本请求的引用
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -203,11 +203,52 @@ namespace SAEA.Http
         }
 
         /// <summary>
-        /// 释放底层消息资源，未初始化时抛出 NullReferenceException
+        /// 复位请求，使同一个实例可以承载下一条请求；复位后的状态与新建实例一致。
+        /// </summary>
+        internal void ResetForNextRequest()
+        {
+            _httpMessage = null;
+
+            this.UserHostAddress = null;
+            this.Method = null;
+            this.Url = null;
+            this.RelativeUrl = null;
+            this.Protocal = null;
+            this.HeaderStr = null;
+            this.IsFormData = false;
+            this.Boundary = null;
+            this.ContentLength = 0;
+            this.Json = null;
+            this.PostFiles = null;
+            this.Body = null;
+
+            // 集合沿用原实例只清空内容：比较器与容量都保留，语义等同新建的空集合
+            if (this.Query != null) this.Query.Clear();
+            if (this.Forms != null) this.Forms.Clear();
+            if (this.Parmas != null) this.Parmas.Clear();
+            if (this.Headers != null) this.Headers.Clear();
+            if (this.Cookies != null) this.Cookies.Clear();
+        }
+
+        /// <summary>
+        /// 释放底层消息资源；可重复调用，未初始化或已释放时直接返回
         /// </summary>
         public void Dispose()
         {
-            _httpMessage.Dispose();
+            var httpMessage = _httpMessage;
+
+            if (httpMessage == null) return;
+
+            _httpMessage = null;
+
+            httpMessage.Dispose();
+
+            // 复用实例会在请求结束后继续存活，必须摘掉本请求的正文与文件引用，避免空闲连接把它们钉在内存里
+            this.Json = null;
+            this.PostFiles = null;
+            this.Body = null;
+
+            if (this.Parmas != null) this.Parmas.Clear();
         }
     }
 }

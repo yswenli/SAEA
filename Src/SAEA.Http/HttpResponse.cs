@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 20:00:41
+*修改时间：2026/11/19 20:10:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：Max-Age 文本改为不可变条目整体替换，消除秒数与文本分两次读写的并发错配
+*描述：新增 ResetForNextRequest 供上下文复用复位，Dispose 释放正文引用避免空闲连接钉住大响应
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -1008,6 +1008,37 @@ namespace SAEA.Http
         }
 
         /// <summary>
+        /// 复位响应，使同一个实例可以承载下一条请求；复位后的状态与新建实例一致。
+        /// </summary>
+        internal void ResetForNextRequest()
+        {
+            this.Status = HttpStatusCode.OK;
+            this.IsUpgraded = false;
+            this.IsHandled = false;
+            this.SuppressBody = false;
+            this.WebHost = null;
+            this.Channel = null;
+            this._isZiped = false;
+
+            this.Method = null;
+            this.Url = null;
+            this.RelativeUrl = null;
+            this.Protocal = null;
+            this.HeaderStr = null;
+            this.IsFormData = false;
+            this.Boundary = null;
+            this.ContentLength = 0;
+            this.Body = null;
+
+            // 集合沿用原实例只清空内容：语义等同新建的空集合，且不产生额外分配
+            if (this.Query != null) this.Query.Clear();
+            if (this.Forms != null) this.Forms.Clear();
+            if (this.Parmas != null) this.Parmas.Clear();
+            if (this.Headers != null) this.Headers.Clear();
+            if (this.Cookies != null) this.Cookies.Clear();
+        }
+
+        /// <summary>
         /// 释放资源
         /// </summary>
         public void Dispose()
@@ -1018,7 +1049,9 @@ namespace SAEA.Http
                 this.Forms.Clear();
             if (this.Parmas != null)
                 this.Parmas.Clear();
-            // Body是byte[]类型，由GC自动管理，不需要手动Clear
+
+            // 复用实例在请求结束后仍存活，必须摘掉正文引用，否则空闲的保活连接会一直钉住上一次的响应正文
+            this.Body = null;
         }
 
     }
