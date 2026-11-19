@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 20:10:00
+*修改时间：2026/11/19 23:31:33
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：新增 ResetForNextRequest 供上下文复用复位，Dispose 改为幂等并在释放时摘掉本请求的引用
+*描述：报头文本改为读取时转由底层消息按需生成；复位不再清空与消息共享的报头/查询/Cookie 集合
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -43,6 +43,31 @@ namespace SAEA.Http
     /// </summary>
     public class HttpRequest : HttpBase, IDisposable
     {
+        // 显式写入的值优先于底层消息，保持「写入什么就读到什么」；
+        // 未写入时由底层消息按需解码，报头缓冲归还后读取结果为 null
+        string _headerStr;
+
+        /// <summary>
+        /// 原始报头文本，未显式写入时按需从底层消息解码；底层消息释放后为 null
+        /// </summary>
+        public override string HeaderStr
+        {
+            get
+            {
+                var value = _headerStr;
+
+                if (value != null) return value;
+
+                var httpMessage = _httpMessage;
+
+                return httpMessage == null ? null : httpMessage.HeaderStr;
+            }
+            set
+            {
+                _headerStr = value;
+            }
+        }
+
         /// <summary>
         /// 报文体按 application/json 解析出的原始文本
         /// </summary>
@@ -155,7 +180,6 @@ namespace SAEA.Http
             this.Query = _httpMessage.Query;
             this.Protocal = _httpMessage.Protocal;
             this.Headers = _httpMessage.Headers;
-            this.HeaderStr = _httpMessage.HeaderStr;
             this.Cookies = _httpMessage.Cookies;
             this.IsFormData = _httpMessage.IsFormData;
             this.Boundary = _httpMessage.Boundary;
@@ -222,12 +246,9 @@ namespace SAEA.Http
             this.PostFiles = null;
             this.Body = null;
 
-            // 集合沿用原实例只清空内容：比较器与容量都保留，语义等同新建的空集合
-            if (this.Query != null) this.Query.Clear();
-            if (this.Forms != null) this.Forms.Clear();
+            // 报头、查询与 Cookie 集合由底层消息持有，解码器已在下一次解析前清空；
+            // 这里再清一次会把刚解析好的本次请求内容抹掉，只清请求对象独占的参数集合
             if (this.Parmas != null) this.Parmas.Clear();
-            if (this.Headers != null) this.Headers.Clear();
-            if (this.Cookies != null) this.Cookies.Clear();
         }
 
         /// <summary>

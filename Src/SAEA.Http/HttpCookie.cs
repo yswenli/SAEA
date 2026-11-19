@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 18:45:54
+*修改时间：2026/11/19 23:31:33
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：Set-Cookie 按需输出属性，空域与未设置的过期时间不再写成 Domain= 与 Expires=Session，长度估算与实际输出一致
+*描述：Set-Cookie 按需输出属性，空域与未设置的过期时间不再写成 Domain= 与 Expires=Session；新增可写入复用集合的 Cookie 解析重载
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -213,7 +213,20 @@ namespace SAEA.Http
         /// <returns>解析出的 Cookie 集合，入参为空时返回空集合</returns>
         public static HttpCookies Parse(string cookieStr)
         {
-            var result = new HttpCookies();
+            return Parse(cookieStr, null);
+        }
+
+        /// <summary>
+        /// 解析 Cookie 报头文本并写入可复用的集合
+        /// </summary>
+        /// <param name="cookieStr">Cookie 报头文本，分号分隔多个 Cookie</param>
+        /// <param name="reuse">复用的集合，为 null 时新建</param>
+        /// <returns>解析出的 Cookie 集合，入参为空时返回空集合</returns>
+        internal static HttpCookies Parse(string cookieStr, HttpCookies reuse)
+        {
+            var result = reuse ?? new HttpCookies();
+
+            if (reuse != null) result.Clear();
 
             if (string.IsNullOrEmpty(cookieStr)) return result;
 

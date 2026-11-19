@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 12:03:00
+*修改时间：2026/11/19 23:31:33
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：MapPath 规范解析 . 与 .. 段并校验结果位于站点根目录内，越界路径返回 null
+*版本号： v26.11.16.1
+*描述：MapPath 规范解析 . 与 .. 段并校验结果位于站点根目录内，越界路径返回 null；UrlDecode 在无转义与加号时直接返回原串
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -256,6 +256,9 @@ namespace SAEA.Http
         /// <returns>解码后的文本</returns>
         public static string UrlDecode(string s)
         {
+            // 既没有 % 转义也没有 + 时解码结果与原串一致，直接返回省掉一次复制
+            if (string.IsNullOrEmpty(s) || (s.IndexOf('%') < 0 && s.IndexOf('+') < 0)) return s;
+
             return System.Web.HttpUtility.UrlDecode(s);
         }
 

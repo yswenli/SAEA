@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 12:25:00
+*修改时间：2026/11/19 23:31:33
 *修改人： yswenli
 *版本号： net10.0
-*描述：补 JSON 与表单请求体的解析用例，覆盖解码阶段产出 Forms / Json
+*描述：补 JSON 与表单请求体的解析用例，覆盖解码阶段产出 Forms / Json；新增同连接连续两条请求复用消息实例且不残留上一条状态的用例
 *
 *****************************************************************************/
 using System;
@@ -199,6 +199,71 @@ namespace SAEA.Http.Tests
             Assert.IsNotNull(message.Forms, "表单请求体应产出 Forms。");
             Assert.AreEqual("alice", message.Forms["name"], "应解析出表单字段 name。");
             Assert.AreEqual("18", message.Forms["age"], "应解析出表单字段 age。");
+        }
+
+        /// <summary>
+        /// 同一连接连续两条请求共用一条解码链：第二条应重新解析，上一条的查询串、Cookie 与报头不得残留。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task HttpRequestDecoder_SequentialRequests_ReusesMessageWithoutLeftoverState()
+        {
+            var options = PipelineTestKit.CreateOptions(new HttpRequestSplitter());
+            var stream = new TestRawByteStream("http-decoder-sequential");
+            var capturing = new CapturingInboundHandler();
+
+            using (var pipeline = ChannelPipeline.Create(options))
+            {
+                pipeline.AddLast(new HttpRequestDecoder());
+                pipeline.AddLast(capturing);
+
+                var executor = new ChannelPipelineExecutor(
+                    stream, new TestChannel("http-decoder-sequential"), options, CancellationToken.None);
+                executor.Attach(pipeline);
+
+                try
+                {
+                    executor.Start();
+
+                    await PipelineTestKit.WriteAsync(stream, Encoding.ASCII.GetBytes(
+                        "GET /first?x=1 HTTP/1.1\r\n"
+                        + "Host: a\r\n"
+                        + "Cookie: sid=one\r\n"
+                        + "\r\n"));
+
+                    Assert.IsTrue(await capturing.WaitCountAsync(1, WaitTimeout), "第一条请求应产出一条消息。");
+
+                    // 复用同一个实例，第二条解码会改写它，第一条的断言必须在写入第二条之前完成
+                    var first = (HttpMessage)await capturing.FirstAsync(WaitTimeout);
+
+                    Assert.AreEqual("/first", first.Url, "第一条请求应解析出路径。");
+                    Assert.AreEqual("1", first.Query["x"], "第一条请求应解析出查询串。");
+                    Assert.AreEqual("one", first.Cookies["sid"].Value, "第一条请求应解析出 Cookie。");
+
+                    await PipelineTestKit.WriteAsync(stream, Encoding.ASCII.GetBytes(
+                        "GET /second?y=2 HTTP/1.1\r\n"
+                        + "Host: a\r\n"
+                        + "\r\n"));
+
+                    Assert.IsTrue(await capturing.WaitCountAsync(2, WaitTimeout), "第二条请求应再产出一条消息。");
+
+                    HttpMessage second = null;
+
+                    foreach (var item in capturing.Messages)
+                        second = (HttpMessage)item;
+
+                    Assert.AreSame(first, second, "同一连接应复用一份消息实例。");
+                    Assert.AreEqual("/second", second.Url, "第二条请求应重新解析出路径。");
+                    Assert.AreEqual("2", second.Query["y"], "第二条请求应解析出本次的查询串。");
+                    Assert.IsFalse(second.Query.ContainsKey("x"), "上一条请求的查询串不得残留。");
+                    Assert.IsFalse(second.Headers.ContainsKey("Cookie"), "上一条请求的报头不得残留。");
+                    Assert.AreEqual(0, second.Cookies.Count, "上一条请求的 Cookie 不得残留。");
+                }
+                finally
+                {
+                    await PipelineTestKit.StopAsync(executor);
+                }
+            }
         }
 
         private static async Task<HttpMessage> DecodeAsync(string channelId, string header, string body)

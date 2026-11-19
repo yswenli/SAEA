@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:29
+*修改时间：2026/11/19 23:31:33
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.16.1
+*描述：HeaderStr 改为虚成员以便派生类按需生成；ContentType 键名缓存为静态字段，避免每请求装箱查表
 *
 *****************************************************************************/
 using System;
@@ -42,12 +42,18 @@ namespace SAEA.Http.Base
     /// </summary>
     public class HttpBase
     {
+        // 键名在读取 ContentType 时每请求都要用，缓存一次即可，避免枚举装箱与并发字典查找
+        static readonly string _contentTypeKey = ResponseHeaderType.ContentType.GetDescription();
+
+        string _headerStr;
+
         /// <summary>
-        /// 原始报头文本
+        /// 原始报头文本；派生类可覆盖为按需生成，读取结果与写入值保持一致
         /// </summary>
-        public string HeaderStr
+        public virtual string HeaderStr
         {
-            get; set;
+            get { return _headerStr; }
+            set { _headerStr = value; }
         }
 
         /// <summary>
@@ -129,7 +135,7 @@ namespace SAEA.Http.Base
         {
             get
             {
-                var key = ResponseHeaderType.ContentType.GetDescription();
+                var key = _contentTypeKey;
                 Headers.TryGetValue(key, out string type);
                 if (string.IsNullOrEmpty(type))
                 {
@@ -147,7 +153,7 @@ namespace SAEA.Http.Base
             }
             set
             {
-                var key = ResponseHeaderType.ContentType.GetDescription();
+                var key = _contentTypeKey;
                 if (!this.Headers.ContainsKey(key))
                 {
                     this.Headers.Add(key, value);

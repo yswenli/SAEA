@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 12:20:00
+*修改时间：2026/11/19 23:31:33
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：复制请求体后按 ContentType 解析表单、文件与 JSON，保持与旧解码路径一致
+*版本号： v26.11.16.1
+*描述：连接内复用一份 HttpMessage，每帧解析前复位，解码失败时归还其池化缓冲
 *
 *****************************************************************************/
 using System;
@@ -51,6 +51,10 @@ namespace SAEA.Http
     /// </summary>
     public sealed class HttpRequestDecoder : ByteToMessageDecoder
     {
+        // HTTP 连接按 MaxConcurrentMessages = 1 串行处理，同一连接上一条请求处理完才会解下一帧，
+        // 因此可以复用一份消息实例；池化缓冲在每请求释放时归还
+        HttpMessage _message;
+
         /// <inheritdoc />
         protected override void Decode(IChannelHandlerContext ctx, PooledMessage frame, List<object> output)
         {
@@ -66,15 +70,31 @@ namespace SAEA.Http
 
             var data = frame.Frame;
 
-            HttpMessage message;
+            var message = _message;
+
+            if (message == null)
+            {
+                message = new HttpMessage();
+
+                _message = message;
+            }
+            else
+            {
+                // 复位为新建实例的状态，集合与池化缓冲都沿用同一个对象
+                message.ResetForNextRequest();
+            }
+
             int headerLength;
             try
             {
                 // Analysis 的签名是 Span<byte>，但只做只读解析；AsMemory 只换视图，不复制整帧。
-                headerLength = RequestDataReader.Analysis(MemoryMarshal.AsMemory(data).Span, out message);
+                headerLength = RequestDataReader.Analysis(MemoryMarshal.AsMemory(data).Span, message, out message);
             }
             catch (Exception ex)
             {
+                // 解码失败时复位复用实例，及时归还可能已借出的池化缓冲
+                _message.ResetForNextRequest();
+
                 throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest, ex);
             }
 
@@ -87,7 +107,7 @@ namespace SAEA.Http
                 throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
             }
 
-            // 只复制请求体；报头已解析成字符串与集合，不再需要原始字节。
+            // 只复制请求体；报头原文已另存到消息的池化缓冲，帧内字节随帧释放。
             if (message.ContentLength > 0)
             {
                 message.Body = data.Slice(message.Position, message.ContentLength).ToArray();
