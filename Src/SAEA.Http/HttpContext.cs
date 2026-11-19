@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 13:21:42
+*修改时间：2026/11/19 18:13:28
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：普通响应改为按请求协议与 Connection 请求头决定保持还是关闭连接，响应头与 Send/End 的副作用保持一致
+*描述：方法分发补 HEAD/PATCH，HEAD 置 SuppressBody 只回报头，未知方法由 505 改为 501
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -67,12 +67,19 @@ namespace SAEA.Http
             try
             {
 
+                // HEAD 复用 GET 的路由与参数合并，但只回报头：必须抢在业务执行前置位，
+                // 静态文件与 SSE 等出口在写正文时都会按 SuppressBody 丢弃内容
+                if (Request.Method == ConstHelper.HEAD)
+                    Response.SuppressBody = true;
+
                 switch (Request.Method)
                 {
                     case ConstHelper.GET:
+                    case ConstHelper.HEAD:
                     case ConstHelper.POST:
                     case ConstHelper.PUT:
                     case ConstHelper.DELETE:
+                    case ConstHelper.PATCH:
 
                         if (Request.Query.Count > 0)
                         {
@@ -101,7 +108,9 @@ namespace SAEA.Http
                         result = new HttpEmptyResult();
                         break;
                     default:
-                        result = new HttpContentResult("不支持的请求方式", System.Net.HttpStatusCode.HttpVersionNotSupported);
+                        // 505 是「HTTP 版本不支持」，与「请求方法不认识」语义不同，不能拿它作答；
+                        // 方法不在分发范围内的标准应答是 501
+                        result = new HttpContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
                         break;
                 }
             }

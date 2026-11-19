@@ -23,17 +23,21 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 16:54:00
+*修改时间：2026/11/19 17:29:54
 *修改人： yswenli
 *版本号： net10.0
-*描述：补 [Route]-only 与显式 [HttpHead]/[HttpOptions] 同路径的构建与命中用例，以及 GET + 显式 OPTIONS 的 Allow 口径用例
+*描述：补 OPTIONS 未命中回 404、静态资源仍 204，以及小写方法名与未知方法 501 的用例
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -787,6 +791,153 @@ namespace SAEA.MVC.Tests
         }
 
         /// <summary>
+        /// 完全未命中的路径收到 OPTIONS 时返回 404，不再被当成静态资源自动应答。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task Restful_OptionsOnUnknownPath_Returns404()
+        {
+            var port = TestAppFactory.GetFreePort();
+            var rootName = TestAppFactory.CreateRootName();
+            var app = TestAppFactory.CreateApp(rootName, port);
+
+            try
+            {
+                app.Start();
+
+                using (var client = TestAppFactory.CreateHttpClient())
+                using (var response = await SendAsync(client, HttpMethod.Options, BaseUrl(port) + "/restful/not-exists").ConfigureAwait(false))
+                {
+                    Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode, "OPTIONS /restful/not-exists 应返回 404");
+                }
+            }
+            finally
+            {
+                TestAppFactory.StopQuietly(app);
+                TestAppFactory.DeleteRootDirectory(rootName);
+            }
+        }
+
+        /// <summary>
+        /// 站点根下真实存在的静态文件收到 OPTIONS 时仍回 204 且正文为空。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task Restful_OptionsOnStaticFile_Returns204()
+        {
+            var port = TestAppFactory.GetFreePort();
+            var rootName = TestAppFactory.CreateRootName();
+            var rootDirectory = TestAppFactory.GetRootDirectory(rootName);
+
+            var fileName = "opt-" + Guid.NewGuid().ToString("N") + ".txt";
+
+            File.WriteAllText(Path.Combine(rootDirectory, fileName), "opt-static-content", new UTF8Encoding(false));
+
+            var app = TestAppFactory.CreateApp(rootName, port);
+
+            try
+            {
+                app.Start();
+
+                using (var client = TestAppFactory.CreateHttpClient())
+                using (var response = await SendAsync(client, HttpMethod.Options, BaseUrl(port) + "/" + fileName).ConfigureAwait(false))
+                {
+                    Assert.AreEqual(HttpStatusCode.NoContent, response.StatusCode, "OPTIONS /" + fileName + " 应返回 204");
+
+                    var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    Assert.AreEqual(string.Empty, body, "静态资源的 OPTIONS 自动应答不应带正文");
+                }
+            }
+            finally
+            {
+                TestAppFactory.StopQuietly(app);
+                TestAppFactory.DeleteRootDirectory(rootName);
+            }
+        }
+
+        /// <summary>
+        /// 请求行里的小写 get 在入口被规范成大写，仍按 GET 路由并返回 200。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task Restful_LowercaseGet_Returns200()
+        {
+            var port = TestAppFactory.GetFreePort();
+            var rootName = TestAppFactory.CreateRootName();
+            var app = TestAppFactory.CreateApp(rootName, port);
+
+            try
+            {
+                app.Start();
+
+                // HttpClient 可能自行改写方法名，这里用原始 socket 把请求行原样送出去
+                var response = await SendRawAsync(port, "get", "/rest/head-get").ConfigureAwait(false);
+
+                Assert.AreEqual(200, response.StatusCode, "get /rest/head-get 应返回 200，实际响应行：" + response.StatusLine);
+                Assert.AreEqual("rest-head-get-body", response.Body, "小写 get 应命中 GET 声明动作并返回其正文");
+            }
+            finally
+            {
+                TestAppFactory.StopQuietly(app);
+                TestAppFactory.DeleteRootDirectory(rootName);
+            }
+        }
+
+        /// <summary>
+        /// 请求行里的小写 options 同样被规范成大写，命中只声明 GET 的属性路由并回 204 + Allow。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task Restful_LowercaseOptions_Returns204WithAllow()
+        {
+            var port = TestAppFactory.GetFreePort();
+            var rootName = TestAppFactory.CreateRootName();
+            var app = TestAppFactory.CreateApp(rootName, port);
+
+            try
+            {
+                app.Start();
+
+                var response = await SendRawAsync(port, "options", "/rest/options-auto").ConfigureAwait(false);
+
+                Assert.AreEqual(204, response.StatusCode, "options /rest/options-auto 应返回 204，实际响应行：" + response.StatusLine);
+                Assert.AreEqual("GET, HEAD", response.GetHeaderValue("Allow"), "小写 options 的 Allow 应与大写请求一致");
+            }
+            finally
+            {
+                TestAppFactory.StopQuietly(app);
+                TestAppFactory.DeleteRootDirectory(rootName);
+            }
+        }
+
+        /// <summary>
+        /// 无法识别的方法名返回 501，而不是表示协议版本不支持的 505。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task Restful_UnknownMethod_Returns501()
+        {
+            var port = TestAppFactory.GetFreePort();
+            var rootName = TestAppFactory.CreateRootName();
+            var app = TestAppFactory.CreateApp(rootName, port);
+
+            try
+            {
+                app.Start();
+
+                var response = await SendRawAsync(port, "TRACE", "/restverb/putonly").ConfigureAwait(false);
+
+                Assert.AreEqual(501, response.StatusCode, "TRACE /restverb/putonly 应返回 501，实际响应行：" + response.StatusLine);
+            }
+            finally
+            {
+                TestAppFactory.StopQuietly(app);
+                TestAppFactory.DeleteRootDirectory(rootName);
+            }
+        }
+
+        /// <summary>
         /// 发送指定方法的请求，并沿用工厂的连接就绪重试。
         /// </summary>
         /// <param name="client">请求客户端</param>
@@ -822,6 +973,137 @@ namespace SAEA.MVC.Tests
         private static string BaseUrl(int port)
         {
             return "http://" + TestAppFactory.LoopbackHost + ":" + port;
+        }
+
+        /// <summary>
+        /// 用原始 socket 把指定方法名原样写进请求行并读完整响应，连接拒绝时在 10 秒内重试。
+        /// </summary>
+        /// <param name="port">监听端口</param>
+        /// <param name="method">请求行里的方法名，按原样发送，用于验证大小写与未知方法</param>
+        /// <param name="path">请求目标</param>
+        /// <returns>解析后的响应</returns>
+        private static async Task<RawHttpResponse> SendRawAsync(int port, string method, string path)
+        {
+            using (var client = new TcpClient())
+            {
+                var deadline = DateTime.UtcNow.AddSeconds(10);
+
+                while (true)
+                {
+                    try
+                    {
+                        await client.ConnectAsync(IPAddress.Loopback, port).ConfigureAwait(false);
+                        break;
+                    }
+                    catch (SocketException) when (DateTime.UtcNow < deadline)
+                    {
+                        await Task.Delay(100).ConfigureAwait(false);
+                    }
+                }
+
+                using (var stream = client.GetStream())
+                using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+                {
+                    var request = method + " " + path + " HTTP/1.1\r\nHost: " + TestAppFactory.LoopbackHost + ":" + port + "\r\nConnection: close\r\n\r\n";
+
+                    var requestBytes = Encoding.ASCII.GetBytes(request);
+
+                    await stream.WriteAsync(requestBytes, 0, requestBytes.Length, timeout.Token).ConfigureAwait(false);
+
+                    using (var memory = new MemoryStream())
+                    {
+                        var buffer = new byte[8192];
+
+                        int read;
+
+                        while ((read = await stream.ReadAsync(buffer, 0, buffer.Length, timeout.Token).ConfigureAwait(false)) > 0)
+                        {
+                            memory.Write(buffer, 0, read);
+                        }
+
+                        return RawHttpResponse.Parse(Encoding.UTF8.GetString(memory.ToArray()));
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 原始 HTTP 响应：状态行、报头文本与正文。
+        /// </summary>
+        private sealed class RawHttpResponse
+        {
+            /// <summary>
+            /// 响应状态行。
+            /// </summary>
+            public string StatusLine { get; private set; }
+
+            /// <summary>
+            /// 响应状态码。
+            /// </summary>
+            public int StatusCode { get; private set; }
+
+            /// <summary>
+            /// 报头文本，不含状态行与结尾空行。
+            /// </summary>
+            public string HeaderText { get; private set; }
+
+            /// <summary>
+            /// 响应正文。
+            /// </summary>
+            public string Body { get; private set; }
+
+            /// <summary>
+            /// 取指定报头的值，报头名比较忽略大小写。
+            /// </summary>
+            /// <param name="name">报头名</param>
+            /// <returns>报头值；不存在时返回 null</returns>
+            public string GetHeaderValue(string name)
+            {
+                if (string.IsNullOrEmpty(HeaderText)) return null;
+
+                var lines = HeaderText.Split(new[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (var line in lines)
+                {
+                    var colon = line.IndexOf(':');
+
+                    if (colon <= 0) continue;
+
+                    if (string.Compare(line.Substring(0, colon).Trim(), name, true) == 0)
+                        return line.Substring(colon + 1).Trim();
+                }
+
+                return null;
+            }
+
+            /// <summary>
+            /// 解析原始响应文本。
+            /// </summary>
+            /// <param name="text">完整响应文本</param>
+            /// <returns>解析后的响应</returns>
+            public static RawHttpResponse Parse(string text)
+            {
+                var headerEnd = text.IndexOf("\r\n", StringComparison.Ordinal);
+
+                var statusLine = headerEnd >= 0 ? text.Substring(0, headerEnd) : text;
+
+                var parts = statusLine.Split(' ');
+
+                if (parts.Length < 2)
+                {
+                    throw new FormatException("响应状态行不符合 HTTP 格式：" + statusLine);
+                }
+
+                var bodyStart = text.IndexOf("\r\n\r\n", StringComparison.Ordinal);
+
+                return new RawHttpResponse
+                {
+                    StatusLine = statusLine,
+                    StatusCode = int.Parse(parts[1]),
+                    HeaderText = bodyStart >= 0 ? text.Substring(headerEnd + 2, bodyStart - headerEnd - 2) : string.Empty,
+                    Body = bodyStart >= 0 ? text.Substring(bodyStart + 4) : string.Empty
+                };
+            }
         }
 
         /// <summary>

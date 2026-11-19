@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 16:20:31
+*修改时间：2026/11/19 17:29:54
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：放行 PUT/DELETE/PATCH/HEAD，HEAD 打标抑制正文，OPTIONS 由独立分支按声明作答；路由调用改为传真实请求方法
+*描述：入口统一把方法名规范成大写后分发，未知方法由 505 改为 501，OPTIONS 只在路径完全未命中时回 404、静态资源仍 204
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -78,7 +78,13 @@ namespace SAEA.MVC.Invocation
 
             try
             {
-                var method = _context.Request.Method;
+                var method = NormalizeMethod(_context.Request.Method);
+
+                // 回写规范值：输出缓存的键与下游调用都拿请求方法当入参，统一成大写后不必在每处再比较一次大小写
+                if (!string.IsNullOrEmpty(method) && !string.Equals(method, _context.Request.Method, StringComparison.Ordinal))
+                {
+                    _context.Request.Method = method;
+                }
 
                 // HEAD 复用 GET 的执行结果，但只回报头：先打标，正文由响应层统一丢弃，
                 // 避免各类结果（普通结果、大数据、事件流）各自处理一遍
@@ -111,7 +117,8 @@ namespace SAEA.MVC.Invocation
                         result = await HandleOptionsAsync().ConfigureAwait(false);
                         break;
                     default:
-                        result = new ContentResult("不支持的请求方式", System.Net.HttpStatusCode.HttpVersionNotSupported);
+                        // 未知方法用 501：505 是 HTTP 版本不支持，与「方法不认识」不是一回事
+                        result = new ContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
                         break;
                 }
             }
@@ -187,10 +194,23 @@ namespace SAEA.MVC.Invocation
         }
 
         /// <summary>
-        /// 处理 OPTIONS：声明了 [HttpOptions] 就执行该 action，未声明则回 204 并给出已声明的动词，
-        /// 不执行普通 action
+        /// 把请求方法名规范成大写：HTTP 方法名区分大小写，但本框架的谓词判定一律忽略大小写，
+        /// 统一在入口规范化可避免下游各处重复比较
         /// </summary>
-        /// <returns>显式 action 的执行结果或 204 空结果</returns>
+        /// <param name="method">请求行里的方法名，可为 null</param>
+        /// <returns>大写方法名；入参为 null 或空时原样返回</returns>
+        private static string NormalizeMethod(string method)
+        {
+            if (string.IsNullOrEmpty(method)) return method;
+
+            return method.ToUpperInvariant();
+        }
+
+        /// <summary>
+        /// 处理 OPTIONS：声明了 [HttpOptions] 就执行该 action，未声明则回 204 并给出已声明的动词，
+        /// 不执行普通 action；只有路径完全未命中时才回 404
+        /// </summary>
+        /// <returns>显式 action 的执行结果、204 空结果，或路径完全未命中时的 404</returns>
         private async Task<IHttpResult> HandleOptionsAsync()
         {
             MergeParameters();
@@ -247,8 +267,27 @@ namespace SAEA.MVC.Invocation
                 return await MvcInvoker.InvokeResultAsync(_routeTable, controllerType, actionName, _context.Request.Parmas.ToNameValueCollection(), ConstHelper.OPTIONS).ConfigureAwait(false);
             }
 
-            // 静态资源与未知路径不做内容协商，直接自动应答；没有可列出的动词时不写 Allow
-            return CreateNoContent(null);
+            // 静态资源仍是真实存在的路径，OPTIONS 照旧自动应答 204；只有完全未命中的路径才回 404
+            string filePath;
+
+            if (arr.Length == 0)
+            {
+                // 根路径与 GetActionResultAsync 的路径形状保持一致：按默认首页映射，配置缺失时按未命中处理
+                filePath = _context.WebConfig == null || _context.WebConfig.HomePage == null
+                    ? null
+                    : _context.Server.MapPath(_context.WebConfig.HomePage);
+            }
+            else
+            {
+                filePath = _context.Server.MapPath(_context.Request.Url);
+            }
+
+            if (filePath != null && StaticResourcesCache.Exists(filePath))
+            {
+                return CreateNoContent(null);
+            }
+
+            return new ContentResult("o_o，找不到任何内容 url:" + _context.Request.Url, System.Net.HttpStatusCode.NotFound);
         }
 
         /// <summary>
@@ -296,8 +335,15 @@ namespace SAEA.MVC.Invocation
         {
             string url = _context.Request.Url;
 
-            var method = _context.Request.Method;
+            var method = NormalizeMethod(_context.Request.Method);
 
+            // 该方法可被 HttpContext.GetActionResultAsync 直接调用，不能只依赖 HandleAsync 里的规范化
+            if (!string.IsNullOrEmpty(method) && !string.Equals(method, _context.Request.Method, StringComparison.Ordinal))
+            {
+                _context.Request.Method = method;
+            }
+
+            // 空方法名仍按 GET 处理
             if (string.IsNullOrEmpty(method)) method = ConstHelper.GET;
 
             //禁止访问
