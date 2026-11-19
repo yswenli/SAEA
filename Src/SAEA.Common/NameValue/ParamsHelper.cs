@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:40:45
+*修改时间：2026/11/19 18:45:54
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.16.1
+*描述：参数填充新增写入调用方数组的重载，列表版本委托到数组版本，省掉逐参数装箱之外的中间列表与复制
 *
 *****************************************************************************/
 using System;
@@ -137,12 +137,33 @@ namespace SAEA.Common.NameValue
         /// <summary>
         /// 参数填充
         /// </summary>
-        /// <param name="params"></param>
-        /// <param name="nameValues"></param>
-        /// <returns></returns>
+        /// <param name="params">方法参数元数据</param>
+        /// <param name="nameValues">请求参数集合</param>
+        /// <returns>按声明顺序填充好的参数列表；没有参数时返回 null</returns>
         public static List<object> FillPamars(ParameterInfo[] @params, NameValueCollection nameValues)
         {
-            List<object> list = new List<object>();
+            var values = new object[@params.Length];
+
+            FillPamars(@params, nameValues, values);
+
+            if (values.Length == 0) return null;
+
+            var list = new List<object>(values.Length);
+
+            list.AddRange(values);
+
+            return list;
+        }
+
+        /// <summary>
+        /// 参数填充到调用方给的数组：按声明顺序逐位写入，省掉中间列表与整体复制
+        /// </summary>
+        /// <param name="params">方法参数元数据</param>
+        /// <param name="nameValues">请求参数集合</param>
+        /// <param name="target">接收填充结果的目标数组，长度不能小于参数个数</param>
+        public static void FillPamars(ParameterInfo[] @params, NameValueCollection nameValues, object[] target)
+        {
+            var sink = new ArraySink(target);
 
             foreach (var parma in @params)
             {
@@ -156,66 +177,66 @@ namespace SAEA.Common.NameValue
                     {
                         if (int.TryParse(val.ToString(), out int v))
                         {
-                            list.Add(v);
+                            sink.Add(v);
                         }
                         else
                         {
-                            list.Add(0);
+                            sink.Add(0);
                         }
                     }
                     else if (parma.ParameterType == typeof(Int16) || parma.ParameterType == typeof(Nullable<Int16>))
                     {
                         if (int.TryParse(val.ToString(), out int v))
                         {
-                            list.Add(v);
+                            sink.Add(v);
                         }
                         else
                         {
-                            list.Add(0);
+                            sink.Add(0);
                         }
                     }
                     else if (parma.ParameterType == typeof(Int64) || parma.ParameterType == typeof(Nullable<Int64>))
                     {
                         if (long.TryParse(val.ToString(), out long v))
                         {
-                            list.Add(v);
+                            sink.Add(v);
                         }
                         else
                         {
-                            list.Add(0);
+                            sink.Add(0);
                         }
                     }
                     else if (parma.ParameterType == typeof(Single) || parma.ParameterType == typeof(Nullable<Single>))
                     {
                         if (float.TryParse(val.ToString(), out float v))
                         {
-                            list.Add(v);
+                            sink.Add(v);
                         }
                         else
                         {
-                            list.Add(0);
+                            sink.Add(0);
                         }
                     }
                     else if (parma.ParameterType == typeof(Double) || parma.ParameterType == typeof(Nullable<double>))
                     {
                         if (double.TryParse(val.ToString(), out double v))
                         {
-                            list.Add(v);
+                            sink.Add(v);
                         }
                         else
                         {
-                            list.Add(0);
+                            sink.Add(0);
                         }
                     }
                     else if (parma.ParameterType == typeof(DateTime) || parma.ParameterType == typeof(Nullable<DateTime>))
                     {
                         if (DateTime.TryParse(val.ToString(), out DateTime v))
                         {
-                            list.Add(v);
+                            sink.Add(v);
                         }
                         else
                         {
-                            list.Add(new DateTime());
+                            sink.Add(new DateTime());
                         }
                     }
                     else if (parma.ParameterType == typeof(Boolean) || parma.ParameterType == typeof(Nullable<bool>))
@@ -230,27 +251,27 @@ namespace SAEA.Common.NameValue
 
                         if (bool.TryParse(val.ToString(), out bool v))
                         {
-                            list.Add(v);
+                            sink.Add(v);
                         }
                         else
                         {
-                            list.Add(false);
+                            sink.Add(false);
                         }
                     }
                     else if (parma.ParameterType == typeof(Byte) || parma.ParameterType == typeof(Nullable<byte>))
                     {
                         if (byte.TryParse(val.ToString(), out byte v))
                         {
-                            list.Add(v);
+                            sink.Add(v);
                         }
                         else
                         {
-                            list.Add(0);
+                            sink.Add(0);
                         }
                     }
                     else if (parma.ParameterType == typeof(System.String))
                     {
-                        list.Add(val);
+                        sink.Add(val);
                     }
                     else
                     {
@@ -258,7 +279,7 @@ namespace SAEA.Common.NameValue
 
                         if (val != null && modelType.Name == val.GetType().Name)
                         {
-                            list.Add(val);
+                            sink.Add(val);
                         }
                         else
                         {
@@ -379,11 +400,11 @@ namespace SAEA.Common.NameValue
                                     }
                                 }
 
-                                list.Add(model);
+                                sink.Add(model);
                             }
                             else
                             {
-                                list.Add(null);
+                                sink.Add(null);
                             }
                         }
                     }
@@ -392,51 +413,71 @@ namespace SAEA.Common.NameValue
                 {
                     if (parma.ParameterType == typeof(Int32) || parma.ParameterType == typeof(Nullable<Int32>))
                     {
-                        list.Add(0);
+                        sink.Add(0);
                     }
                     else if (parma.ParameterType == typeof(Int16) || parma.ParameterType == typeof(Nullable<Int16>))
                     {
-                        list.Add(0L);
+                        sink.Add(0L);
                     }
                     else if (parma.ParameterType == typeof(Int64) || parma.ParameterType == typeof(Nullable<Int64>))
                     {
-                        list.Add(0L);
+                        sink.Add(0L);
                     }
                     else if (parma.ParameterType == typeof(Single) || parma.ParameterType == typeof(Nullable<Single>))
                     {
-                        list.Add(0F);
+                        sink.Add(0F);
                     }
                     else if (parma.ParameterType == typeof(Double) || parma.ParameterType == typeof(Nullable<double>))
                     {
-                        list.Add(0D);
+                        sink.Add(0D);
                     }
                     else if (parma.ParameterType == typeof(DateTime) || parma.ParameterType == typeof(Nullable<DateTime>))
                     {
-                        list.Add(new DateTime());
+                        sink.Add(new DateTime());
                     }
                     else if (parma.ParameterType == typeof(Boolean) || parma.ParameterType == typeof(Nullable<bool>))
                     {
-                        list.Add(true);
+                        sink.Add(true);
                     }
                     else if (parma.ParameterType == typeof(Byte) || parma.ParameterType == typeof(Nullable<byte>))
                     {
-                        list.Add((byte)0);
+                        sink.Add((byte)0);
                     }
                     else if (parma.ParameterType == typeof(String))
                     {
-                        list.Add(string.Empty);
+                        sink.Add(string.Empty);
                     }
                     else
                     {
-                        list.Add(null);
+                        sink.Add(null);
                     }
                 }
             }
-            if (list.Count == 0) return null;
-            return list;
         }
 
+        /// <summary>
+        /// 逐个参数值写入调用方数组的分段写出目标：替代 List，省掉列表本身与 ToArray 的整体复制
+        /// </summary>
+        private struct ArraySink
+        {
+            private readonly object[] _target;
 
+            private int _index;
 
+            /// <summary>绑定接收结果的数组</summary>
+            /// <param name="target">接收填充结果的数组</param>
+            public ArraySink(object[] target)
+            {
+                _target = target;
+                _index = 0;
+            }
+
+            /// <summary>按写入顺序占用目标数组的下一个位置</summary>
+            /// <param name="value">参数值</param>
+            public void Add(object value)
+            {
+                _target[_index++] = value;
+            }
+        }
     }
 }

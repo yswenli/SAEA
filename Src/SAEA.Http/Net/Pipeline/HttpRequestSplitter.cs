@@ -23,15 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/10 10:20:00
+*修改时间：2026/11/19 18:45:54
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：报头完整但解析失败改判 400，避免畸形请求挂住连接
+*版本号： v26.11.16.1
+*描述：定帧改为按需扫描 Transfer-Encoding、Content-Length、Upgrade 三个报头字段，不再为每个请求建消息对象与报头字典
 *
 *****************************************************************************/
 using System;
 using System.Buffers;
 using System.Runtime.InteropServices;
+using System.Text;
 using SAEA.Common.Caching;
 using SAEA.Http.Base;
 using SAEA.Sockets.Pipeline;
@@ -39,8 +40,8 @@ using SAEA.Sockets.Pipeline;
 namespace SAEA.Http
 {
     /// <summary>
-    /// HTTP 请求分帧器：先从缓冲里找报头结束符 <c>\r\n\r\n</c> 并解析报头，再按 <c>Content-Length</c> 等齐请求体，
-    /// 只有整帧到齐才产出。报头与请求体各有独立上限，<c>Content-Length</c> 超限在报头解析后立即判定，不等请求体。
+    /// HTTP 请求分帧器：先从缓冲里找报头结束符 <c>\r\n\r\n</c> 并只扫出定帧需要的报头字段，再按 <c>Content-Length</c> 等齐请求体，
+    /// 只有整帧到齐才产出。报头与请求体各有独立上限，<c>Content-Length</c> 超限在报头扫描后立即判定，不等请求体。
     /// <para>
     /// 只切 HTTP 请求，不生成任何响应，也不做 chunked 解码：协议错误统一用
     /// <see cref="HttpProtocolErrorCodes"/> 的固定 token 抛 <see cref="FrameProtocolException"/>，
@@ -54,6 +55,17 @@ namespace SAEA.Http
     public sealed class HttpRequestSplitter : IFrameSplitter
     {
         private static readonly byte[] _headerEndMarker = new byte[] { 13, 10, 13, 10 };
+
+        // 定帧只关心的三个头名与两个值子串，一律按小写 ASCII 逐字节比较，避免为目标名分配字符串。
+        private static readonly byte[] _transferEncodingName = Encoding.ASCII.GetBytes("transfer-encoding");
+        private static readonly byte[] _contentLengthName = Encoding.ASCII.GetBytes("content-length");
+        private static readonly byte[] _upgradeName = Encoding.ASCII.GetBytes("upgrade");
+        private static readonly byte[] _chunkedToken = Encoding.ASCII.GetBytes("chunked");
+        private static readonly byte[] _webSocketToken = Encoding.ASCII.GetBytes("websocket");
+
+        // KMP 回退表与目标子串一起静态构造，热路径上只做整数比较。
+        private static readonly int[] _chunkedFallback = BuildTokenFallback(_chunkedToken);
+        private static readonly int[] _webSocketFallback = BuildTokenFallback(_webSocketToken);
 
         private readonly int _maxRequestSize;
         private readonly int _maxHeaderSize;
@@ -116,39 +128,42 @@ namespace SAEA.Http
             if (headerLength > _maxHeaderSize)
                 throw new FrameProtocolException(HttpProtocolErrorCodes.RequestHeaderFieldsTooLarge);
 
-            // 报头结束符已到齐，解析失败只能是报文畸形：不能当「数据不足」继续等，否则请求行非法的连接既收不到响应也不会断开。
-            var message = ParseHeader(buffer, headerLength);
-            if (message == null)
+            // 定帧只认 Transfer-Encoding、Content-Length、Upgrade 三个字段，直接扫字节即可；
+            // 完整的 HttpMessage 与报头字典会在解码阶段再建一次，这里重复解析等于每请求白分配约 1.1 KB。
+            var header = ScanHeaderFields(buffer, headerEnd, headerLength);
+
+            // 报头结束符已到齐，请求行畸形不能当「数据不足」继续等，否则这类连接既收不到响应也不会断开。
+            if (header.Malformed)
                 throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
 
-            if (message.Headers.TryGetValue("Transfer-Encoding", out var transferEncoding)
-                && !string.IsNullOrEmpty(transferEncoding)
-                && transferEncoding.IndexOf("chunked", StringComparison.OrdinalIgnoreCase) >= 0)
+            if (header.Chunked)
             {
                 // 不做 chunked 解码：继续按 Content-Length 切会把 chunk 字节误当后续请求。
                 throw new FrameProtocolException(HttpProtocolErrorCodes.ChunkedNotSupported);
             }
 
-            var contentLength = 0;
-            if (message.Headers.TryGetValue("Content-Length", out var contentLengthText))
-            {
-                if (!int.TryParse(contentLengthText, out contentLength) || contentLength < 0)
-                    throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
-            }
+            if (header.ContentLengthInvalid)
+                throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
 
             // 必须在这里判超限：等请求体到齐再判，超限字节早已进入内存。
-            if (contentLength > _maxRequestSize)
-                throw new FrameProtocolException(HttpProtocolErrorCodes.RequestEntityTooLarge);
+            if (header.ContentLength > _maxRequestSize)
+            {
+                // 413 比 400 更具体，而旧实现是先完整解析报头、解析失败即回 400，超限判定在其后。
+                // 超限请求不是热路径，这里仍走一次完整解析，保证「畸形报文优先按 400 拒绝」的顺序不变。
+                if (ParseHeader(buffer, headerLength) == null)
+                    throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
 
+                throw new FrameProtocolException(HttpProtocolErrorCodes.RequestEntityTooLarge);
+            }
+
+            var contentLength = header.ContentLength;
             var frameLength = (long)headerLength + contentLength;
             if (buffer.Length < frameLength) return false;
 
             frame = buffer.Slice(0, frameLength);
             consumed = frameLength;
 
-            if (message.Headers.TryGetValue("Upgrade", out var upgrade)
-                && !string.IsNullOrEmpty(upgrade)
-                && upgrade.IndexOf("websocket", StringComparison.OrdinalIgnoreCase) >= 0)
+            if (header.UpgradeWebSocket)
             {
                 // 分帧器无法预知业务是否接受升级，一律停切，避免紧跟其后的 WS 首帧被当成 HTTP 请求。
                 var barrier = Barrier;
@@ -196,6 +211,450 @@ namespace SAEA.Http
             }
 
             return -1;
+        }
+
+        /// <summary>报头字段扫描结果：定帧只用到这几项，扁平结构避免为每个请求建消息对象与字典。</summary>
+        private struct HeaderFields
+        {
+            /// <summary>请求行不是「方法 SP 目标 SP 协议」三段式</summary>
+            public bool Malformed;
+
+            /// <summary>Transfer-Encoding 的值里含 chunked</summary>
+            public bool Chunked;
+
+            /// <summary>Content-Length 不是非负整数</summary>
+            public bool ContentLengthInvalid;
+
+            /// <summary>Content-Length 的数值，字段缺失时为 0</summary>
+            public int ContentLength;
+
+            /// <summary>Upgrade 的值里含 websocket</summary>
+            public bool UpgradeWebSocket;
+        }
+
+        /// <summary>
+        /// 逐字节扫描报头行，结果写进 <see cref="HeaderFields"/>。
+        /// <para>
+        /// 头名按 ASCII 折大小写与三个目标名比较，值就地判定 chunked / websocket 子串与 Content-Length 数值；
+        /// 状态全是值类型字段，所以跨段的头名或值可以续扫，不必把报头复制进池化缓冲。
+        /// </para>
+        /// </summary>
+        private struct HeaderLineScanner
+        {
+            /// <summary>扫描结果，逐行累加</summary>
+            public HeaderFields Fields;
+
+            private bool _lineStarted;
+            private bool _colonSeen;
+            private int _colonCount;
+            private int _transferNameProgress;
+            private int _contentLengthNameProgress;
+            private int _upgradeNameProgress;
+            private bool _chunkedSeen;
+            private bool _webSocketSeen;
+            private int _chunkedProgress;
+            private int _webSocketProgress;
+            private int _contentLengthState;
+            private int _contentLengthDigits;
+            private bool _contentLengthNegative;
+            private bool _contentLengthOverflow;
+            private long _contentLengthValue;
+
+            /// <summary>消费行内一个字节，不含行尾的 CRLF。</summary>
+            /// <param name="value">行内字节</param>
+            public void Consume(byte value)
+            {
+                _lineStarted = true;
+
+                if (!_colonSeen)
+                {
+                    if (value == 58)
+                    {
+                        _colonSeen = true;
+                        _colonCount = 1;
+                        return;
+                    }
+
+                    // 头名必须与目标名完全等长且逐字节相等，解码阶段取键时也不去两侧空白
+                    var foldedName = ToLowerAscii(value);
+                    _transferNameProgress = AdvanceName(_transferEncodingName, _transferNameProgress, foldedName);
+                    _contentLengthNameProgress = AdvanceName(_contentLengthName, _contentLengthNameProgress, foldedName);
+                    _upgradeNameProgress = AdvanceName(_upgradeName, _upgradeNameProgress, foldedName);
+                    return;
+                }
+
+                if (value == 58)
+                {
+                    // 与解码阶段一致：一行出现第二个冒号时整行取值按空串处理
+                    _colonCount++;
+                    return;
+                }
+
+                if (_colonCount > 1) return;
+
+                ConsumeValue(value);
+            }
+
+            /// <summary>结束当前行：头名命中的字段写入结果，然后归位行内状态。</summary>
+            public void EndLine()
+            {
+                if (_lineStarted)
+                {
+                    // 没有冒号的行在解码阶段是「整行当键、值为空」，这里同样按命中处理
+                    if (_transferNameProgress == _transferEncodingName.Length)
+                        Fields.Chunked = _chunkedSeen;
+
+                    if (_upgradeNameProgress == _upgradeName.Length)
+                        Fields.UpgradeWebSocket = _webSocketSeen;
+
+                    if (_contentLengthNameProgress == _contentLengthName.Length)
+                    {
+                        // 同名头重复出现时取最后一个，与报头字典「后写覆盖」一致；
+                        // "-0" 解析成功且不小于 0，仍视为 0，所以先合成带符号的值再判负。
+                        var value = _contentLengthNegative ? -_contentLengthValue : _contentLengthValue;
+
+                        var valid = _colonCount == 1
+                            && _contentLengthDigits > 0
+                            && _contentLengthState != 5
+                            && !_contentLengthOverflow
+                            && value >= 0;
+
+                        Fields.ContentLengthInvalid = !valid;
+                        Fields.ContentLength = valid ? (int)value : 0;
+                    }
+                }
+
+                _lineStarted = false;
+                _colonSeen = false;
+                _colonCount = 0;
+                _transferNameProgress = 0;
+                _contentLengthNameProgress = 0;
+                _upgradeNameProgress = 0;
+                _chunkedSeen = false;
+                _webSocketSeen = false;
+                _chunkedProgress = 0;
+                _webSocketProgress = 0;
+                _contentLengthState = 0;
+                _contentLengthDigits = 0;
+                _contentLengthNegative = false;
+                _contentLengthOverflow = false;
+                _contentLengthValue = 0;
+            }
+
+            /// <summary>消费值里的一个字节：推进 Content-Length 数值解析与两个子串匹配。</summary>
+            /// <param name="value">值内字节</param>
+            private void ConsumeValue(byte value)
+            {
+                ConsumeContentLength(value);
+
+                var folded = ToLowerAscii(value);
+
+                if (!_chunkedSeen)
+                {
+                    _chunkedProgress = AdvanceToken(_chunkedToken, _chunkedFallback, _chunkedProgress, folded);
+                    if (_chunkedProgress == _chunkedToken.Length) _chunkedSeen = true;
+                }
+
+                if (!_webSocketSeen)
+                {
+                    _webSocketProgress = AdvanceToken(_webSocketToken, _webSocketFallback, _webSocketProgress, folded);
+                    if (_webSocketProgress == _webSocketToken.Length) _webSocketSeen = true;
+                }
+            }
+
+            /// <summary>按 int.TryParse(NumberStyles.Integer) 的规则推进 Content-Length：空白、符号、数字、空白。</summary>
+            /// <param name="value">值内字节</param>
+            private void ConsumeContentLength(byte value)
+            {
+                switch (_contentLengthState)
+                {
+                    case 0:
+                        if (IsAsciiWhiteSpace(value)) return;
+
+                        if (value == 43 || value == 45)
+                        {
+                            _contentLengthNegative = value == 45;
+                            _contentLengthState = 2;
+                            return;
+                        }
+
+                        if (value >= 48 && value <= 57)
+                        {
+                            _contentLengthState = 3;
+                            AppendDigits(value);
+                            return;
+                        }
+
+                        _contentLengthState = 5;
+                        return;
+
+                    case 2:
+                        if (value >= 48 && value <= 57)
+                        {
+                            _contentLengthState = 3;
+                            AppendDigits(value);
+                            return;
+                        }
+
+                        _contentLengthState = 5;
+                        return;
+
+                    case 3:
+                        if (value >= 48 && value <= 57)
+                        {
+                            AppendDigits(value);
+                            return;
+                        }
+
+                        if (IsAsciiWhiteSpace(value))
+                        {
+                            _contentLengthState = 4;
+                            return;
+                        }
+
+                        _contentLengthState = 5;
+                        return;
+
+                    case 4:
+                        if (IsAsciiWhiteSpace(value)) return;
+
+                        _contentLengthState = 5;
+                        return;
+
+                    default:
+                        // 已判定非法，后续字节不再影响结论
+                        return;
+                }
+            }
+
+            /// <summary>累加一位十进制数字；超出 int 上限后按解析失败处理。</summary>
+            /// <param name="value">数字字节</param>
+            private void AppendDigits(byte value)
+            {
+                _contentLengthDigits++;
+
+                if (_contentLengthOverflow) return;
+
+                _contentLengthValue = _contentLengthValue * 10 + (value - 48);
+
+                if (_contentLengthValue > int.MaxValue)
+                {
+                    _contentLengthOverflow = true;
+                    _contentLengthValue = 0;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 只扫出定帧需要的报头字段：Transfer-Encoding、Content-Length、Upgrade。
+        /// 报头只扫 <paramref name="headerLength"/> 以内，不建 HttpMessage、字典与字符串。
+        /// </summary>
+        /// <param name="buffer">自上次消费位置起的未消费缓冲</param>
+        /// <param name="headerEnd">报头结束符起始偏移</param>
+        /// <param name="headerLength">报头长度（含结束符）</param>
+        /// <returns>扫描结果</returns>
+        private static HeaderFields ScanHeaderFields(ReadOnlySequence<byte> buffer, long headerEnd, int headerLength)
+        {
+            if (headerEnd < 4)
+            {
+                // 与解码阶段一致：\r\n\r\n 之前不足 4 字节时组不出请求行
+                return new HeaderFields { Malformed = true };
+            }
+
+            // 请求行前允许出现空行，跳过规则与解码阶段保持一致
+            var requestLineStart = 0L;
+
+            while (requestLineStart + 1 < headerLength
+                && ByteAt(buffer, requestLineStart) == 13
+                && ByteAt(buffer, requestLineStart + 1) == 10)
+            {
+                requestLineStart += 2;
+            }
+
+            var requestLineEnd = IndexOfCrLf(buffer, requestLineStart, headerLength);
+
+            if (requestLineEnd < 0) requestLineEnd = headerLength;
+
+            // 解码阶段按空格切「方法 SP 目标 SP 协议」三段，段数不足会直接抛异常，这里提前按 400 拒绝
+            var firstSpace = IndexOfByte(buffer, (byte)' ', requestLineStart, requestLineEnd);
+
+            if (firstSpace < 0 || IndexOfByte(buffer, (byte)' ', firstSpace + 1, requestLineEnd) < 0)
+                return new HeaderFields { Malformed = true };
+
+            var scanner = new HeaderLineScanner();
+            var lineStart = requestLineEnd + 2;
+            var pendingCr = false;
+
+            if (lineStart < headerEnd)
+            {
+                foreach (var segment in buffer.Slice(lineStart, headerEnd - lineStart))
+                {
+                    var span = segment.Span;
+                    for (var i = 0; i < span.Length; i++)
+                    {
+                        var value = span[i];
+
+                        if (pendingCr)
+                        {
+                            pendingCr = false;
+
+                            if (value == 10)
+                            {
+                                scanner.EndLine();
+                                continue;
+                            }
+
+                            // 孤立的 CR 不是行尾，仍属于行内容
+                            scanner.Consume(13);
+                        }
+
+                        if (value == 13)
+                        {
+                            pendingCr = true;
+                            continue;
+                        }
+
+                        scanner.Consume(value);
+                    }
+                }
+            }
+
+            if (pendingCr) scanner.Consume(13);
+
+            // 结束符之前的最后一段内容也要收尾；空行由 EndLine 内部忽略
+            scanner.EndLine();
+
+            return scanner.Fields;
+        }
+
+        /// <summary>取指定绝对偏移处的单字节，只换视图不复制。</summary>
+        /// <param name="buffer">自上次消费位置起的未消费缓冲</param>
+        /// <param name="position">绝对偏移</param>
+        /// <returns>该偏移处的字节</returns>
+        private static byte ByteAt(ReadOnlySequence<byte> buffer, long position)
+        {
+            return buffer.Slice(position).First.Span[0];
+        }
+
+        /// <summary>在 [start, end) 内查找单字节，未找到返回 -1。</summary>
+        /// <param name="buffer">自上次消费位置起的未消费缓冲</param>
+        /// <param name="value">目标字节</param>
+        /// <param name="start">起始偏移</param>
+        /// <param name="end">结束偏移（不含）</param>
+        /// <returns>命中的绝对偏移，未命中返回 -1</returns>
+        private static long IndexOfByte(ReadOnlySequence<byte> buffer, byte value, long start, long end)
+        {
+            var offset = start;
+
+            foreach (var segment in buffer.Slice(start, end - start))
+            {
+                var span = segment.Span;
+
+                for (var i = 0; i < span.Length; i++)
+                {
+                    if (span[i] == value) return offset + i;
+                }
+
+                offset += span.Length;
+            }
+
+            return -1;
+        }
+
+        /// <summary>在 [start, end) 内查找 <c>\r\n</c>，跨段也能命中，未找到返回 -1。</summary>
+        /// <param name="buffer">自上次消费位置起的未消费缓冲</param>
+        /// <param name="start">起始偏移</param>
+        /// <param name="end">结束偏移（不含）</param>
+        /// <returns>CR 的绝对偏移，未命中返回 -1</returns>
+        private static long IndexOfCrLf(ReadOnlySequence<byte> buffer, long start, long end)
+        {
+            var offset = start;
+            var previousWasCr = false;
+
+            foreach (var segment in buffer.Slice(start, end - start))
+            {
+                var span = segment.Span;
+
+                for (var i = 0; i < span.Length; i++)
+                {
+                    var value = span[i];
+
+                    if (previousWasCr && value == 10) return offset + i - 1;
+
+                    previousWasCr = value == 13;
+                }
+
+                offset += span.Length;
+            }
+
+            return -1;
+        }
+
+        /// <summary>把 ASCII 大写字母折成小写，其余字节原样返回。</summary>
+        /// <param name="value">待折叠的字节</param>
+        /// <returns>折叠后的字节</returns>
+        private static byte ToLowerAscii(byte value)
+        {
+            return value >= 65 && value <= 90 ? (byte)(value + 32) : value;
+        }
+
+        /// <summary>判断字节是否为 int.TryParse 认作空白的 ASCII 空白。</summary>
+        /// <param name="value">待判断的字节</param>
+        /// <returns>是空白返回 true</returns>
+        private static bool IsAsciiWhiteSpace(byte value)
+        {
+            return value == 32 || (value >= 9 && value <= 13);
+        }
+
+        /// <summary>头名逐字节比较：只有长度完全相等且逐字节命中才算命中目标名。</summary>
+        /// <param name="lowerName">小写的目标头名</param>
+        /// <param name="progress">当前已匹配的字节数，-1 表示已失配</param>
+        /// <param name="folded">折叠成小写后的输入字节</param>
+        /// <returns>新的已匹配字节数，失配返回 -1</returns>
+        private static int AdvanceName(byte[] lowerName, int progress, byte folded)
+        {
+            if (progress < 0 || progress >= lowerName.Length) return -1;
+
+            return folded == lowerName[progress] ? progress + 1 : -1;
+        }
+
+        /// <summary>KMP 推进一步，用于判断值里是否包含指定子串。</summary>
+        /// <param name="lowerToken">小写的目标子串</param>
+        /// <param name="fallback">KMP 回退表</param>
+        /// <param name="progress">已匹配长度</param>
+        /// <param name="folded">折叠成小写后的输入字节</param>
+        /// <returns>推进后的已匹配长度</returns>
+        private static int AdvanceToken(byte[] lowerToken, int[] fallback, int progress, byte folded)
+        {
+            if (progress >= lowerToken.Length) return progress;
+
+            while (progress > 0 && lowerToken[progress] != folded)
+                progress = fallback[progress - 1];
+
+            if (lowerToken[progress] == folded) progress++;
+
+            return progress;
+        }
+
+        /// <summary>构造 KMP 回退表：每段的最长真前缀后缀长度。</summary>
+        /// <param name="lowerToken">小写的目标子串</param>
+        /// <returns>与子串等长的回退表</returns>
+        private static int[] BuildTokenFallback(byte[] lowerToken)
+        {
+            var fallback = new int[lowerToken.Length];
+            var matched = 0;
+
+            for (var i = 1; i < lowerToken.Length; i++)
+            {
+                while (matched > 0 && lowerToken[i] != lowerToken[matched])
+                    matched = fallback[matched - 1];
+
+                if (lowerToken[i] == lowerToken[matched]) matched++;
+
+                fallback[i] = matched;
+            }
+
+            return fallback;
         }
 
         /// <summary>解析报头。报头落在首段时直接借用该段内存，跨段时只复制报头，不复制整帧。</summary>

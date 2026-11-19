@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 13:21:42
+*修改时间：2026/11/19 18:45:54
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：过期会话改为每轮清空内容后全部移除，不再只处理第一个过期条目，避免会话表无界增长
+*描述：会话 ID 改为逐字节查十六进制表拼装，去掉 string.Join 的装箱枚举与中间字符串
 *
 *****************************************************************************/
 using System;
@@ -43,6 +43,9 @@ namespace SAEA.Http
     /// </summary>
     internal static class HttpSessionManager
     {
+        // 十六进制字符表：逐字节按低 4 位取值，避免 decimal 拼接时的装箱枚举与中间字符串。
+        private const string HexChars = "0123456789abcdef";
+
         static ConcurrentDictionary<string, HttpSession> _cache = new ConcurrentDictionary<string, HttpSession>();
 
         static Random _random = new Random();
@@ -102,14 +105,21 @@ namespace SAEA.Http
         /// <summary>
         /// 生成sessionID
         /// </summary>
-        /// <returns></returns>
+        /// <returns>15 位十六进制字符串</returns>
         public static string GeneratID()
         {
             var bytes = new byte[15];
 
             _random.NextBytes(bytes);
 
-            return StringHelper.Substring(string.Join("", bytes), 0, 15);
+            var chars = new char[15];
+
+            for (var i = 0; i < chars.Length; i++)
+            {
+                chars[i] = HexChars[bytes[i] & 0x0F];
+            }
+
+            return new string(chars);
         }
 
         /// <summary>

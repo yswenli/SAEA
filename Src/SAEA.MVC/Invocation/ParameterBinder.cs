@@ -23,14 +23,13 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 13:58:19
+*修改时间：2026/11/19 18:45:54
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：新增，承载 action 形参填充与 CancellationToken 的按声明位置注入
+*描述：参数填充改为直接写入实参数组，令牌分支不再建参数列表与 ToArray 中间数组
 *
 *****************************************************************************/
 using SAEA.Common.NameValue;
-using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 
@@ -65,26 +64,35 @@ namespace SAEA.MVC.Invocation
 
             if (!hasToken)
             {
-                var list = ParamsHelper.FillPamars(@params, nameValues);
+                // 直接写进目标数组：参数个数与顺序仍由 ParamsHelper 按声明顺序决定
+                ParamsHelper.FillPamars(@params, nameValues, parameters);
 
-                if (list == null) return parameters;
-
-                return list.ToArray();
+                return parameters;
             }
 
             // 令牌不能交给参数填充：先剔除非令牌参数填充，再按原声明顺序把令牌插回原位
-            var others = new List<ParameterInfo>(@params.Length);
+            var othersLength = 0;
 
             for (var i = 0; i < @params.Length; i++)
             {
                 if (@params[i].ParameterType != typeof(CancellationToken))
-                    others.Add(@params[i]);
+                    othersLength++;
             }
 
-            List<object> filled = null;
+            var others = new ParameterInfo[othersLength];
 
-            if (others.Count > 0)
-                filled = ParamsHelper.FillPamars(others.ToArray(), nameValues);
+            var othersIndex = 0;
+
+            for (var i = 0; i < @params.Length; i++)
+            {
+                if (@params[i].ParameterType != typeof(CancellationToken))
+                    others[othersIndex++] = @params[i];
+            }
+
+            var filled = new object[othersLength];
+
+            if (othersLength > 0)
+                ParamsHelper.FillPamars(others, nameValues, filled);
 
             var filledIndex = 0;
 

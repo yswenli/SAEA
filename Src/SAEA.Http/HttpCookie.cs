@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 17:07:24
+*修改时间：2026/11/19 18:45:54
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：Cookie 解析改为下标扫描，去掉按分号与等号拆分的中间数组，解析结果不变
+*描述：Set-Cookie 按需输出属性，空域与未设置的过期时间不再写成 Domain= 与 Expires=Session，长度估算与实际输出一致
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -156,31 +156,46 @@ namespace SAEA.Http
             sink.Text(Key);
             sink.Text("=");
             sink.Text(Value);
-            sink.Text(";");
 
-            sink.Text(" Domain=");
-            sink.Text(string.IsNullOrEmpty(this.Domain) ? DefaultDomain : this.Domain);
-            sink.Text(";");
+            // 属性按需输出：空域与未设置的过期时间整段省略。写成 Domain= 与 Expires=Session 不是合法属性值，
+            // 客户端不会回传这种 Cookie，服务端就只能为每个请求新建会话。
+            var domain = string.IsNullOrEmpty(this.Domain) ? DefaultDomain : this.Domain;
 
-            sink.Text(" Expires=");
-            sink.Text(Expires.Year > 1 ? Expires.ToGMTString() : "Session");
-            sink.Text(";");
+            if (!string.IsNullOrEmpty(domain))
+            {
+                sink.Text("; Domain=");
+                sink.Text(domain);
+            }
 
-            sink.Text(" Path=");
+            if (Expires.Year > 1)
+            {
+                sink.Text("; Expires=");
+                sink.Text(Expires.ToGMTString());
+            }
+
+            sink.Text("; Path=");
             sink.Text(string.IsNullOrEmpty(Path) ? "/" : Path);
         }
 
         /// <summary>
         /// 估算本 Cookie 的 Set-Cookie 文本长度，用于一次预置 StringBuilder 容量
         /// </summary>
-        /// <returns>估算的字符数，固定段与前缀按 48 计</returns>
-        int GetEstimatedLength()
+        /// <returns>与实际输出文本一致的字符数</returns>
+        internal int GetEstimatedLength()
         {
-            // 固定段：前缀 "Set-Cookie: "、两个分隔分号、三个属性名前后的空格与 "="；过期时间按最长 29 字符预留
-            var length = 48;
+            var length = 13; // 前缀 "Set-Cookie: " 与键值之间的 "="
             length += Key.Length;
             length += Value == null ? 0 : Value.Length;
-            length += string.IsNullOrEmpty(this.Domain) ? DefaultDomain.Length : this.Domain.Length;
+
+            var domain = string.IsNullOrEmpty(this.Domain) ? DefaultDomain : this.Domain;
+
+            if (!string.IsNullOrEmpty(domain))
+                length += 9 + domain.Length; // "; Domain="
+
+            if (Expires.Year > 1)
+                length += 10 + 29; // "; Expires=" 与最长 29 字符的 GMT 时间
+
+            length += 7; // "; Path="
             length += string.IsNullOrEmpty(Path) ? 1 : Path.Length;
             return length;
         }
@@ -282,7 +297,7 @@ namespace SAEA.Http
                 foreach (var item in this.Values)
                 {
                     if (item == null || string.IsNullOrEmpty(item.Key)) continue;
-                    capacity += item.Key.Length + (item.Value == null ? 0 : item.Value.Length) + 48 + Environment.NewLine.Length;
+                    capacity += item.GetEstimatedLength() + Environment.NewLine.Length;
                 }
 
                 if (capacity == 0) return string.Empty;
