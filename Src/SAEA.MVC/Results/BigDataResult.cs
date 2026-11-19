@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 16:47:18
+*修改时间：2026/11/19 16:54:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：HEAD 场景在写出报头后直接结束，不再发送报文体
+*描述：写正文循环加 try/finally，客户端中途断开时也关闭文件流；SendEnd 只在正文写完时调用
 *
 *****************************************************************************/
 using SAEA.Common.IO;
@@ -70,43 +70,56 @@ namespace SAEA.MVC.Results
             // HEAD 只要报头：Content-Length 已按完整长度写出，正文一个字节都不发
             if (HttpContext.Current.Response.SuppressBody)
             {
-                HttpContext.Current.Response.SendEnd();
-
-                stream.Close();
+                try
+                {
+                    HttpContext.Current.Response.SendEnd();
+                }
+                finally
+                {
+                    // 结束连接失败时同样要释放文件流，否则 HEAD 请求会泄漏句柄
+                    stream.Close();
+                }
 
                 return;
             }
 
             var buffer = new byte[10240];
             stream.Position = 0;
-            do
+            try
             {
-                var count = stream.Read(buffer, 0, buffer.Length);
-
-                if (count < 1)
+                do
                 {
-                    break;
+                    var count = stream.Read(buffer, 0, buffer.Length);
+
+                    if (count < 1)
+                    {
+                        break;
+                    }
+
+                    if (count == 10240)
+                    {
+                        HttpContext.Current.Response.SendData(buffer);
+                    }
+                    else
+                    {
+                        var b = new byte[count];
+
+                        Buffer.BlockCopy(buffer, 0, b, 0, count);
+
+                        HttpContext.Current.Response.SendData(b);
+                    }
+
                 }
+                while (true);
 
-                if (count == 10240)
-                {
-                    HttpContext.Current.Response.SendData(buffer);
-                }
-                else
-                {
-                    var b = new byte[count];
-
-                    Buffer.BlockCopy(buffer, 0, b, 0, count);
-
-                    HttpContext.Current.Response.SendData(b);
-                }
-
+                // 只有正文整体写完才结束连接：中途因客户端断开发送失败时，异常交给响应层按已开始写出的响应收尾
+                HttpContext.Current.Response.SendEnd();
             }
-            while (true);
-
-            HttpContext.Current.Response.SendEnd();
-
-            stream.Close();
+            finally
+            {
+                // 无论是否中途失败都要关闭文件流，否则客户端断开一次就泄漏一个句柄
+                stream.Close();
+            }
         }
 
 

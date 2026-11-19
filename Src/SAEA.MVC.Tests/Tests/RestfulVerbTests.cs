@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 16:20:00
+*修改时间：2026/11/19 16:54:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：补「只声明 [Route] 的属性路由」用例；OPTIONS-only 的 405 改为断言 Allow 精确为 OPTIONS
+*描述：补 [Route]-only 与显式 [HttpHead]/[HttpOptions] 同路径的构建与命中用例，以及 GET + 显式 OPTIONS 的 Allow 口径用例
 *
 *****************************************************************************/
 using System;
@@ -675,6 +675,118 @@ namespace SAEA.MVC.Tests
         }
 
         /// <summary>
+        /// 只声明 [Route] 的条目与显式 [HttpHead]、[HttpOptions] 同路径声明时构建期不报冲突。
+        /// </summary>
+        [TestMethod]
+        public void Restful_Build_RouteOnlyWithExplicitHeadAndOptions_DoesNotThrow()
+        {
+            // 不限谓词的条目只占用 GET/POST/PUT/DELETE/PATCH，HEAD 与 OPTIONS 仍可被显式声明接手
+            AttributeRouteTable.Build(new RouteTable(), new List<Type> { typeof(RouteOnlyWithHeadAndOptions) });
+        }
+
+        /// <summary>
+        /// 只声明 [Route] 与显式 [HttpHead] 同路径时，HEAD 命中显式声明而不是不限谓词的 GET 兜底。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task Restful_RouteOnlyWithExplicitHead_HeadHitsExplicitAction()
+        {
+            var port = TestAppFactory.GetFreePort();
+            var rootName = TestAppFactory.CreateRootName();
+            var app = TestAppFactory.CreateApp(rootName, port);
+
+            try
+            {
+                app.Start();
+
+                using (var client = TestAppFactory.CreateHttpClient())
+                using (var response = await SendAsync(client, HttpMethod.Head, BaseUrl(port) + "/rest/route-plus-head").ConfigureAwait(false))
+                {
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "HEAD /rest/route-plus-head 应返回 200");
+
+                    var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    Assert.AreEqual(string.Empty, body, "HEAD 响应不应带正文");
+
+                    // 两个动作正文长度不同：29 表示命中显式 HEAD，20 表示误用了不限谓词的条目
+                    Assert.AreEqual((long)"rest-route-plus-head-explicit".Length, response.Content.Headers.ContentLength, "HEAD 应命中显式声明 HEAD 的动作");
+                }
+            }
+            finally
+            {
+                TestAppFactory.StopQuietly(app);
+                TestAppFactory.DeleteRootDirectory(rootName);
+            }
+        }
+
+        /// <summary>
+        /// 只声明 [Route] 与显式 [HttpOptions] 同路径时，OPTIONS 执行显式声明的动作。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task Restful_RouteOnlyWithExplicitOptions_OptionsExecutesExplicitAction()
+        {
+            var port = TestAppFactory.GetFreePort();
+            var rootName = TestAppFactory.CreateRootName();
+            var app = TestAppFactory.CreateApp(rootName, port);
+
+            try
+            {
+                app.Start();
+
+                using (var client = TestAppFactory.CreateHttpClient())
+                using (var response = await SendAsync(client, HttpMethod.Options, BaseUrl(port) + "/rest/route-plus-options").ConfigureAwait(false))
+                {
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "OPTIONS /rest/route-plus-options 应返回 200");
+
+                    var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    Assert.AreEqual("rest-route-plus-options-explicit", body, "显式声明 OPTIONS 时应执行该动作，而不是回 204 自动应答");
+                }
+            }
+            finally
+            {
+                TestAppFactory.StopQuietly(app);
+                TestAppFactory.DeleteRootDirectory(rootName);
+            }
+        }
+
+        /// <summary>
+        /// GET 与显式 OPTIONS 同路径时，其它动词仍返回 405，Allow 在末位追加 OPTIONS。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task Restful_GetWithExplicitOptions_OtherVerbReturns405WithGetHeadOptions()
+        {
+            var port = TestAppFactory.GetFreePort();
+            var rootName = TestAppFactory.CreateRootName();
+            var app = TestAppFactory.CreateApp(rootName, port);
+
+            try
+            {
+                app.Start();
+
+                using (var client = TestAppFactory.CreateHttpClient())
+                using (var response = await TestAppFactory.PostFormAsync(client, BaseUrl(port) + "/rest/get-plus-options", "x=1").ConfigureAwait(false))
+                {
+                    Assert.AreEqual(HttpStatusCode.MethodNotAllowed, response.StatusCode, "POST /rest/get-plus-options 应返回 405");
+
+                    var allow = ReadAllowValues(response);
+
+                    Assert.IsNotNull(allow, "405 响应必须带 Allow 头");
+
+                    // HEAD 由 GET 隐含，OPTIONS 只在显式声明时出现且排在末位
+                    Assert.AreEqual("GET, HEAD, OPTIONS", string.Join(", ", allow), "Allow 应按 GET、HEAD、OPTIONS 顺序给出");
+                }
+            }
+            finally
+            {
+                TestAppFactory.StopQuietly(app);
+                TestAppFactory.DeleteRootDirectory(rootName);
+            }
+        }
+
+        /// <summary>
         /// 发送指定方法的请求，并沿用工厂的连接就绪重试。
         /// </summary>
         /// <param name="client">请求客户端</param>
@@ -741,6 +853,42 @@ namespace SAEA.MVC.Tests
             public string Index()
             {
                 return "b";
+            }
+        }
+
+        /// <summary>
+        /// 同路径同时声明不限谓词、显式 HEAD 与显式 OPTIONS 的合法组合。
+        /// </summary>
+        private class RouteOnlyWithHeadAndOptions
+        {
+            /// <summary>
+            /// 不限谓词的入口。
+            /// </summary>
+            /// <returns>固定文本</returns>
+            [RouteAttribute("restverb-mixed-head-options")]
+            public string Index()
+            {
+                return "mixed";
+            }
+
+            /// <summary>
+            /// 显式声明 HEAD 的入口。
+            /// </summary>
+            /// <returns>固定文本</returns>
+            [HttpHeadAttribute("restverb-mixed-head-options")]
+            public string Head()
+            {
+                return "mixed-head";
+            }
+
+            /// <summary>
+            /// 显式声明 OPTIONS 的入口。
+            /// </summary>
+            /// <returns>固定文本</returns>
+            [HttpOptionsAttribute("restverb-mixed-head-options")]
+            public string Options()
+            {
+                return "mixed-options";
             }
         }
     }

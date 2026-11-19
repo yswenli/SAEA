@@ -24,10 +24,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 15:13:26
+*修改时间：2026/11/19 16:54:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增，覆盖 IBigDataResult 不触发 SetCached 与 Send/End，普通响应仍带缓存头
+*描述：补 HEAD 命中大数据入口的用例，断言正文为空、Content-Length 为完整长度且之后连接仍可用
 *
 *****************************************************************************/
 using System.Net;
@@ -91,6 +91,49 @@ namespace SAEA.MVC.Tests
 
                         Assert.AreEqual("bigdata-plain", body, "普通响应正文应为 Plain 动作的返回值");
                         Assert.IsTrue(HasHeader(response, "Cache-Control"), "普通响应应走 SetCached，带 Cache-Control 头");
+                    }
+                }
+            }
+            finally
+            {
+                TestAppFactory.StopQuietly(app);
+                TestAppFactory.DeleteRootDirectory(rootName);
+            }
+        }
+
+        /// <summary>
+        /// HEAD 命中大数据入口时只回报头：正文为空，Content-Length 仍按完整正文长度给出。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task RequestPipeline_BigDataResultHead_ReturnsContentLengthWithoutBody()
+        {
+            var port = TestAppFactory.GetFreePort();
+            var rootName = TestAppFactory.CreateRootName();
+            var app = TestAppFactory.CreateApp(rootName, port);
+
+            try
+            {
+                app.Start();
+
+                using (var client = TestAppFactory.CreateHttpClient())
+                {
+                    var url = BaseUrl(port) + "/bigdataprobe/payload";
+
+                    using (var response = await TestAppFactory.SendWithReadyRetryAsync(client, () => new HttpRequestMessage(HttpMethod.Head, url)).ConfigureAwait(false))
+                    {
+                        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "HEAD /bigdataprobe/payload 应返回 200");
+
+                        var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                        Assert.AreEqual(string.Empty, body, "HEAD 响应不应带正文");
+                        Assert.AreEqual((long)(64 * 1024), response.Content.Headers.ContentLength, "HEAD 的 Content-Length 应等于完整正文长度");
+                        Assert.IsFalse(HasHeader(response, "Cache-Control"), "IBigDataResult 不应走 SetCached，因此没有 Cache-Control 头");
+                    }
+
+                    using (var response = await TestAppFactory.GetAsync(client, BaseUrl(port) + "/bigdataprobe/plain").ConfigureAwait(false))
+                    {
+                        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "HEAD 之后同客户端 GET 普通入口仍应返回 200");
                     }
                 }
             }

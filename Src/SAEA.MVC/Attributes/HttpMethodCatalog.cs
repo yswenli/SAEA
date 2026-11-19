@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 16:25:53
+*修改时间：2026/11/19 16:54:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：校准 AllowOrder 与 All 的 XML 注释，说明 OPTIONS 只在显式声明时追加到末位
+*描述：新增 ConflictOrder，供属性路由冲突判定使用，排除 HEAD 与 OPTIONS
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -45,6 +45,13 @@ namespace SAEA.MVC.Attributes
         /// 支持的全部动词，同时作为声明动词的去重与排序基准；未声明动词时按该清单补写路由键
         /// </summary>
         internal static readonly string[] All = { ConstHelper.GET, ConstHelper.POST, ConstHelper.PUT, ConstHelper.DELETE, ConstHelper.PATCH, ConstHelper.HEAD, ConstHelper.OPTIONS };
+
+        /// <summary>
+        /// 冲突判定用的动词集合：未声明动词的条目实际占用的动词，不含 HEAD 与 OPTIONS。
+        /// 这类条目并不接管 OPTIONS，HEAD 也优先交给显式 [HttpHead]、否则走 GET 兜底，
+        /// 因此显式声明这两个动词的条目与它同路径是合法的
+        /// </summary>
+        internal static readonly string[] ConflictOrder = { ConstHelper.GET, ConstHelper.POST, ConstHelper.PUT, ConstHelper.DELETE, ConstHelper.PATCH };
 
         /// <summary>
         /// Allow 报头的基础输出顺序，共六项；OPTIONS 不在基础序列内，只有显式声明 [HttpOptions] 时

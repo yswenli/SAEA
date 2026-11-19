@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 15:26:46
+*修改时间：2026/11/19 16:54:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
+*描述：HEAD 请求在启动心跳前只回报头并收尾，避免心跳线程因正文被抑制而永久驻留
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -83,9 +83,38 @@ namespace SAEA.MVC.Results
 
             HttpContext.Current.Response.ContentType = "text/event-stream; charset=utf-8";
             HttpContext.Current.Response.SetHeader(ResponseHeaderType.CacheControl, "no-cache");
-            HttpContext.Current.Response.SetHeader(ResponseHeaderType.KeepAlive, "timeout=7200");
             HttpContext.Current.Response.Status = HttpStatusCode.OK;
-            HttpContext.Current.Response.SendHeader(-1);
+
+            var response = HttpContext.Current.Response;
+
+            // HEAD 指向无限流：SSE 给不出与 GET 等价的 Content-Length，只回报头后立即收尾。
+            // 这里必须在 SendHeader 与心跳之前返回：心跳线程一旦起来就只剩异常能停它，而抑制正文时
+            // SendData 是静默返回、不会抛异常，线程会跟着连接永久驻留
+            if (response.SuppressBody)
+            {
+                try
+                {
+                    // bodyLen 传 0 表示没有正文：不写 Content-Length，Connection 按短连接写 close，与随后的 SendEnd 一致
+                    response.SendHeader(0);
+
+                    // 报头已写出，后续发生异常不能再改状态码
+                    (HttpContext.Current as HttpContext)?.MarkResponseStarted();
+                }
+                finally
+                {
+                    // 心跳没有启动，取消源没有其它持有者，随本次响应释放；即使写报头失败也要断开连接
+                    _heartbeatCts.Dispose();
+
+                    response.SendEnd();
+                }
+
+                return;
+            }
+
+            // 心跳保活只属于长连接流：HEAD 已按短连接收尾，此时再写 Keep-Alive 会与 Connection: close 矛盾
+            response.SetHeader(ResponseHeaderType.KeepAlive, "timeout=7200");
+
+            response.SendHeader(-1);
 
             // 报头已写出，后续发生异常不能再改状态码
             (HttpContext.Current as HttpContext)?.MarkResponseStarted();

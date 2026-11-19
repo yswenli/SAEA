@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 16:15:31
+*修改时间：2026/11/19 16:54:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增只声明 [Route] 的 RouteOnly 入口，用于验证 OPTIONS 由框架自动应答且不限动词条目仍可被 GET 命中
+*描述：新增 [Route]-only 与显式 [HttpHead]/[HttpOptions] 同路径入口，以及 GET 与显式 OPTIONS 同路径入口，供冲突判定与 Allow 用例使用
 *
 *****************************************************************************/
 using SAEA.MVC.Attributes;
@@ -201,6 +201,66 @@ namespace SAEA.MVC.Tests.Controllers
         public string RouteOnly()
         {
             return "rest-route-only";
+        }
+
+        /// <summary>
+        /// 与显式 HEAD 声明同路径的不限谓词入口，两者不应被判为冲突。
+        /// </summary>
+        /// <returns>固定文本</returns>
+        [RouteAttribute("rest/route-plus-head")]
+        public string RouteOnlyWithHead()
+        {
+            return "rest-route-plus-head";
+        }
+
+        /// <summary>
+        /// 同路径显式声明 HEAD 的入口，必须优先于不限谓词的 GET 兜底。
+        /// </summary>
+        /// <returns>固定文本</returns>
+        [HttpHeadAttribute("rest/route-plus-head")]
+        public string ExplicitHeadOnRouteOnly()
+        {
+            return "rest-route-plus-head-explicit";
+        }
+
+        /// <summary>
+        /// 与显式 OPTIONS 声明同路径的不限谓词入口，两者不应被判为冲突。
+        /// </summary>
+        /// <returns>固定文本</returns>
+        [RouteAttribute("rest/route-plus-options")]
+        public string RouteOnlyWithOptions()
+        {
+            return "rest-route-plus-options";
+        }
+
+        /// <summary>
+        /// 同路径显式声明 OPTIONS 的入口，OPTIONS 请求应执行它而不是自动应答。
+        /// </summary>
+        /// <returns>固定文本</returns>
+        [HttpOptionsAttribute("rest/route-plus-options")]
+        public string ExplicitOptionsOnRouteOnly()
+        {
+            return "rest-route-plus-options-explicit";
+        }
+
+        /// <summary>
+        /// 与显式 OPTIONS 声明同路径的 GET 入口，用于验证 405 的 Allow 会追加 OPTIONS。
+        /// </summary>
+        /// <returns>固定文本</returns>
+        [HttpGetAttribute("rest/get-plus-options")]
+        public string GetWithExplicitOptions()
+        {
+            return "rest-get-plus-options";
+        }
+
+        /// <summary>
+        /// 同路径显式声明 OPTIONS 的入口，与 GET 入口共存且不冲突。
+        /// </summary>
+        /// <returns>固定文本</returns>
+        [HttpOptionsAttribute("rest/get-plus-options")]
+        public string ExplicitOptionsOnGet()
+        {
+            return "rest-get-plus-options-explicit";
         }
     }
 }

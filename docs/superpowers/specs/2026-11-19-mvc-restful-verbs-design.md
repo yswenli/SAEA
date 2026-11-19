@@ -28,7 +28,7 @@
 ### 2.2 范围外
 
 - 修改 `[Route]` 模板语法：仍只有静态段、`{name}` 路径参数与 `[controller]` / `[action]` 令牌。
-- 为 `EventStream`（SSE）实现 HEAD 语义。
+- 为 `EventStream`（SSE）给出与 GET 等价的 `Content-Length`。
 - SDK 代码生成器产出 PUT / PATCH / DELETE 方法。
 - 按谓词拆分 `OutputCache` 的缓存键；缓存键仍由路径与查询串决定。
 
@@ -73,6 +73,7 @@ public sealed class HttpGetAttribute : HttpMethodAttribute
 - 路径命中但谓词不符返回 405，`Allow` 取该路径上所有显式声明谓词的并集；不回落到两段式。
 - 判断谓词时统一忽略大小写（`OrdinalIgnoreCase`），与请求行里的方法写法无关。
 - 只声明 `[Route]`、没有任何谓词特性的条目对 6 个可声明谓词放行：GET/POST/PUT/DELETE/PATCH/HEAD 都执行该 action；OPTIONS 不执行，交由框架回 204 + `Allow`，`Allow` 给全 6 项 `GET, HEAD, POST, PUT, DELETE, PATCH`。
+- 冲突检测按「路径形状 + 动词」建键：只声明 `[Route]` 的条目只占用 GET/POST/PUT/DELETE/PATCH 五个动词键，不占用 HEAD 与 OPTIONS，因此可与同路径的显式 `[HttpHead]` / `[HttpOptions]` 共存。与 `[HttpHead]` 共存时 HEAD 命中显式 action，其余动词仍走 `[Route]` 条目；与 `[HttpOptions]` 共存时 OPTIONS 命中显式 action，其余动词仍走 `[Route]` 条目，这类路径不会产生 405。
 
 ### 4.2 两段式
 
@@ -167,10 +168,12 @@ public static Task<ActionResult> InvokeResultAsync(..., string method);
 
 ## 9. 已知限制
 
-- HEAD 指向 `EventStream`（SSE）仍会写出流内容：SSE 直接向连接写流，无法预先给出与 GET 一致的 `Content-Length`，因此不支持 HEAD 语义。
+- HEAD 指向 `EventStream`（SSE）时只回报头、不写任何事件流内容，连接正常结束，也不启动心跳：SSE 是无限流，无法给出与 GET 等价的 `Content-Length`；需要探询能力或 `Allow` 时请用 OPTIONS 或 GET。
 - `ApiMapping` / SDK 生成器仍只产出 GET / POST 两种方法。
 - 一个 action 仍只能有一个模板来源；同一路径的不同谓词必须分到不同 action。
 - `OutputCache` 的缓存键不包含谓词，本次不改变其生成方式；HEAD 复用 GET 结果时沿用同一条缓存。
+- 两段式的 PUT/DELETE/PATCH 用 `Instance | Public` 反射范围解析 action，会把继承的 public 成员（如 `object.ToString`、`GetType`）也当成 action，`/Controller/ToString` 这类地址可能被执行；GET/HEAD 用 `DeclaredOnly`，不受影响。
+- 同名 action 重载：两个重载时静默取其中一个，三个及以上直接返回 500；调用方应避免同名重载。
 
 ## 10. 测试覆盖点
 

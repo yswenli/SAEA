@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 15:55:14
+*修改时间：2026/11/19 16:54:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：路由键改为按请求方法分键，新增 string method 重载；未声明动词时按 HttpMethodCatalog.All 补写全部动词键
+*描述：注释与实现对齐：只有未声明动词的 action 才按 All 补写全部动词键，声明了动词的只写当前键；说明当前键的 TryAdd 不能省
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -81,13 +81,14 @@ namespace SAEA.MVC.Routing
 
             var key = controllerType.Name + actionName + "_" + method;
 
-            // 只对当前请求动词的键做 GetOrAdd，其它动词的键由工厂内按声明补写；
-            // 解析为空时工厂返回 null 并作为该键的缓存值，后续请求直接命中
+            // 只为当前请求动词的键做一次 GetOrAdd：未声明动词的 action 由工厂补写全部动词的键，
+            // 声明了动词的 action 只落回自己声明的键；解析为空时工厂返回 null 并作为该键的缓存值，后续请求直接命中
             return _cDic.GetOrAdd(key, (k) => BuildEntry(controllerType, actionName, method, key));
         }
 
         /// <summary>
-        /// 解析 action 并构造当前动词的路由条目，同时按 action 声明的动词补写其它动词的键
+        /// 解析 action 并构造当前动词的路由条目：未声明动词时按 HttpMethodCatalog.All 补写全部动词的键，
+        /// 声明了动词时只写当前动词的键
         /// </summary>
         /// <param name="controllerType">控制器类型</param>
         /// <param name="actionName">动作名称</param>
@@ -145,12 +146,14 @@ namespace SAEA.MVC.Routing
                     {
                         if (string.Compare(methodAttributes[i].Method, method, true) != 0) continue;
 
+                        // 这次写入与外层 GetOrAdd 落在同一个键上，但不能省：同一 action 名解析出两个重载且都声明
+                        // 当前动词时，先遍历到的重载在这里落键，外层 GetOrAdd 不覆盖已有值，覆盖语义由这次写入决定
                         _cDic.TryAdd(key, entry);
                     }
                 }
                 else
                 {
-                    // 未声明动词时对所有已知动词放行，按全部动词补写缓存键
+                    // 未声明动词时对全部已知动词放行，按 All 补写缓存键
                     for (var i = 0; i < HttpMethodCatalog.All.Length; i++)
                     {
                         _cDic.TryAdd(controllerType.Name + actionName + "_" + HttpMethodCatalog.All[i], entry);

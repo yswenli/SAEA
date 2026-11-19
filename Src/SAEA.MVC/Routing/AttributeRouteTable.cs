@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 15:55:14
+*修改时间：2026/11/19 16:54:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：动词清单改用 HttpMethodCatalog；HEAD 匹配前先找显式声明 [HttpHead] 的条目，优先于 GET 复用
+*描述：冲突键改用 HttpMethodCatalog.ConflictOrder，[Route]-only 与显式 [HttpHead]/[HttpOptions] 同路径不再误报冲突
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -281,7 +281,9 @@ namespace SAEA.MVC.Routing
 
         void Add(AttributeRouteEntry entry, Dictionary<string, AttributeRouteEntry> conflicts)
         {
-            var verbs = entry.HttpMethods == null ? HttpMethodCatalog.All : entry.HttpMethods;
+            // 未声明动词的条目只占用 ConflictOrder 里的动词：HEAD 由显式声明优先、OPTIONS 不归它接管，
+            // 按 All 写键会把这两种合法组合误判成冲突
+            var verbs = entry.HttpMethods == null ? HttpMethodCatalog.ConflictOrder : entry.HttpMethods;
 
             for (var i = 0; i < verbs.Length; i++)
             {

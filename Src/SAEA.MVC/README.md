@@ -137,7 +137,7 @@ public class ProductController : Controller
 }
 ```
 
-- `[Route(template)]` 只声明路径，不限定请求方法，七个谓词都接受。
+- `[Route(template)]` 只声明路径，不限定请求方法，6 个可声明动词（GET/HEAD/POST/PUT/DELETE/PATCH）都接受；OPTIONS 不执行该 action，由框架回 204 + `Allow: GET, HEAD, POST, PUT, DELETE, PATCH`。
 - `[HttpGet(template)]`、`[HttpPost(template)]`、`[HttpPut(template)]`、`[HttpDelete(template)]`、`[HttpPatch(template)]`、`[HttpHead(template)]`、`[HttpOptions(template)]` 既声明路径又限定动词。
 - 类上的 `[Route]` 与方法模板按 `/` 拼接；方法上的动词特性不带模板时，类级模板本身就是路径。
 - 类上只有 `[Route]`、方法上没有任何路由特性的 action 不进入属性路由，继续走两段式，避免类级模板吞掉全部 action。
@@ -267,6 +267,8 @@ public class ArticleController : Controller
 - 显式 `[HttpHead]` 优先于 GET 别名：同一路径同时声明 `[HttpGet]` 与 `[HttpHead]` 时，HEAD 请求执行 `[HttpHead]` 的 action；只有没有显式 `[HttpHead]` 时才回落到 GET 的 action。
 - **OPTIONS**：先匹配显式 `[HttpOptions]` action，命中就正常执行；没有声明时返回 **204 No Content** 并带 `Allow` 头，`Allow` 按上方规则生成。未声明任何动词特性的 action 收到 OPTIONS 也不会被执行，同样返回 204 + `Allow`。
 - OPTIONS 不再像以前那样在进入路由前直接返回空响应短路：现在先路由，命中 `[HttpOptions]` 就交给它，否则由框架按 `Allow` 统一应答。
+- `[Route]` 与显式 `[HttpHead]` / `[HttpOptions]` 可以在同一路径共存：启动期冲突检测里，只带 `[Route]` 的条目只占用 GET/POST/PUT/DELETE/PATCH 五个动词键，不占用 HEAD 与 OPTIONS。
+- 与 `[HttpHead]` 共存时 HEAD 命中显式 action，其余动词仍走 `[Route]` 条目；与 `[HttpOptions]` 共存时 OPTIONS 命中显式 action，其余动词仍走 `[Route]` 条目，这类路径不会产生 405。
 
 ### 启动期校验
 
@@ -333,8 +335,10 @@ RouteEntry put = table.GetOrAdd(typeof(HomeController), "Index", "PUT");
 
 已知限制：
 
-- HEAD 指向 `EventStream`（SSE）时仍会写出流内容，不支持 HEAD 语义：SSE 是持续输出，无法预先给出与 GET 一致的 `Content-Length`。
+- HEAD 指向 `EventStream`（SSE）时只回报头、不写任何事件流内容，连接正常结束，也不启动心跳：SSE 是无限流，无法给出与 GET 等价的 `Content-Length`；需要探询能力或 `Allow` 时请用 OPTIONS 或 GET。
 - `ApiMapping` / SDK 代码生成器仍只产出 GET/POST 两种方法；其 `HttpMethods` 元数据已包含全部动词，生成器本身尚未跟上。
+- 两段式的 PUT/DELETE/PATCH 用 `Instance | Public` 反射范围解析 action，会把继承的 public 成员（如 `object.ToString`、`GetType`）也当成 action，`/Controller/ToString` 这类地址可能被执行；GET/HEAD 用 `DeclaredOnly`，不受影响。
+- 同名 action 重载：两个重载时静默取其中一个，三个及以上直接返回 500；调用方应避免同名重载。
 
 ***
 
@@ -455,7 +459,7 @@ HTTP 请求处理流程:
 
 ActionResult 类型分支:
 
-ActionResult ──┬── JsonActionResult ──► JSON 序列化输出
+ActionResult ──┬── JsonResult ────────► JSON 序列化输出
                │
                ├── ContentResult ────► 文本/HTML 输出
                │
@@ -467,7 +471,7 @@ ActionResult ──┬── JsonActionResult ──► JSON 序列化输出
                │
                ├── EmptyResult ──────► 空响应
                │
-               └── SSEActionResult ───► Server-Sent Events 推送
+               └── EventStream ───────► Server-Sent Events 推送
 ```
 
 ***
@@ -709,22 +713,21 @@ public class CorsFilter : ActionFilterAttribute
 
 ### Q6: 如何实现 SSE 服务器推送？
 
-**A**: 返回 `SSEActionResult`：
+**A**: 返回 `EventStream`（控制器里用 `GetEventStream()` 创建）：
 
 ```csharp
 public ActionResult StreamEvents()
 {
-    var stream = new SSEActionResult();
+    var stream = GetEventStream();
     
     // 定时发送事件
     Task.Run(async () =>
     {
         for (int i = 0; i < 10; i++)
         {
-            stream.Send("message", $"Event {i} at {DateTime.Now}");
+            stream.ServerSent($"Event {i} at {DateTime.Now}");
             await Task.Delay(1000);
         }
-        stream.Close();
     });
     
     return stream;
@@ -775,11 +778,11 @@ sc create SAEAMvc binPath="path/to/your/app.exe" start=auto
 | `SAEAMvcApplicationConfig` | 应用配置类                 |
 | `Controller`               | MVC 控制器基类             |
 | `ActionResult`             | 操作结果抽象基类              |
-| `JsonActionResult`         | JSON 序列化结果            |
+| `JsonResult`               | JSON 序列化结果            |
 | `ContentResult`            | 文本/HTML 内容结果          |
 | `FileResult`               | 文件下载结果                |
 | `BigDataResult`            | 大文件流式传输结果             |
-| `SSEActionResult`          | Server-Sent Events 结果 |
+| `EventStream`              | Server-Sent Events 结果 |
 | `HttpGetAttribute` 等七个谓词特性 | HTTP 方法特性：`[HttpGet]`、`[HttpPost]`、`[HttpPut]`、`[HttpDelete]`、`[HttpPatch]`、`[HttpHead]`、`[HttpOptions]`，均可用无参或带模板构造 |
 | `HttpMethodAttribute`      | 谓词特性抽象基类（`Method` / `Template` / `Order`） |
 | `RouteAttribute`           | 路由模板特性                |
@@ -975,8 +978,8 @@ public ActionResult StreamEvents()
 {
     var stream = GetEventStream();
     
-    stream.Send("message", "Hello Client!");
-    stream.Send("update", DateTime.Now.ToString());
+    stream.ServerSent("Hello Client!");
+    stream.ServerSent(DateTime.Now.ToString(), "update");
     
     return stream;
 }
