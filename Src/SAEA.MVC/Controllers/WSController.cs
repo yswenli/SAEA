@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 using SAEA.Http.Model;
+using SAEA.MVC.WebSockets;
 
 using System;
 using System.Threading.Tasks;

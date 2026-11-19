@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 16:12:00
+*修改时间：2026/11/19 11:16:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：新增 HttpHandleAsync 真正异步入口并等待 action 与响应写出完成，原 HttpHandle 改为阻塞等待同一实现；GetActionResultAsync 异步等待路由调用，连接策略与 500 文案保持不变
+*描述：文件移入 Hosting/，补 Routing 与 WebSockets 子命名空间引用，无逻辑变更
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -35,6 +35,8 @@ using SAEA.Http;
 using SAEA.Http.Base;
 using SAEA.Http.Common;
 using SAEA.Http.Model;
+using SAEA.MVC.Routing;
+using SAEA.MVC.WebSockets;
 using SAEA.Sockets.Pipeline;
 
 using System;

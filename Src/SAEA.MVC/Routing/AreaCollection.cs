@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Routing
 *文件名： AreaCollection
 *版本号： v26.4.23.1
 *唯一标识：47c089e9-15e1-49c5-b468-00a0ba115070
@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 16:35:00
+*修改时间：2026/11/19 11:16:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：记录本次 RegistAll 发现的控制器类型，供属性路由构建使用
+*描述：文件移入 Routing/ 并改用命名空间 SAEA.MVC.Routing，无逻辑变更
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -37,7 +37,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Routing
 {
     /// <summary>
     /// 区域注册类

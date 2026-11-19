@@ -70,7 +70,7 @@ namespace SAEA.MVCTest.Controllers
         /// 与 SamePost 共用同一路径的 GET 分支
         /// </summary>
         /// <returns>带 POST 表单的页面片段</returns>
-        [HttpGet("same")]
+        [HttpGetAttribute("same")]
         public ActionResult SameGet()
         {
             return Content("<h3>GET /routedemo/same 命中 SameGet</h3>"
@@ -86,7 +86,7 @@ namespace SAEA.MVCTest.Controllers
         /// </summary>
         /// <param name="note">表单提交的说明文本，缺省时为空字符串</param>
         /// <returns>命中的动词与表单值</returns>
-        [HttpPost("same")]
+        [HttpPostAttribute("same")]
         public ActionResult SamePost(string note)
         {
             return Content($"POST /routedemo/same 命中 SamePost，note:{note}");
@@ -106,7 +106,7 @@ namespace SAEA.MVCTest.Controllers
         /// 只允许 GET 的路径，用于观察 POST 时的 405 与 Allow 响应头
         /// </summary>
         /// <returns>提示文本</returns>
-        [HttpGet("only-get")]
+        [HttpGetAttribute("only-get")]
         public ActionResult OnlyGet()
         {
             return Content("命中仅允许 GET 的路径 /routedemo/only-get；用 POST 访问应得到 405 且响应头 Allow: GET");

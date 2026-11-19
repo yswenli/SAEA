@@ -11,34 +11,34 @@
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.MVC
-*文件名： Routing
+*命名空间：SAEA.MVC.Routing
+*文件名： RouteEntry
 *版本号： v26.4.23.1
 *唯一标识：be6076b1-1b68-42cb-a986-f2aec030d744
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2018/10/28 14:19:50
-*描述：Routing接口
+*描述：单条 action 的路由条目
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 22:00:00
+*修改时间：2026/11/19 11:16:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：HttpMethods 注释改为限定动词，两段式 action 也可带限定动词
+*描述：文件由 Routing.cs 改名为 RouteEntry.cs，类型 Routing 改为 RouteEntry，并移入 Routing/ 使用命名空间 SAEA.MVC.Routing，无逻辑变更
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Routing
 {
     /// <summary>
     /// 单条控制器 action 的路由信息与过滤器缓存
     /// </summary>
-    public class Routing
+    public class RouteEntry
     {
         /// <summary>
         /// 控制器实例

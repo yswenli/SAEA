@@ -41,7 +41,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 类级令牌入口之一，绝对路径为 /tokenv/list。
         /// </summary>
         /// <returns>固定文本</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public string List()
         {
             return "tokenv-list";
@@ -51,7 +51,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 类级令牌入口之二，绝对路径为 /tokenv/detail。
         /// </summary>
         /// <returns>固定文本</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public string Detail()
         {
             return "tokenv-detail";

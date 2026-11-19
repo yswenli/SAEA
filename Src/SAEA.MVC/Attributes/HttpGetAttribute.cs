@@ -12,14 +12,14 @@
 *机器名称：WENLI-PC
 *公司名称：yswenli
 *命名空间：SAEA.MVC
-*文件名： HttpGet
+*文件名： HttpGetAttribute
 *版本号： v26.4.23.1
 *唯一标识：17715aa6-8e1a-4440-9794-c79eaa6ee0f8
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2018/10/28 14:19:50
-*描述：HttpGet类
+*描述：HttpGetAttribute类
 *
 *=====================================================================
 *修改标记
@@ -37,12 +37,12 @@ namespace SAEA.MVC
     /// 标记方法为GET
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-    public sealed class HttpGet : Attribute, IFilter
+    public sealed class HttpGetAttribute : Attribute, IFilter
     {
         /// <summary>
         /// 不声明路径，仅限定 GET
         /// </summary>
-        public HttpGet()
+        public HttpGetAttribute()
         {
         }
 
@@ -50,7 +50,7 @@ namespace SAEA.MVC
         /// 以路由模板限定 GET
         /// </summary>
         /// <param name="template">路由模板，如 users/{id}</param>
-        public HttpGet(string template)
+        public HttpGetAttribute(string template)
         {
             Template = template;
         }

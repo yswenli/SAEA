@@ -138,7 +138,7 @@ public class ProductController : Controller
 - 模板里可以用 `[controller]` / `[action]` 令牌代替手写控制器名与方法名，令牌识别与后缀剥离都忽略大小写；地址本身的比较同样忽略大小写，所以模板替换出 `Product`、`Get` 后，`/api/v1/product/get/5` 照样命中。
 - 类级模板里也可以写 `[action]`，按每个 action 分别替换：`[Route("api/v1/[controller]/[action]")]` 会让该控制器的每个 action 各走自己的地址。
 
-令牌在属性路由表构建期完成替换，替换后的绝对路径就是 `Routing.Template`；SDK 生成器输出与冲突检测都使用替换后的结果。
+令牌在属性路由表构建期完成替换，替换后的绝对路径就是 `RouteEntry.Template`；SDK 生成器输出与冲突检测都使用替换后的结果。
 
 ### 模板语义
 
@@ -664,6 +664,57 @@ sc create SAEAMvc binPath="path/to/your/app.exe" start=auto
 | `HttpContext`              | HTTP 上下文              |
 | `HttpRequest`              | HTTP 请求对象             |
 | `HttpResponse`             | HTTP 响应对象             |
+
+***
+
+## 目录与命名空间结构
+
+源码按职责分目录，目录、文件与命名空间一一对应（内部类型一并列出）：
+
+| 目录 | 文件（类型） | 命名空间 |
+| -------------------------- | --------------------- | ------------------------- |
+| `Hosting/` | `SAEAMvcApplication`、`SAEAMvcApplicationConfig`、`SAEAMvcApplicationConfigBuilder`、`HttpContext`、`MvcInvoker` | `SAEA.MVC` |
+| `Controllers/` | `Controller`、`WSController`、`WSMessage`（含 `WSMessageType`） | `SAEA.MVC` |
+| `Results/` | `ActionResult`、`JsonResult`、`ContentResult`、`DataResult`、`FileResult`、`BigDataResult`、`EventStream`、`EmptyResult` | `SAEA.MVC` |
+| `Attributes/` | `IFilter`、`ActionFilterAttribute`、`OutputCacheAttribute`、`HttpGet`、`HttpPost`、`RouteAttribute`、`WebSocketAttribute` | `SAEA.MVC` |
+| `Routing/` | `RouteTable`、`RouteEntry`、`AreaCollection`（internal）、`AttributeRouteTable`（internal） | `SAEA.MVC.Routing` |
+| `WebSockets/` | `WebSocketsFeature`（internal）、`MVCWebSocketConnection`（internal） | `SAEA.MVC.WebSockets` |
+| `Tool/` | `APISdkCodeGenerator`、`CodeType` | `SAEA.MVC.Tool` |
+| `Tool/CodeGenerte/` | `ApiMapping`、`CSharpTemple`（含 `SaeaApiSdk`）、`JsTemple` | `SAEA.MVC.Tool.CodeGenerte` |
+
+命名空间规则：
+
+- 实现层目录映射到子命名空间：`Routing/` → `SAEA.MVC.Routing`，`WebSockets/` → `SAEA.MVC.WebSockets`。
+- 作者面向的四个目录留在根命名空间 `SAEA.MVC`：`Hosting/`、`Controllers/`、`Results/`、`Attributes/`。这些类型只是文件位置变了，命名空间没变，所以 `using SAEA.MVC;` 与既有示例代码都不用改。
+
+> **本次改名**：类型 `Routing` 改名为 `RouteEntry`，与它「单条 action 的路由条目」的职责对齐；目录名 `Routing/` 沿用原名。
+
+引用 `SAEA.MVC.Routing` 下的类型时要补一行 `using SAEA.MVC.Routing;`，例如：
+
+```csharp
+using SAEA.MVC;
+using SAEA.MVC.Routing;
+
+var table = new RouteTable();
+// GetOrAdd 返回的就是一条路由条目，Template 是替换令牌后的绝对路径
+RouteEntry entry = table.GetOrAdd(typeof(HomeController), "Index", false);
+```
+
+***
+
+## 旧 → 新命名空间对照表
+
+| 类型 | 原命名空间 | 新命名空间 |
+| -------------------------- | --------------------- | ------------------------- |
+| `RouteTable` | `SAEA.MVC` | `SAEA.MVC.Routing` |
+| `Routing`（改名 `RouteEntry`） | `SAEA.MVC` | `SAEA.MVC.Routing` |
+| `AreaCollection` | `SAEA.MVC` | `SAEA.MVC.Routing` |
+| `AttributeRouteTable` | `SAEA.MVC` | `SAEA.MVC.Routing` |
+| `WebSocketsFeature` | `SAEA.MVC` | `SAEA.MVC.WebSockets` |
+| `MVCWebSocketConnection` | `SAEA.MVC` | `SAEA.MVC.WebSockets` |
+| `Controller`、`ActionResult` 系列、`HttpGet`/`HttpPost`/`RouteAttribute`、`WSController`/`WSMessage`、`SAEAMvcApplication`、`HttpContext`、`MvcInvoker` | `SAEA.MVC` | 不变（仅文件位置变化） |
+
+只写 `using SAEA.MVC;` 的既有代码，只有用到 `RouteTable`、`RouteEntry`、`AreaCollection`、`AttributeRouteTable`、`WebSocketsFeature`、`MVCWebSocketConnection` 时才需要补 using。
 
 ***
 

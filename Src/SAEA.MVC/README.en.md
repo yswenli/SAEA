@@ -138,7 +138,7 @@ public class ProductController : Controller
 - A template may use the `[controller]` / `[action]` tokens instead of spelling out the controller and method names; token recognition and suffix stripping are case-insensitive, and so is path comparison, so a template that resolves to `Product` and `Get` still matches `/api/v1/product/get/5`.
 - A class-level template may also contain `[action]`, replaced separately for each action: `[Route("api/v1/[controller]/[action]")]` gives every action of that controller its own address.
 
-Tokens are replaced while the attribute route table is built. The resulting absolute path is `Routing.Template`; the SDK generator output and conflict detection both use the replaced result.
+Tokens are replaced while the attribute route table is built. The resulting absolute path is `RouteEntry.Template`; the SDK generator output and conflict detection both use the replaced result.
 
 ### Template semantics
 
@@ -664,6 +664,57 @@ sc create SAEAMvc binPath="path/to/your/app.exe" start=auto
 | `HttpContext` | HTTP Context |
 | `HttpRequest` | HTTP Request Object |
 | `HttpResponse` | HTTP Response Object |
+
+***
+
+## Directory and Namespace Layout
+
+Files are grouped by responsibility, and each directory maps one-to-one to a namespace (internal types are listed too):
+
+| Directory | Files (types) | Namespace |
+| -------------------------- | --------------------- | ------------------------- |
+| `Hosting/` | `SAEAMvcApplication`, `SAEAMvcApplicationConfig`, `SAEAMvcApplicationConfigBuilder`, `HttpContext`, `MvcInvoker` | `SAEA.MVC` |
+| `Controllers/` | `Controller`, `WSController`, `WSMessage` (including `WSMessageType`) | `SAEA.MVC` |
+| `Results/` | `ActionResult`, `JsonResult`, `ContentResult`, `DataResult`, `FileResult`, `BigDataResult`, `EventStream`, `EmptyResult` | `SAEA.MVC` |
+| `Attributes/` | `IFilter`, `ActionFilterAttribute`, `OutputCacheAttribute`, `HttpGet`, `HttpPost`, `RouteAttribute`, `WebSocketAttribute` | `SAEA.MVC` |
+| `Routing/` | `RouteTable`, `RouteEntry`, `AreaCollection` (internal), `AttributeRouteTable` (internal) | `SAEA.MVC.Routing` |
+| `WebSockets/` | `WebSocketsFeature` (internal), `MVCWebSocketConnection` (internal) | `SAEA.MVC.WebSockets` |
+| `Tool/` | `APISdkCodeGenerator`, `CodeType` | `SAEA.MVC.Tool` |
+| `Tool/CodeGenerte/` | `ApiMapping`, `CSharpTemple` (including `SaeaApiSdk`), `JsTemple` | `SAEA.MVC.Tool.CodeGenerte` |
+
+Namespace rules:
+
+- Implementation-level directories map to sub-namespaces: `Routing/` → `SAEA.MVC.Routing`, `WebSockets/` → `SAEA.MVC.WebSockets`.
+- The four directories authors work with stay in the root namespace `SAEA.MVC`: `Hosting/`, `Controllers/`, `Results/`, `Attributes/`. Only the file location changed for those types, not the namespace, so a plain `using SAEA.MVC;` and all existing sample code keep working.
+
+> **Renamed in this change**: the type `Routing` is now `RouteEntry`, which matches its job of describing a single action's route entry; the directory keeps the name `Routing/`.
+
+Types under `SAEA.MVC.Routing` need an extra `using SAEA.MVC.Routing;` line, for example:
+
+```csharp
+using SAEA.MVC;
+using SAEA.MVC.Routing;
+
+var table = new RouteTable();
+// GetOrAdd returns a route entry; Template is the absolute path after token replacement
+RouteEntry entry = table.GetOrAdd(typeof(HomeController), "Index", false);
+```
+
+***
+
+## Old to New Namespace Map
+
+| Type | Old namespace | New namespace |
+| -------------------------- | --------------------- | ------------------------- |
+| `RouteTable` | `SAEA.MVC` | `SAEA.MVC.Routing` |
+| `Routing` (renamed to `RouteEntry`) | `SAEA.MVC` | `SAEA.MVC.Routing` |
+| `AreaCollection` | `SAEA.MVC` | `SAEA.MVC.Routing` |
+| `AttributeRouteTable` | `SAEA.MVC` | `SAEA.MVC.Routing` |
+| `WebSocketsFeature` | `SAEA.MVC` | `SAEA.MVC.WebSockets` |
+| `MVCWebSocketConnection` | `SAEA.MVC` | `SAEA.MVC.WebSockets` |
+| `Controller`, the `ActionResult` family, `HttpGet`/`HttpPost`/`RouteAttribute`, `WSController`/`WSMessage`, `SAEAMvcApplication`, `HttpContext`, `MvcInvoker` | `SAEA.MVC` | Unchanged (file location only) |
+
+Existing code that only writes `using SAEA.MVC;` needs an extra using only when it touches `RouteTable`, `RouteEntry`, `AreaCollection`, `AttributeRouteTable`, `WebSocketsFeature`, or `MVCWebSocketConnection`.
 
 ***
 

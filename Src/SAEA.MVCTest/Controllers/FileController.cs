@@ -43,7 +43,7 @@ namespace SAEA.MVCTest.Controllers
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
-        [HttpPost]
+        [HttpPostAttribute]
         public ActionResult Upload(string name)
         {
             var postFiles = HttpContext.Current.Request.PostFiles;

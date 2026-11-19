@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.WebSockets
 *文件名： WebSocketsFeature
 *版本号： v26.11.5.1
 *唯一标识：43984f7b-eba6-4ed8-ae54-2052cc5cbfa8
@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 16:52:58
+*修改时间：2026/11/19 11:16:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：握手注释改为不依赖已删除的令牌类型
+*版本号： v26.11.16.1
+*描述：文件移入 WebSockets/ 并改用命名空间 SAEA.MVC.WebSockets，无逻辑变更
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -42,7 +42,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.WebSockets
 {
     /// <summary>
     /// 每个 HTTP 上下文一个的 WebSocket 能力入口。

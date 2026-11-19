@@ -43,7 +43,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 异步成功入口：让出一次线程后返回固定文本，验证 200 与正文。
         /// </summary>
         /// <returns>完成后的固定文本</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public async Task<string> Ok()
         {
             await Task.Yield();
@@ -55,7 +55,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 异步抛异常入口：异常在异步状态机内抛出，框架应按 AggregateException 形态转成 500。
         /// </summary>
         /// <returns>不会返回</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public async Task<string> Throws()
         {
             await Task.Yield();
@@ -67,7 +67,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 异步慢动作入口：不观察取消令牌，配置 ActionTimeout 后由框架自己返回 408。
         /// </summary>
         /// <returns>未超时时返回固定文本</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public async Task<string> Slow()
         {
             await Task.Delay(TimeSpan.FromSeconds(30));
@@ -79,7 +79,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 异步 JSON 入口：让出一次线程后返回 JsonResult，验证正文与内容类型。
         /// </summary>
         /// <returns>固定结构的 JSON 结果</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public async Task<JsonResult> JsonData()
         {
             await Task.Yield();
@@ -91,7 +91,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 把本宿主的动作超时改成 1 秒；动作超时与连接空闲回收是两项独立配置。
         /// </summary>
         /// <returns>固定文本</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public string ArmShortTimeout()
         {
             HttpContext.Current.WebConfig.ActionTimeout = 1;

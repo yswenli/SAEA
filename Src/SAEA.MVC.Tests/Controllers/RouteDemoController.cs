@@ -52,7 +52,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// </summary>
         /// <param name="id">路径中的 {id} 段</param>
         /// <returns>带 id 的回显文本</returns>
-        [HttpGet("routedemo/echo/{id}")]
+        [HttpGetAttribute("routedemo/echo/{id}")]
         public string Echo(string id)
         {
             return "routedemo-echo:" + id;
@@ -62,7 +62,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 与 VerbsPost 共用同一路径的 GET 分支。
         /// </summary>
         /// <returns>GET 分支文本</returns>
-        [HttpGet("routedemo/verbs")]
+        [HttpGetAttribute("routedemo/verbs")]
         public string VerbsGet()
         {
             return "routedemo-verbs-get";
@@ -72,7 +72,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 与 VerbsGet 共用同一路径的 POST 分支。
         /// </summary>
         /// <returns>POST 分支文本</returns>
-        [HttpPost("routedemo/verbs")]
+        [HttpPostAttribute("routedemo/verbs")]
         public string VerbsPost()
         {
             return "routedemo-verbs-post";
@@ -82,7 +82,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 只声明 GET 的路径，用于验证 POST 返回 405。
         /// </summary>
         /// <returns>固定文本</returns>
-        [HttpGet("routedemo/getonly")]
+        [HttpGetAttribute("routedemo/getonly")]
         public string GetOnly()
         {
             return "routedemo-getonly-ok";
@@ -103,7 +103,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// </summary>
         /// <param name="name">路径中的 {name} 段</param>
         /// <returns>参数原值</returns>
-        [HttpGet("routedemo/case/{name}")]
+        [HttpGetAttribute("routedemo/case/{name}")]
         public string CaseEcho(string name)
         {
             return name;
@@ -113,7 +113,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 静态段含空格的入口，用于验证 %20 解码后可命中。
         /// </summary>
         /// <returns>固定文本</returns>
-        [HttpGet("routedemo/space/hello world")]
+        [HttpGetAttribute("routedemo/space/hello world")]
         public string SpaceSegment()
         {
             return "routedemo-space-ok";
@@ -124,7 +124,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// </summary>
         /// <param name="id">路径中的 {id} 段</param>
         /// <returns>带 id 的回显文本</returns>
-        [HttpGet("routedemo/cached/{id}")]
+        [HttpGetAttribute("routedemo/cached/{id}")]
         [OutputCache(300)]
         public string Cached(string id)
         {

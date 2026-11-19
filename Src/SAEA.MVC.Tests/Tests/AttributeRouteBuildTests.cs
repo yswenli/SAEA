@@ -36,6 +36,7 @@ using System.Runtime.ExceptionServices;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
+using SAEA.MVC.Routing;
 using SAEA.MVC.Tests.Tests.Support;
 
 namespace SAEA.MVC.Tests
@@ -176,7 +177,7 @@ namespace SAEA.MVC.Tests
         /// <param name="controllerTypes">参与构建的类型，不要求继承 Controller</param>
         private static void BuildAttributeRouteTable(params Type[] controllerTypes)
         {
-            var tableType = typeof(SAEAMvcApplication).Assembly.GetType("SAEA.MVC.AttributeRouteTable", true);
+            var tableType = typeof(SAEAMvcApplication).Assembly.GetType("SAEA.MVC.Routing.AttributeRouteTable", true);
 
             Assert.IsNotNull(tableType, "应能取到 SAEA.MVC.AttributeRouteTable 类型");
 
@@ -237,7 +238,7 @@ namespace SAEA.MVC.Tests
             /// </summary>
             /// <param name="id">路径参数</param>
             /// <returns>固定文本</returns>
-            [HttpGet("routedemo/negshape/{id}")]
+            [HttpGetAttribute("routedemo/negshape/{id}")]
             public string Get(string id)
             {
                 return id;
@@ -254,7 +255,7 @@ namespace SAEA.MVC.Tests
             /// </summary>
             /// <param name="uid">路径参数</param>
             /// <returns>固定文本</returns>
-            [HttpGet("routedemo/negshape/{uid}")]
+            [HttpGetAttribute("routedemo/negshape/{uid}")]
             public string Get(string uid)
             {
                 return uid;
@@ -322,7 +323,7 @@ namespace SAEA.MVC.Tests
             /// </summary>
             /// <returns>固定文本</returns>
             [Route("routedemo/negmulti/a")]
-            [HttpGet("routedemo/negmulti/b")]
+            [HttpGetAttribute("routedemo/negmulti/b")]
             public string Index()
             {
                 return "multi";

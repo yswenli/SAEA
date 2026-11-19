@@ -28,8 +28,8 @@ namespace SAEA.MVCTest.Controllers
         /// <param name="userInfo">按属性名绑定的用户信息</param>
         /// <returns>用户信息的 JSON 结果</returns>
         [Auth]
-        [HttpGet]
-        [HttpPost]
+        [HttpGetAttribute]
+        [HttpPostAttribute]
         public ActionResult Other(UserInfo userInfo)
         {
             return Json(userInfo);

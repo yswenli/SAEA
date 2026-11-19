@@ -44,7 +44,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// </summary>
         /// <param name="id">路径中的 {id} 段</param>
         /// <returns>形如 id|tag|执行次数的文本</returns>
-        [HttpGet("cacheprobe/{id}")]
+        [HttpGetAttribute("cacheprobe/{id}")]
         [OutputCache(60)]
         public string Probe(string id)
         {

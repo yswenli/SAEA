@@ -40,7 +40,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 只声明 GET 的入口。
         /// </summary>
         /// <returns>固定文本</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public string GetOnly()
         {
             return "verbprobe-get-only";
@@ -50,7 +50,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 只声明 POST 的入口。
         /// </summary>
         /// <returns>固定文本</returns>
-        [HttpPost]
+        [HttpPostAttribute]
         public string PostOnly()
         {
             return "verbprobe-post-only";
@@ -60,8 +60,8 @@ namespace SAEA.MVC.Tests.Controllers
         /// 同时声明 GET 与 POST 的入口，两种动词都应放行。
         /// </summary>
         /// <returns>固定文本</returns>
-        [HttpGet]
-        [HttpPost]
+        [HttpGetAttribute]
+        [HttpPostAttribute]
         public string Both()
         {
             return "verbprobe-both";

@@ -29,6 +29,8 @@
 *描述：新增，为 WS/WSS 升级与回显用例提供入口
 *
 *****************************************************************************/
+using SAEA.MVC.WebSockets;
+
 using System.Threading.Tasks;
 
 namespace SAEA.MVC.Tests.Controllers

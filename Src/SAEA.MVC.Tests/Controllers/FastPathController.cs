@@ -43,7 +43,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 同步成功入口：未配置 ActionTimeout 时应直接调用并返回 200。
         /// </summary>
         /// <returns>固定文本</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public string SyncOk()
         {
             return "fastpath-sync-ok";
@@ -53,7 +53,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 同步抛异常入口：异常应被框架转成 500，文案沿用旧路径的 AggregateException 形态。
         /// </summary>
         /// <returns>不会返回</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public string SyncThrows()
         {
             throw new InvalidOperationException("fastpath-boom");
@@ -63,7 +63,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 异步成功入口：直调快路径要能等到 Task 完成并取出 Task&lt;string&gt; 的结果。
         /// </summary>
         /// <returns>完成后的固定文本</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public async Task<string> AsyncOk()
         {
             await Task.Yield();

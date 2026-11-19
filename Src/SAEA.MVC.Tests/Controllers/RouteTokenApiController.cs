@@ -44,7 +44,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// </summary>
         /// <param name="id">路径中的 {id} 段</param>
         /// <returns>带 id 的回显文本</returns>
-        [HttpGet("api/v1/[controller]/[action]/{id}")]
+        [HttpGetAttribute("api/v1/[controller]/[action]/{id}")]
         public async Task<string> GetAsync(string id)
         {
             await Task.Yield();

@@ -32,7 +32,7 @@
 using System;
 using System.Text;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.WebSockets
 {
     /// <summary>
     /// WebSocket 消息类型

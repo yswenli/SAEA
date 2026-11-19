@@ -42,7 +42,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// GET 入口，返回固定文本。
         /// </summary>
         /// <returns>固定文本</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public string Index()
         {
             return "basic-index-ok";
@@ -53,7 +53,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// </summary>
         /// <param name="name">表单里的 name 字段</param>
         /// <returns>带参数值的回显文本</returns>
-        [HttpPost]
+        [HttpPostAttribute]
         public string Echo(string name)
         {
             return "basic-echo:" + name;
@@ -63,7 +63,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// GET 入口，返回 JSON 结果。
         /// </summary>
         /// <returns>固定结构的 JSON 结果</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public JsonResult JsonData()
         {
             return Json(new { name = "saea", value = 42 });
@@ -73,7 +73,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// GET 入口，带记录顺序的过滤器。
         /// </summary>
         /// <returns>固定文本</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         [OrderRecordingFilter]
         public string Filtered()
         {

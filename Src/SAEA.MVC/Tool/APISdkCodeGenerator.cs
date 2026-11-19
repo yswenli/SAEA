@@ -23,14 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 17:50:00
+*修改时间：2026/11/19 11:16:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：地址按 Routing.Template 输出，未声明模板时维持两段式地址不变
+*描述：补 Routing 子命名空间引用，类型 Routing 改为 RouteEntry，地址仍按 RouteEntry.Template 输出
 *
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Common.IO;
+using SAEA.MVC.Routing;
 using SAEA.MVC.Tool.CodeGenerte;
 using System.Collections.Generic;
 using System.Linq;
@@ -50,7 +51,7 @@ namespace SAEA.MVC.Tool
         /// <param name="codeType"></param>
         public static void Save(string path, CodeType codeType)
         {
-            List<Routing> routings = ApiMapping.GetMapping();
+            List<RouteEntry> routings = ApiMapping.GetMapping();
 
             if (codeType == CodeType.Js)
             {
@@ -67,7 +68,7 @@ namespace SAEA.MVC.Tool
         /// </summary>
         /// <param name="path"></param>
         /// <param name="routings"></param>
-        static void SaveCsharp(string path, List<Routing> routings)
+        static void SaveCsharp(string path, List<RouteEntry> routings)
         {
             var fileName = PathHelper.GetFilePath(path, "SaeaApiSdk.cs");
 
@@ -144,7 +145,7 @@ namespace SAEA.MVC.Tool
         /// </summary>
         /// <param name="path"></param>
         /// <param name="routings"></param>
-        static void SaveJs(string path, List<Routing> routings)
+        static void SaveJs(string path, List<RouteEntry> routings)
         {
             var fileName = PathHelper.GetFilePath(path, "SaeaApiSdk.js");
 
@@ -209,7 +210,7 @@ namespace SAEA.MVC.Tool
         /// <param name="routing">路由信息</param>
         /// <param name="leadingSlash">是否保留前导 /。JS 模板的 url 不带结尾 /，需保留；C# 模板的 _url 自带结尾 /，需去掉</param>
         /// <returns>地址片段，模板中的 {name} 占位符原样保留</returns>
-        static string GetPath(Routing routing, bool leadingSlash)
+        static string GetPath(RouteEntry routing, bool leadingSlash)
         {
             if (string.IsNullOrEmpty(routing.Template))
                 return (leadingSlash ? "/" : string.Empty) + "api/[[Controller]]/[[Action]]";

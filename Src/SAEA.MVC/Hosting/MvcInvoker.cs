@@ -12,26 +12,28 @@
 *机器名称：WENLI-PC
 *公司名称：yswenli
 *命名空间：SAEA.MVC
-*文件名： MVCInvoker
+*文件名： MvcInvoker
 *版本号： v26.4.23.1
 *唯一标识：df2222b1-5599-42e6-b920-b28f86849d31
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2018/10/28 14:19:50
-*描述：MVCInvoker接口
+*描述：MVC 实例方法映射处理
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 16:14:00
+*修改时间：2026/11/19 11:16:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：InvokeResult 抽出 async 核心 InvokeResultAsync，原公开方法改为阻塞等待同一实现；MethodInvoke 改为异步执行，未配置超时时直接等待，配置超时时用 WhenAny 加取消源复现 408 与 AggregateException 形态
+*描述：文件由 MVCInvoker.cs 改名为 MvcInvoker.cs 并移入 Hosting/，补 Routing 与 WebSockets 子命名空间引用，无逻辑变更
 *
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.Common.NameValue;
 using SAEA.Common.Serialization;
+using SAEA.MVC.Routing;
+using SAEA.MVC.WebSockets;
 
 using System;
 using System.Collections.Generic;

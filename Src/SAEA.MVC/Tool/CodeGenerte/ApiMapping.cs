@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 22:00:00
+*修改时间：2026/11/19 11:16:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：按属性路由限定的动词过滤产出的 GET / POST 方法；两段式 action 同样按 [HttpGet]/[HttpPost] 限定动词；带过滤器但无动词特性的 action 不再被吞掉
+*描述：补 Routing 子命名空间引用，类型 Routing 改为 RouteEntry，无逻辑变更
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.MVC.Routing;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -56,9 +57,9 @@ namespace SAEA.MVC.Tool.CodeGenerte
         /// 获取映射
         /// </summary>
         /// <returns></returns>
-        public static List<Routing> GetMapping()
+        public static List<RouteEntry> GetMapping()
         {
-            Dictionary<string, Routing> dic = new Dictionary<string, Routing>();
+            Dictionary<string, RouteEntry> dic = new Dictionary<string, RouteEntry>();
 
             _areaCollection.RegistAll();
 
@@ -86,7 +87,7 @@ namespace SAEA.MVC.Tool.CodeGenerte
 
                 foreach (var action in actions)
                 {
-                    var getRouting = new Routing()
+                    var getRouting = new RouteEntry()
                     {
                         ControllerName = item.Name,
                         ActionName = action.Name,
@@ -96,7 +97,7 @@ namespace SAEA.MVC.Tool.CodeGenerte
                         IsPost = false
                     };
 
-                    var postRouting = new Routing()
+                    var postRouting = new RouteEntry()
                     {
                         ControllerName = item.Name,
                         ActionName = action.Name,
@@ -229,7 +230,7 @@ namespace SAEA.MVC.Tool.CodeGenerte
         /// <param name="dic">映射表，键为控制器名 + action 名 + 动词</param>
         /// <param name="routing">待写入的路由</param>
         /// <param name="allowed">是否允许产出该条路由</param>
-        static void AddRouting(Dictionary<string, Routing> dic, Routing routing, bool allowed)
+        static void AddRouting(Dictionary<string, RouteEntry> dic, RouteEntry routing, bool allowed)
         {
             if (!allowed) return;
 

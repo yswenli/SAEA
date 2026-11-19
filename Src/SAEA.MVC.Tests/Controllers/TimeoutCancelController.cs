@@ -77,7 +77,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// <param name="id">路径中的 {id} 段</param>
         /// <returns>带 id 的回显文本</returns>
         [Route("/timeoutcancel/verb405/{id}")]
-        [HttpGet]
+        [HttpGetAttribute]
         public string Verb405(string id)
         {
             return "timeoutcancel-verb405:" + id;
@@ -87,7 +87,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 两段式地址的只允许 GET 入口，用于验证两段式 405 文案保留完整请求路径。
         /// </summary>
         /// <returns>固定文本</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public string GetOnlyEcho()
         {
             return "timeoutcancel-getonly-echo";
@@ -100,7 +100,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// <param name="token">框架注入的本次请求取消令牌</param>
         /// <param name="id">请求参数 id</param>
         /// <returns>名称、id、令牌可用性与是否已取消的拼接文本</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public string MixedParameters(string name, CancellationToken token, int id)
         {
             return name + "|" + id + "|" + (token.CanBeCanceled ? "True" : "False") + "|" + (token.IsCancellationRequested ? "True" : "False");
@@ -111,7 +111,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// 无需再动 Timeout（连接空闲回收时间）。
         /// </summary>
         /// <returns>固定文本</returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public string ArmShortTimeout()
         {
             HttpContext.Current.WebConfig.ActionTimeout = 1;

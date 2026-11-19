@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.WebSockets
 *文件名： MVCWebSocketConnection
 *版本号： v26.11.5.1
 *唯一标识：2c899c28-0577-4ea6-a049-37af026f6acc
@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/16 10:20:00
+*修改时间：2026/11/19 11:16:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：接收解码改走 WSCoder 的 byte[] 重载，去掉一次整段复制
+*版本号： v26.11.16.1
+*描述：文件移入 WebSockets/ 并改用命名空间 SAEA.MVC.WebSockets，无逻辑变更
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -43,7 +43,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.WebSockets
 {
     /// <summary>
     /// 一条已升级的 WebSocket 连接：

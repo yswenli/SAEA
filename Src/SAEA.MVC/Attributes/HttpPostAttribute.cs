@@ -12,14 +12,14 @@
 *机器名称：WENLI-PC
 *公司名称：yswenli
 *命名空间：SAEA.MVC
-*文件名： HttpPost
+*文件名： HttpPostAttribute
 *版本号： v26.4.23.1
 *唯一标识：304042db-67ca-4046-ba13-7b80a50f5cd8
 *当前的用户域：WENLI-PC
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2018/10/28 14:19:50
-*描述：HttpPost类
+*描述：HttpPostAttribute类
 *
 *=====================================================================
 *修改标记
@@ -37,12 +37,12 @@ namespace SAEA.MVC
     /// 标记方法为POST
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-    public sealed class HttpPost : Attribute, IFilter
+    public sealed class HttpPostAttribute : Attribute, IFilter
     {
         /// <summary>
         /// 不声明路径，仅限定 POST
         /// </summary>
-        public HttpPost()
+        public HttpPostAttribute()
         {
         }
 
@@ -50,7 +50,7 @@ namespace SAEA.MVC
         /// 以路由模板限定 POST
         /// </summary>
         /// <param name="template">路由模板，如 users/{id}</param>
-        public HttpPost(string template)
+        public HttpPostAttribute(string template)
         {
             Template = template;
         }

@@ -43,7 +43,7 @@ namespace SAEA.MVC.Tests.Controllers
         /// </summary>
         /// <param name="id">路径中的 {id} 段</param>
         /// <returns>带 id 的回显文本</returns>
-        [HttpGet("[action]/{id}")]
+        [HttpGetAttribute("[action]/{id}")]
         public string EchoAsync(string id)
         {
             return "token-prefix:" + id;

@@ -104,8 +104,8 @@ namespace SAEA.MVCTest.Controllers
         /// <param name="id"></param>
         /// <returns></returns>
 
-        [HttpGet]
-        [HttpPost]
+        [HttpGetAttribute]
+        [HttpPostAttribute]
         public ActionResult Get(int id)
         {
             return Json(new { Name = "yswenli", Sex = "男" });
@@ -130,7 +130,7 @@ namespace SAEA.MVCTest.Controllers
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
-        [HttpGet]
+        [HttpGetAttribute]
         public ActionResult Update(int id)
         {
             return Content($"HttpGet Update id:{id}");
@@ -141,7 +141,7 @@ namespace SAEA.MVCTest.Controllers
         /// <param name="isFemale"></param>
         /// <param name="userInfo"></param>
         /// <returns></returns>
-        [HttpPost]
+        [HttpPostAttribute]
         public ActionResult Update1(bool isFemale, UserInfo userInfo = null)
         {
             return Json(userInfo);
@@ -185,7 +185,7 @@ namespace SAEA.MVCTest.Controllers
         /// 仅允许 POST 访问的测试动作
         /// </summary>
         /// <returns>文本 httppost test</returns>
-        [HttpPost]
+        [HttpPostAttribute]
         public ActionResult Test()
         {
             return Content("httppost test");
@@ -196,7 +196,7 @@ namespace SAEA.MVCTest.Controllers
         /// </summary>
         /// <param name="list"></param>
         /// <returns></returns>
-        [HttpPost]
+        [HttpPostAttribute]
         public ActionResult UpdateUserList(List<UserInfo> list)
         {
             return Json(list);

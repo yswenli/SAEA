@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Routing
 *文件名： AttributeRouteTable
 *版本号： v26.11.16.1
 *唯一标识：8b1e5c47-2a9d-4f36-b07e-5c3a9d24e816
@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 10:40:00
+*修改时间：2026/11/19 11:16:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：新增 [controller] 与 [action] 模板令牌解析，并在构建期拒绝其余方括号写法
+*描述：文件移入 Routing/ 并改用命名空间 SAEA.MVC.Routing，无逻辑变更
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -37,7 +37,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Routing
 {
     /// <summary>
     /// 属性路由表：构建期解析模板并校验冲突，运行期只读匹配
@@ -243,9 +243,9 @@ namespace SAEA.MVC
         {
             var route = GetAttribute<RouteAttribute>(action);
 
-            var get = GetAttribute<HttpGet>(action);
+            var get = GetAttribute<HttpGetAttribute>(action);
 
-            var post = GetAttribute<HttpPost>(action);
+            var post = GetAttribute<HttpPostAttribute>(action);
 
             var routeTemplate = route == null ? null : route.Template;
 

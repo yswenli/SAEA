@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 18:40:00
+*修改时间：2026/11/19 11:16:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：构造期把配置的 ActionTimeout 写到 WebConfig，动作超时与连接空闲回收分离
+*描述：文件移入 Hosting/，补 Routing 与 WebSockets 子命名空间引用，无逻辑变更
 *
 *****************************************************************************/
 using System;
@@ -34,6 +34,8 @@ using System;
 using SAEA.Common;
 using SAEA.Common.NameValue;
 using SAEA.Http;
+using SAEA.MVC.Routing;
+using SAEA.MVC.WebSockets;
 using SAEA.Sockets.Pipeline;
 using SAEA.Sockets.Ssl;
 

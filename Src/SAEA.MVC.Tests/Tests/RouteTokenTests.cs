@@ -39,6 +39,7 @@ using System.Threading.Tasks;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
+using SAEA.MVC.Routing;
 using SAEA.MVC.Tests.Tests.Support;
 
 namespace SAEA.MVC.Tests
@@ -322,7 +323,7 @@ namespace SAEA.MVC.Tests
         /// <param name="controllerTypes">参与构建的类型，不要求继承 Controller</param>
         private static void BuildAttributeRouteTable(params Type[] controllerTypes)
         {
-            var tableType = typeof(SAEAMvcApplication).Assembly.GetType("SAEA.MVC.AttributeRouteTable", true);
+            var tableType = typeof(SAEAMvcApplication).Assembly.GetType("SAEA.MVC.Routing.AttributeRouteTable", true);
 
             Assert.IsNotNull(tableType, "应能取到 SAEA.MVC.AttributeRouteTable 类型");
 
@@ -424,7 +425,7 @@ namespace SAEA.MVC.Tests
             /// 后缀剥离后为空的入口。
             /// </summary>
             /// <returns>固定文本</returns>
-            [HttpGet("token/neg/[action]")]
+            [HttpGetAttribute("token/neg/[action]")]
             public string Async()
             {
                 return "async";
@@ -440,7 +441,7 @@ namespace SAEA.MVC.Tests
             /// 冲突声明之一。
             /// </summary>
             /// <returns>固定文本</returns>
-            [HttpGet("token/neg/conflict/[action]")]
+            [HttpGetAttribute("token/neg/conflict/[action]")]
             public string Foo()
             {
                 return "foo";
@@ -450,7 +451,7 @@ namespace SAEA.MVC.Tests
             /// 冲突声明之二，[action] 剥掉 Async 后与 Foo 落到同一路径。
             /// </summary>
             /// <returns>固定文本</returns>
-            [HttpGet("token/neg/conflict/[action]")]
+            [HttpGetAttribute("token/neg/conflict/[action]")]
             public string FooAsync()
             {
                 return "foo-async";

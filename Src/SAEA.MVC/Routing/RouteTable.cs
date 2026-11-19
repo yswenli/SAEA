@@ -11,7 +11,7 @@
 *CLR版本： netstandard2.0
 *机器名称：WENLI-PC
 *公司名称：yswenli
-*命名空间：SAEA.MVC
+*命名空间：SAEA.MVC.Routing
 *文件名： RouteTable
 *版本号： v26.4.23.1
 *唯一标识：b12d2d02-7eb0-4743-9168-205c58375de6
@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/17 17:55:17
+*修改时间：2026/11/19 11:16:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：ResolveActions 的 Async 后缀回退放开到所有 Controller，精确名仍优先，WSController 基类声明层兜底仅保留给其派生类
+*描述：文件移入 Routing/ 并改用命名空间 SAEA.MVC.Routing，类型 Routing 引用改为 RouteEntry，无逻辑变更
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -36,14 +36,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace SAEA.MVC
+namespace SAEA.MVC.Routing
 {
     /// <summary>
     /// SAEA.MVC路由表
     /// </summary>
     public class RouteTable
     {
-        ConcurrentDictionary<string, Routing> _cDic = new ConcurrentDictionary<string, Routing>();
+        ConcurrentDictionary<string, RouteEntry> _cDic = new ConcurrentDictionary<string, RouteEntry>();
 
         /// <summary>
         /// 已扫描到的控制器类型集合
@@ -58,11 +58,11 @@ namespace SAEA.MVC
         /// <param name="actionName">动作名称</param>
         /// <param name="isPost">是否为 POST 请求</param>
         /// <returns>匹配到的路由；找不到 action 或 controllerType 为 null 时返回 null</returns>
-        public Routing GetOrAdd(Type controllerType, string actionName, bool isPost)
+        public RouteEntry GetOrAdd(Type controllerType, string actionName, bool isPost)
         {
             if (controllerType == null) return null;
 
-            Routing routing = null;
+            RouteEntry routing = null;
 
             var getKey = controllerType.Name + actionName + "_" + ConstHelper.GET;
 
@@ -104,7 +104,7 @@ namespace SAEA.MVC
 
                         foreach (var action in actions)
                         {
-                            routing = new Routing()
+                            routing = new RouteEntry()
                             {
                                 ControllerName= controllerType.Name,
                                 ActionName = actionName,
@@ -114,7 +114,7 @@ namespace SAEA.MVC
                                 IsPost = false
                             };
 
-                            var routing2 = new Routing()
+                            var routing2 = new RouteEntry()
                             {
                                 ControllerName = controllerType.Name,
                                 ActionName = actionName,
@@ -212,7 +212,7 @@ namespace SAEA.MVC
 
                         foreach (var action in actions)
                         {
-                            routing = new Routing()
+                            routing = new RouteEntry()
                             {
                                 ActionName = actionName,
                                 ControllerName = controllerType.Name,
@@ -222,7 +222,7 @@ namespace SAEA.MVC
                                 IsPost = true
                             };
 
-                            var routing2 = new Routing()
+                            var routing2 = new RouteEntry()
                             {
                                 ControllerName = controllerType.Name,
                                 ActionName = actionName,

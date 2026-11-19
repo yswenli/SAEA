@@ -32,6 +32,7 @@ using SAEA.Common.Newtonsoft.Json;
 using SAEA.Common.Serialization;
 using SAEA.Http.Model;
 using SAEA.MVC;
+using SAEA.MVC.WebSockets;
 using SAEA.MVCTest.Model;
 
 using System;
