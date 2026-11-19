@@ -217,6 +217,7 @@ Client ──► HTTP Request ──► pump (PipeReader + splitter)
                                     ▼
                           ┌─────────────────────┐
                           │ HttpDispatchHandler │
+                          │ reuse or create ctx │
                           └─────────────────────┘
                                     │
                     ┌───────────────┼───────────────┐
@@ -243,6 +244,15 @@ Client ──► HTTP Request ──► pump (PipeReader + splitter)
                                   ▼
                              client response
 ```
+
+### Context reuse
+
+`HttpContext` implements `SAEA.Http.Model.IReusableHttpContext` (`Src/SAEA.Http/Model/IReusableHttpContext.cs`): requests on the same connection share one context instance, which is dropped together with the connection.
+
+- By default a context is still created and released per request; only a context implementing `IReusableHttpContext` is reused, and a custom `IHttpContext` that does not declare the interface keeps the unchanged behavior.
+- Before reuse the framework calls `ResetForNextRequest()` to reset the state left by the previous request, then hands the context to `HttpHandle` / `HttpHandleAsync`.
+- Reuse happens serially within a single connection, and `HttpContext.Current` points to that reused instance; the next request resets it. Do not keep the context in a background task or a static field for cross-request use.
+- A custom context that declares `IReusableHttpContext` must restore all cross-request state in `ResetForNextRequest()` to the values of a fresh instance, otherwise data from the previous request leaks into the next one; a context upgraded to WebSocket does not take part in reuse.
 
 ---
 
@@ -437,7 +447,7 @@ server.WebConfig.RequestDelegate = ctx =>
 | `WebHost` | Server entry point |
 | `HttpRequest` | Request wrapper (method, URL, headers, forms …) |
 | `HttpResponse` | Response wrapper (status, headers, body …) |
-| `HttpContext` | Request context (Request/Response/Session) |
+| `HttpContext` | Request context (Request/Response/Session); implements `IReusableHttpContext` so one instance is reused per connection, while a custom context that does not declare the interface is still created per request |
 | `HttpSession` / `HttpSessionManager` | Session state and management |
 | `HttpCookie` / `HttpCookies` | Cookie handling |
 | `WebConfig` | Configuration: request/exception/close delegates and chain callback |

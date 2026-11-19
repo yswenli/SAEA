@@ -227,7 +227,7 @@ HTTP 请求处理流程:
                                     ▼
                           ┌─────────────────┐
                           │ HttpDispatchHandler│
-                          │  创建并派发上下文 │
+                          │  复用或创建上下文 │
                           └─────────────────┘
                                     │
                     ┌───────────────┼───────────────┐
@@ -263,6 +263,15 @@ HTTP 请求处理流程:
                                   ▼
                             客户端响应
 ```
+
+### 上下文复用
+
+`HttpContext` 实现 `SAEA.Http.Model.IReusableHttpContext`（`Src/SAEA.Http/Model/IReusableHttpContext.cs`）：同一条连接上的请求复用同一个上下文实例，连接失活时随连接一起丢弃。
+
+- 默认仍是每个请求新建并释放一个上下文；只有实现了 `IReusableHttpContext` 的上下文才会被复用，未声明该接口的自定义 `IHttpContext` 行为不变。
+- 复用前框架调用 `ResetForNextRequest()` 把上一次请求留下的状态复位，再把上下文交给 `HttpHandle` / `HttpHandleAsync`。
+- 复用只在单条连接内串行发生，`HttpContext.Current` 指向的就是这个被复用的实例；下一次请求会重置它。不要把上下文对象存到后台任务或静态字段里跨请求使用。
+- 自定义上下文若声明实现 `IReusableHttpContext`，必须自己在 `ResetForNextRequest()` 中把所有跨请求状态还原成新建实例的初值，否则上一次请求的数据会串到下一次请求；WebSocket 升级后的上下文不参与复用。
 
 ---
 
@@ -458,7 +467,7 @@ server.WebConfig.RequestDelegate = ctx =>
 | `WebHost` | HTTP 服务器入口类 |
 | `HttpRequest` | HTTP 请求封装（方法、URL、Headers、Forms 等） |
 | `HttpResponse` | HTTP 响应封装（状态码、Headers、内容等） |
-| `HttpContext` | HTTP 上下文（Request/Response/Session） |
+| `HttpContext` | HTTP 上下文（Request/Response/Session）；实现 `IReusableHttpContext`，同一条连接复用同一实例，未声明该接口的自定义上下文仍每请求新建 |
 | `HttpSession` | HTTP 会话管理 |
 | `HttpSessionManager` | 会话管理器 |
 | `HttpCookie` / `HttpCookies` | Cookie 管理 |

@@ -795,7 +795,7 @@ sc create SAEAMvc binPath="path/to/your/app.exe" start=auto
 | `WebSocketAttribute`       | 标记 WebSocket 入口 action  |
 | `WSMessage`                | WebSocket 收到的消息        |
 | `IWebSocketConnection`     | 已建立的 WebSocket 连接     |
-| `HttpContext`              | HTTP 上下文              |
+| `HttpContext`              | HTTP 上下文；实现 `IReusableHttpContext`，同一条连接复用同一实例，`HttpContext.Current` 指向的实例会在下一次请求被重置，不要跨请求保存 |
 | `HttpRequest`              | HTTP 请求对象             |
 | `HttpResponse`             | HTTP 响应对象（`SuppressBody` 为 true 时不发送正文，用于 HEAD） |
 
@@ -1190,7 +1190,7 @@ public class ExportController : Controller
 
 | 同步入口 | 异步入口 | 说明 |
 | --- | --- | --- |
-| `IHttpContext.HttpHandle` | `HttpContextBase.HttpHandleAsync` | 请求处理总入口；`IHttpContext` 未新增成员，非 `HttpContextBase` 派生实现仍走同步入口 |
+| `IHttpContext.HttpHandle` | `HttpContextBase.HttpHandleAsync` | 请求处理总入口；`IHttpContext` 未新增成员，复用能力由独立接口 `SAEA.Http.Model.IReusableHttpContext` 声明，非 `HttpContextBase` 派生实现仍走同步入口 |
 | `HttpContext.GetActionResult` | `HttpContext.GetActionResultAsync` | 路由与 action 结果获取 |
 | `MvcInvoker.InvokeResult` | `MvcInvoker.InvokeResultAsync` | 执行 action，异步 action 在这里被真正 `await` |
 | `HttpResponse.Send` / `End` | `HttpResponse.SendAsync` / `EndAsync` | 发送响应；`EndAsync` 写完成后才提交关闭 |
@@ -1201,7 +1201,7 @@ public class ExportController : Controller
 约定：
 
 - 同步入口全部保留，内部是「异步实现 + `GetAwaiter().GetResult()`」：一份实现两套入口，不会出现行为漂移。
-- `IHttpContext` 接口没有新增成员，只重写了 `HttpHandle` 的自定义实现不会被绕过。
+- `IHttpContext` 接口没有新增成员，复用能力由独立接口 `SAEA.Http.Model.IReusableHttpContext` 声明；只重写了 `HttpHandle` 的自定义实现不会被绕过。
 - 自定义 `IWebHost` 实现（不继承内置 `WebHost`）在异步路径上回退为同步写，行为与改动前一致。
 - 线程占用实测：64 个并发请求打「`await Task.Delay(200)` 后返回」的 action，服务端进程线程数稳定在 30；把同一个 action 改成同步 `Thread.Sleep(200)`，线程数为 46。等待期间线程确实归还了线程池。
 - 异步入口**不提升吞吐**：同一批压测（并发 1 / 16 / 64）改动前后差异在 ±6% 以内。这是预期结果——本机测出的瓶颈是每请求 CPU 与 GC（约 16–23 KB 分配/请求、18%–30% 墙钟在 GC 暂停），不是线程模型。

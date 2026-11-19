@@ -795,7 +795,7 @@ sc create SAEAMvc binPath="path/to/your/app.exe" start=auto
 | `WebSocketAttribute` | Marks the WebSocket entry action |
 | `WSMessage` | Received WebSocket message |
 | `IWebSocketConnection` | Established WebSocket connection |
-| `HttpContext` | HTTP Context |
+| `HttpContext` | HTTP Context; implements `IReusableHttpContext`, so one instance is reused per connection; the instance that `HttpContext.Current` points to is reset on the next request, so do not save it across requests |
 | `HttpRequest` | HTTP Request Object |
 | `HttpResponse` | HTTP Response Object (`SuppressBody` = true suppresses the body, used for HEAD) |
 
@@ -1190,7 +1190,7 @@ The framework itself also exposes a set of async entry points. They are a differ
 
 | Synchronous entry | Async entry | Notes |
 | --- | --- | --- |
-| `IHttpContext.HttpHandle` | `HttpContextBase.HttpHandleAsync` | Overall request-processing entry; `IHttpContext` gained no members, so implementations not derived from `HttpContextBase` still take the synchronous entry |
+| `IHttpContext.HttpHandle` | `HttpContextBase.HttpHandleAsync` | Overall request-processing entry; `IHttpContext` gained no members — reuse is declared by the separate interface `SAEA.Http.Model.IReusableHttpContext` — so implementations not derived from `HttpContextBase` still take the synchronous entry |
 | `HttpContext.GetActionResult` | `HttpContext.GetActionResultAsync` | Routing and action result resolution |
 | `MvcInvoker.InvokeResult` | `MvcInvoker.InvokeResultAsync` | Invokes the action; async actions are truly `await`ed here |
 | `HttpResponse.Send` / `End` | `HttpResponse.SendAsync` / `EndAsync` | Sends the response; `EndAsync` commits the close only after the write completes |
@@ -1201,7 +1201,7 @@ The framework itself also exposes a set of async entry points. They are a differ
 Conventions:
 
 - All synchronous entries are kept, and internally they are "async implementation + `GetAwaiter().GetResult()`": one implementation, two entry sets, so behaviour cannot drift.
-- The `IHttpContext` interface gained no members, so a custom implementation that only overrides `HttpHandle` is not bypassed.
+- The `IHttpContext` interface gained no members — reuse is declared by the separate interface `SAEA.Http.Model.IReusableHttpContext` — so a custom implementation that only overrides `HttpHandle` is not bypassed.
 - A custom `IWebHost` implementation (one that does not inherit the built-in `WebHost`) falls back to synchronous writes on the async path, behaving exactly as before.
 - Measured thread usage: 64 concurrent requests against an action that does `await Task.Delay(200)` and then returns keep the server process at a stable 30 threads; changing the same action to a synchronous `Thread.Sleep(200)` gives 46 threads. The threads really do go back to the pool while waiting.
 - Async entry points **do not raise throughput**: across the same benchmark set (concurrency 1 / 16 / 64) the difference before and after the change stays within ±6%. That is expected — the bottleneck measured on this machine is per-request CPU and GC (about 16–23 KB allocated per request, 18%–30% of wall time in GC pauses), not the threading model.

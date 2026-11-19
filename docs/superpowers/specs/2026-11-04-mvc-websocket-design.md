@@ -110,7 +110,7 @@ public class ChatController : WSController
   - `public void SetNoTimeout(string id, bool noTimeout)` → `_httpServer.SetNoTimeout(...)`；transport 通过它生效（若 `IWebHost` 不是 `SAEA.Http.WebHost`，静默退化为不豁免）。
   - `_serverSocket_OnRequested` 进入时先看 `(userToken.Coder as HttpCoder)?.IsRaw == true`，是就直接 return。这不是纯保险：`GetRequest` 会把同一段里能解析的请求一次性全部返回，**同段的第二个请求会在第一个请求升级之后才被分发**，不跳过就会往 WS 流里写一个 HTTP 响应。
   - 现在的 `using IHttpContext httpContext = ...` 必须改成“交权”写法：`HttpHandle` 返回后，只有 `!Response.IsUpgraded` 才 `Dispose()`；已升级上下文由 `MVCWebSocketConnection.CloseOnce` 负责 `Dispose`（`HttpContextBase.Dispose` 只清 `Request`/`Response`，不碰 socket）。
-  - `HttpContextBase` 构造函数里 `CallContext<IHttpContext>.SetData("ContextBase.Current", this)` 只在创建时设置一次；WS 接收/分发发生在 IOCP 线程或线程池任务上，**分发前必须重新 `SetData`**，否则 `HttpContext.Current` 会是 null 或别的连接。
+  - `HttpContextBase.InitContext` 里 `CallContext<IHttpContext>.SetData("ContextBase.Current", this)` 每个请求都会设置一次（上下文在同一条连接上会复用，构造函数不会再次执行）；WS 接收/分发发生在 IOCP 线程或线程池任务上，**分发前必须重新 `SetData`**，否则 `HttpContext.Current` 会是 null 或别的连接。
 - `HttpContextBase.HttpHandle`：`Response.IsUpgraded || Response.IsHandled` 时跳过响应收尾（与 `IBigDataResult` / `IEventStream` 同一豁免点）。
 - 握手校验读 `Request.Headers`（`Dictionary<string,string>`，`StringComparer.OrdinalIgnoreCase`，由 `HttpRequest.Init` 直接引用 `HttpMessage.Headers`）：
   - `Upgrade` 含 `websocket`；`Connection` **包含** `upgrade`（浏览器常发 `keep-alive, Upgrade`，不能相等比较）；`Sec-WebSocket-Version == 13`；`Sec-WebSocket-Key` 非空。
