@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 16:17:23
+*修改时间：2026/11/19 19:15:49
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：不限动词的 OPTIONS 自动应答改传 AllowOrder，避免把「不限谓词」当成显式声明 OPTIONS 写进 Allow
+*描述：WebSocket 特性与过滤器方法改为按类型缓存，无过滤器时不再创建结果中转数组
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -40,8 +40,10 @@ using SAEA.MVC.Routing;
 using SAEA.MVC.WebSockets;
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace SAEA.MVC.Hosting
@@ -51,6 +53,64 @@ namespace SAEA.MVC.Hosting
     /// </summary>
     public static class MvcInvoker
     {
+        // WebSocket 特性判定与过滤器方法查找都属于 action/过滤器类型的固定元数据，
+        // 反射结果只读，按类型缓存后每请求不再重复查特性与查找方法
+        static readonly ConcurrentDictionary<MethodInfo, bool> _webSocketActionCache = new ConcurrentDictionary<MethodInfo, bool>();
+
+        static readonly ConcurrentDictionary<Type, MethodInfo> _onActionExecutingCache = new ConcurrentDictionary<Type, MethodInfo>();
+
+        static readonly ConcurrentDictionary<Type, MethodInfo> _onActionExecutedCache = new ConcurrentDictionary<Type, MethodInfo>();
+
+        /// <summary>
+        /// 判断 action 是否声明了 [WebSocket]，同一 action 只查一次特性
+        /// </summary>
+        /// <param name="action">目标 action</param>
+        /// <returns>声明了 WebSocketAttribute 时返回 true</returns>
+        static bool IsWebSocketAction(MethodInfo action)
+        {
+            if (action == null) return false;
+
+            if (_webSocketActionCache.TryGetValue(action, out var cached)) return cached;
+
+            var isWebSocket = action.GetCustomAttributes(typeof(WebSocketAttribute), true).Length > 0;
+
+            _webSocketActionCache.TryAdd(action, isWebSocket);
+
+            return isWebSocket;
+        }
+
+        /// <summary>
+        /// 取过滤器类型的 OnActionExecuting 方法，同一类型只查找一次
+        /// </summary>
+        /// <param name="filterType">过滤器实例的类型</param>
+        /// <returns>方法元数据；未定义该方法时为 null</returns>
+        static MethodInfo GetOnActionExecutingMethod(Type filterType)
+        {
+            if (_onActionExecutingCache.TryGetValue(filterType, out var cached)) return cached;
+
+            var method = filterType.GetMethod(ConstHelper.ONACTIONEXECUTING);
+
+            _onActionExecutingCache.TryAdd(filterType, method);
+
+            return method;
+        }
+
+        /// <summary>
+        /// 取过滤器类型的 OnActionExecuted 方法，同一类型只查找一次
+        /// </summary>
+        /// <param name="filterType">过滤器实例的类型</param>
+        /// <returns>方法元数据；未定义该方法时为 null</returns>
+        static MethodInfo GetOnActionExecutedMethod(Type filterType)
+        {
+            if (_onActionExecutedCache.TryGetValue(filterType, out var cached)) return cached;
+
+            var method = filterType.GetMethod(ConstHelper.ONACTIONEXECUTED);
+
+            _onActionExecutedCache.TryAdd(filterType, method);
+
+            return method;
+        }
+
         /// <summary>
         /// MVC处理
         /// </summary>
@@ -158,7 +218,7 @@ namespace SAEA.MVC.Hosting
 
             var websockets = context.WebSockets as WebSocketsFeature;
 
-            var isWebSocketAction = routing.Action != null && routing.Action.GetCustomAttributes(typeof(WebSocketAttribute), true).Any();
+            var isWebSocketAction = IsWebSocketAction(routing.Action);
 
             // WSController 上的非 [WebSocket] action（MessageAsync / CloseAsync / ErrorAsync）不允许普通 HTTP 直连
             if (routing.Instance is WSController wsController)
@@ -182,7 +242,7 @@ namespace SAEA.MVC.Hosting
             {
                 foreach (var arr in routing.FilterAtrrs)
                 {
-                    var filterMethod = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
+                    var filterMethod = GetOnActionExecutingMethod(arr.GetType());
 
                     if (filterMethod != null)
                     {
@@ -196,11 +256,11 @@ namespace SAEA.MVC.Hosting
             {
                 foreach (var arr in routing.ActionFilterAtrrs)
                 {
-                    var filterMethod = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING);
+                    var filterMethod = GetOnActionExecutingMethod(arr.GetType());
 
                     if (filterMethod != null)
                     {
-                        beforeResult = (ActionResult)arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTING).Invoke(arr, null);
+                        beforeResult = (ActionResult)filterMethod.Invoke(arr, null);
                     }
                 }
             }
@@ -307,15 +367,18 @@ namespace SAEA.MVC.Hosting
             }
             #endregion
 
-            var nargs = new object[] { result };
+            // 过滤器通过数组回写结果：没有过滤器时不必每请求建一个中转数组
+            object[] nargs = null;
 
             if (routing.FilterAtrrs != null && routing.FilterAtrrs.Any())
             {
                 foreach (var arr in routing.FilterAtrrs)
                 {
-                    var filterMethod = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED);
+                    var filterMethod = GetOnActionExecutedMethod(arr.GetType());
                     if (filterMethod != null)
                     {
+                        if (nargs == null) nargs = new object[] { result };
+
                         filterMethod.Invoke(arr, nargs);
 
                         result = (ActionResult)nargs[0];
@@ -328,9 +391,11 @@ namespace SAEA.MVC.Hosting
             {
                 foreach (var arr in routing.ActionFilterAtrrs)
                 {
-                    var filterMethod = arr.GetType().GetMethod(ConstHelper.ONACTIONEXECUTED);
+                    var filterMethod = GetOnActionExecutedMethod(arr.GetType());
                     if (filterMethod != null)
                     {
+                        if (nargs == null) nargs = new object[] { result };
+
                         filterMethod.Invoke(arr, nargs);
                         result = (ActionResult)nargs[0];
                     }

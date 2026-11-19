@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 17:02:06
+*修改时间：2026/11/19 20:00:41
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：新增 SuppressBody：ToBytes 与 SendData 在置位时只发报头，Content-Length 仍按正文长度给出
+*描述：Max-Age 文本改为不可变条目整体替换，消除秒数与文本分两次读写的并发错配
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -82,6 +82,14 @@ namespace SAEA.Http
         static long _dateHeaderSecond = long.MinValue;
 
         static string _dateHeaderText;
+
+        // Cache-Control 的 Max-Age 文本只随秒数变化；秒数与文本整体替换，
+        // 单次读取就能拿到配对的组合，不会读到半新半旧的组合
+        static MaxAgeCacheEntry _maxAgeCache;
+
+        // Expires 文本随「当前秒 + 缓存秒数」变化，两者都对上才复用；
+        // 每次重算生成一个不可变条目整体替换，避免读到半新半旧的组合
+        static ExpiresCacheEntry _expiresCache;
 
         /// <summary>
         /// 当前响应关联的连接通道，发送与 WebSocket 升级依赖它
@@ -289,6 +297,28 @@ namespace SAEA.Http
         }
 
         /// <summary>
+        /// 一次 Max-Age 头的计算结果，秒数与文本成对整体替换
+        /// </summary>
+        private sealed class MaxAgeCacheEntry
+        {
+            public int Seconds;
+
+            public string Text;
+        }
+
+        /// <summary>
+        /// 一次 Expires 头的计算结果，秒数与缓存时长都命中时才可复用
+        /// </summary>
+        private sealed class ExpiresCacheEntry
+        {
+            public int Second;
+
+            public int CacheSeconds;
+
+            public string Text;
+        }
+
+        /// <summary>
         /// 统计报头字节数的写出目标
         /// </summary>
         private struct HeaderLengthSink : IHttpHeaderChunkSink
@@ -366,8 +396,10 @@ namespace SAEA.Http
 
             if (cacheCount == 2 && cacheFlag >= 0)
             {
-                this.SetHeader(ResponseHeaderType.CacheControl, "Max-Age=" + cacheSeconds);
-                this.SetHeader(ResponseHeaderType.Expires, DateTimeHelper.Now.AddSeconds(cacheSeconds).ToGMTString());
+                // 报头名与枚举描述的取值逐字一致，直接写字典可省掉枚举装箱与描述查表
+                this.Headers["Cache-Control"] = GetMaxAgeText(cacheSeconds);
+
+                this.Headers["Expires"] = GetExpiresText(DateTimeHelper.Now, cacheSeconds);
                 this.Status = HttpStatusCode.OK;
 
                 if (cacheFlag == 0)
@@ -387,7 +419,7 @@ namespace SAEA.Http
             }
             else
             {
-                this.SetHeader(ResponseHeaderType.CacheControl, "no-cache");
+                this.Headers["Cache-Control"] = "no-cache";
             }
 
             #endregion
@@ -410,6 +442,46 @@ namespace SAEA.Http
         }
 
         /// <summary>
+        /// 取 Cache-Control 的 Max-Age 值，同一秒数只拼接一次
+        /// </summary>
+        /// <param name="cacheSeconds">缓存秒数</param>
+        /// <returns>形如 Max-Age=60 的报头值</returns>
+        static string GetMaxAgeText(int cacheSeconds)
+        {
+            var cached = Volatile.Read(ref _maxAgeCache);
+
+            if (cached != null && cached.Seconds == cacheSeconds) return cached.Text;
+
+            var text = "Max-Age=" + cacheSeconds;
+
+            Volatile.Write(ref _maxAgeCache, new MaxAgeCacheEntry { Seconds = cacheSeconds, Text = text });
+
+            return text;
+        }
+
+        /// <summary>
+        /// 取 Expires 头值，同一秒内且缓存时长相同时复用上一次的格式化结果
+        /// </summary>
+        /// <param name="now">本次请求取到的时间，秒数相同的 GMT 文本必然相同</param>
+        /// <param name="cacheSeconds">缓存秒数</param>
+        /// <returns>过期时刻的 GMT 文本</returns>
+        static string GetExpiresText(DateTime now, int cacheSeconds)
+        {
+            var second = (int)(now.Ticks / TimeSpan.TicksPerSecond);
+
+            var cached = Volatile.Read(ref _expiresCache);
+
+            if (cached != null && cached.Second == second && cached.CacheSeconds == cacheSeconds)
+                return cached.Text;
+
+            var text = now.AddSeconds(cacheSeconds).ToGMTString();
+
+            Volatile.Write(ref _expiresCache, new ExpiresCacheEntry { Second = second, CacheSeconds = cacheSeconds, Text = text });
+
+            return text;
+        }
+
+        /// <summary>
         /// 按逗号分段解析缓存判定参数，逐段转成整数
         /// </summary>
         /// <param name="cacheCalcResult">逗号分隔的判定参数，如 "-1,-1"</param>
@@ -425,14 +497,17 @@ namespace SAEA.Http
             var start = 0;
 
             // 分段规则与 string.Split(',') 一致：空串算一段、末尾逗号会多出一个空段；
-            // 逐段改用 int.Parse，对前后空格、正负号、非数字与数值越界的处理与 Convert.ToInt32(string) 相同
+            // 常规写法直接按字符解析不产生子串，带空格、显式正号或数值越界的写法退回 int.Parse，
+            // 保证异常类型与数值边界与逐段 int.Parse 完全一致
             while (true)
             {
                 var end = cacheCalcResult.IndexOf(',', start);
 
-                var segment = end < 0 ? cacheCalcResult.Substring(start) : cacheCalcResult.Substring(start, end - start);
+                var length = (end < 0 ? cacheCalcResult.Length : end) - start;
 
-                var value = int.Parse(segment);
+                var value = TryParseInt(cacheCalcResult, start, length, out var parsed)
+                    ? parsed
+                    : int.Parse(cacheCalcResult.Substring(start, length));
 
                 if (count == 0)
                     flag = value;
@@ -447,6 +522,51 @@ namespace SAEA.Http
             }
 
             return count;
+        }
+
+        /// <summary>
+        /// 直接从字符串的指定区间解析十进制整数，不产生子串
+        /// </summary>
+        /// <param name="text">源字符串</param>
+        /// <param name="start">起始位置</param>
+        /// <param name="length">区间长度</param>
+        /// <param name="value">解析结果</param>
+        /// <returns>区间内容是完全由数字组成的十进制整数且在 int 范围内时返回 true；其余情况交由调用方走 int.Parse</returns>
+        static bool TryParseInt(string text, int start, int length, out int value)
+        {
+            value = 0;
+
+            if (length <= 0) return false;
+
+            var index = start;
+
+            var negative = text[index] == '-';
+
+            if (negative || text[index] == '+') index++;
+
+            var digits = start + length - index;
+
+            // 超过 10 位就可能越界，交给 int.Parse 维持原有的 OverflowException 形态
+            if (digits <= 0 || digits > 10) return false;
+
+            long result = 0;
+
+            for (; index < start + length; index++)
+            {
+                var c = text[index];
+
+                if (c < '0' || c > '9') return false;
+
+                result = result * 10 + (c - '0');
+            }
+
+            if (negative) result = -result;
+
+            if (result < int.MinValue || result > int.MaxValue) return false;
+
+            value = (int)result;
+
+            return true;
         }
 
         /// <summary>生成可直接写入传输层的完整响应字节，依次为状态行、报头、空行与报文体。</summary>

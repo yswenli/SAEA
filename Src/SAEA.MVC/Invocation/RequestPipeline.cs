@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 17:29:54
+*修改时间：2026/11/19 19:15:49
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：入口统一把方法名规范成大写后分发，未知方法由 505 改为 501，OPTIONS 只在路径完全未命中时回 404、静态资源仍 204
+*描述：两段式路由只取最后两段并按需建子串，不再每请求切出全部路径分段
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -207,6 +207,68 @@ namespace SAEA.MVC.Invocation
         }
 
         /// <summary>
+        /// 按 "/" 切分请求路径，只取最后两段
+        /// </summary>
+        /// <param name="url">不含 query 的请求路径</param>
+        /// <param name="count">非空分段数，与 string.Split('/') 去掉空段的计数一致</param>
+        /// <param name="controllerName">倒数第二段；分段数不足两段时为 null</param>
+        /// <param name="actionName">最后一段；没有分段时为 null</param>
+        /// <remarks>
+        /// 路由判定只用到总段数与最后两段，其余分段不必各建一个子串
+        /// </remarks>
+        private static void SplitLastTwoSegments(string url, out int count, out string controllerName, out string actionName)
+        {
+            count = 0;
+
+            controllerName = null;
+
+            actionName = null;
+
+            if (string.IsNullOrEmpty(url)) return;
+
+            var lastStart = -1;
+
+            var lastLength = 0;
+
+            var prevStart = -1;
+
+            var prevLength = 0;
+
+            var index = 0;
+
+            while (index < url.Length)
+            {
+                var slash = url.IndexOf('/', index);
+
+                var end = slash < 0 ? url.Length : slash;
+
+                // 连续斜杠与首尾斜杠产生的空段按原语义丢弃
+                if (end > index)
+                {
+                    count++;
+
+                    prevStart = lastStart;
+
+                    prevLength = lastLength;
+
+                    lastStart = index;
+
+                    lastLength = end - index;
+                }
+
+                if (slash < 0) break;
+
+                index = slash + 1;
+            }
+
+            if (count == 0) return;
+
+            actionName = url.Substring(lastStart, lastLength);
+
+            if (count > 1) controllerName = url.Substring(prevStart, prevLength);
+        }
+
+        /// <summary>
         /// 处理 OPTIONS：声明了 [HttpOptions] 就执行该 action，未声明则回 204 并给出已声明的动词，
         /// 不执行普通 action；只有路径完全未命中时才回 404
         /// </summary>
@@ -228,13 +290,13 @@ namespace SAEA.MVC.Invocation
                 }
             }
 
-            var arr = _context.Request.Url.Split("/", StringSplitOptions.RemoveEmptyEntries);
+            SplitLastTwoSegments(_context.Request.Url, out var segmentCount, out var controllerSegment, out var actionSegment);
 
             Type controllerType = null;
 
             var actionName = string.Empty;
 
-            if (arr.Length == 0)
+            if (segmentCount == 0)
             {
                 // 根路径按默认路由的控制器与 action 判定可声明的动词
                 if (_context.WebConfig != null && _context.WebConfig.DefaultRoute != null)
@@ -249,16 +311,16 @@ namespace SAEA.MVC.Invocation
                     actionName = _context.WebConfig.DefaultRoute.Value.ToString();
                 }
             }
-            else if (arr.Length > 1)
+            else if (segmentCount > 1)
             {
-                var controllerName = arr[arr.Length - 2];
+                var controllerName = controllerSegment;
 
                 if (RouteTable.Types != null)
                 {
                     controllerType = RouteTable.Types.Where(b => string.Compare(b.Name, controllerName + ConstHelper.CONTROLLERNAME, true) == 0).FirstOrDefault();
                 }
 
-                actionName = arr[arr.Length - 1];
+                actionName = actionSegment;
             }
 
             if (controllerType != null)
@@ -270,7 +332,7 @@ namespace SAEA.MVC.Invocation
             // 静态资源仍是真实存在的路径，OPTIONS 照旧自动应答 204；只有完全未命中的路径才回 404
             string filePath;
 
-            if (arr.Length == 0)
+            if (segmentCount == 0)
             {
                 // 根路径与 GetActionResultAsync 的路径形状保持一致：按默认首页映射，配置缺失时按未命中处理
                 filePath = _context.WebConfig == null || _context.WebConfig.HomePage == null
@@ -396,13 +458,13 @@ namespace SAEA.MVC.Invocation
                 }
             }
 
-            var arr = url.Split("/", StringSplitOptions.RemoveEmptyEntries);
+            SplitLastTwoSegments(url, out var segmentCount, out var controllerSegment, out var actionSegment);
 
             var filePath = string.Empty;
 
             NameValueCollection nameValues;
 
-            switch (arr.Length)
+            switch (segmentCount)
             {
                 case 0:
 
@@ -453,7 +515,7 @@ namespace SAEA.MVC.Invocation
                     break;
 
                 default:
-                    var controllerName = arr[arr.Length - 2];
+                    var controllerName = controllerSegment;
 
                     if (RouteTable.Types != null && RouteTable.Types.Any())
                     {
@@ -463,7 +525,7 @@ namespace SAEA.MVC.Invocation
                         {
                             nameValues = _context.Request.Parmas.ToNameValueCollection();
 
-                            return await MvcInvoker.InvokeResultAsync(_routeTable, first, arr[arr.Length - 1], nameValues, method).ConfigureAwait(false);
+                            return await MvcInvoker.InvokeResultAsync(_routeTable, first, actionSegment, nameValues, method).ConfigureAwait(false);
                         }
                     }
 

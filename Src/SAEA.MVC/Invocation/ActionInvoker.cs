@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 13:58:19
+*修改时间：2026/11/19 19:15:49
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：新增，承载 action 调用、超时与取消收尾
+*描述：形参与 Result 属性改为按 action 与任务类型缓存，每请求不再重复取反射元数据
 *
 *****************************************************************************/
 using SAEA.Common.NameValue;
@@ -34,6 +34,7 @@ using SAEA.Http.Model;
 using SAEA.MVC.Hosting;
 using SAEA.MVC.Results;
 using System;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -46,6 +47,44 @@ namespace SAEA.MVC.Invocation
     /// </summary>
     internal static class ActionInvoker
     {
+        // 形参与 Result 属性都属于 action 的固定元数据：GetParameters 每次调用都会复制新数组，
+        // GetProperty 每次调用都要重新筛选成员，按 MethodInfo / 任务类型缓存后只读复用
+        static readonly ConcurrentDictionary<MethodInfo, ParameterInfo[]> _parametersCache = new ConcurrentDictionary<MethodInfo, ParameterInfo[]>();
+
+        static readonly ConcurrentDictionary<Type, PropertyInfo> _resultPropertyCache = new ConcurrentDictionary<Type, PropertyInfo>();
+
+        /// <summary>
+        /// 取 action 的形参元数据，同一 action 只获取一次
+        /// </summary>
+        /// <param name="action">目标 action</param>
+        /// <returns>按声明顺序排列的形参数组</returns>
+        static ParameterInfo[] GetParameters(MethodInfo action)
+        {
+            if (_parametersCache.TryGetValue(action, out var cached)) return cached;
+
+            var parameters = action.GetParameters();
+
+            _parametersCache.TryAdd(action, parameters);
+
+            return parameters;
+        }
+
+        /// <summary>
+        /// 取任务对象的 Result 属性，同一任务类型只查找一次
+        /// </summary>
+        /// <param name="taskType">任务运行期类型</param>
+        /// <returns>Result 属性；非泛型任务或找不到时为 null</returns>
+        static PropertyInfo GetResultProperty(Type taskType)
+        {
+            if (_resultPropertyCache.TryGetValue(taskType, out var cached)) return cached;
+
+            var property = taskType.GetProperty("Result");
+
+            _resultPropertyCache.TryAdd(taskType, property);
+
+            return property;
+        }
+
         /// <summary>
         /// 异步代理执行方法：未启用超时时直接等待 action 完成；启用超时时等待完成或到点返回 408
         /// </summary>
@@ -61,7 +100,7 @@ namespace SAEA.MVC.Invocation
             ActionResult result = null;
             object data = null;
 
-            var @params = action.GetParameters();
+            var @params = GetParameters(action);
             int timeoutMs = (int)(GetActionTimeoutSeconds(webConfig) * 1000);
 
             // 只有显式配置 ActionTimeout 才启用超时包装：默认的 Timeout 兜底长达 180 秒，实际不会命中，
@@ -82,7 +121,7 @@ namespace SAEA.MVC.Invocation
 
                 // 创建参数列表
                 object[] parameters = null;
-                if (@params != null && @params.Any())
+                if (@params.Length > 0)
                 {
                     parameters = ParameterBinder.FillParameters(@params, nameValues, cts.Token);
                 }
@@ -111,7 +150,7 @@ namespace SAEA.MVC.Invocation
                         // 任务完成，Task<T> 取 Result，非泛型 Task 没有结果
                         if (action.ReturnType.IsGenericType && action.ReturnType.GetGenericTypeDefinition() == typeof(Task<>))
                         {
-                            var resultProperty = task.GetType().GetProperty("Result");
+                            var resultProperty = GetResultProperty(task.GetType());
                             data = resultProperty?.GetValue(task);
                         }
                     }
@@ -153,7 +192,7 @@ namespace SAEA.MVC.Invocation
                     // 任务完成，Task<T> 取 Result，非泛型 Task 没有结果
                     if (action.ReturnType.IsGenericType && action.ReturnType.GetGenericTypeDefinition() == typeof(Task<>))
                     {
-                        var resultProperty = task.GetType().GetProperty("Result");
+                        var resultProperty = GetResultProperty(task.GetType());
                         data = resultProperty?.GetValue(task);
                     }
                 }

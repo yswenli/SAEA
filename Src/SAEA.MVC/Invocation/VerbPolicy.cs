@@ -23,15 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 16:20:00
+*修改时间：2026/11/19 19:15:49
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：Allow 生成器口径调整：显式声明 OPTIONS 时追加到末位，未声明时不出现；与 RouteSegmentMatcher.CollectAllow 共用 WithExplicitOptions
+*描述：动词特性解析结果按 action 缓存，不再每请求新建特性实例数组
 *
 *****************************************************************************/
 using SAEA.Common;
 using SAEA.MVC.Attributes;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
@@ -43,6 +44,10 @@ namespace SAEA.MVC.Invocation
     /// </summary>
     internal static class VerbPolicy
     {
+        // 动词声明属于 action 的固定元数据：GetCustomAttributes 每次调用都会新建特性实例数组，
+        // 解析一次后按 MethodInfo 复用，返回值只读
+        static readonly ConcurrentDictionary<MethodInfo, string[]> _allowedMethodsCache = new ConcurrentDictionary<MethodInfo, string[]>();
+
         /// <summary>
         /// 读取 action 上声明的动词特性，返回允许的请求方法
         /// </summary>
@@ -52,6 +57,22 @@ namespace SAEA.MVC.Invocation
         {
             if (action == null) return null;
 
+            if (_allowedMethodsCache.TryGetValue(action, out var cached)) return cached;
+
+            var computed = BuildAllowedMethods(action);
+
+            _allowedMethodsCache.TryAdd(action, computed);
+
+            return computed;
+        }
+
+        /// <summary>
+        /// 解析 action 上声明的动词特性
+        /// </summary>
+        /// <param name="action">action 方法</param>
+        /// <returns>按 HttpMethodCatalog.All 顺序去重后的允许方法；未声明任何动词特性时返回 null</returns>
+        static string[] BuildAllowedMethods(MethodInfo action)
+        {
             var methodAttributes = HttpMethodCatalog.FromAttributes(action.GetCustomAttributes(true));
 
             if (methodAttributes.Length == 0) return null;
