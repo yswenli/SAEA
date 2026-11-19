@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 20:10:00
+*修改时间：2026/11/20 10:30:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：新增 ResetForNextRequest 供上下文复用复位，Dispose 释放正文引用避免空闲连接钉住大响应
+*描述：响应成帧改走池化缓冲：新增 TryEncodeToPooled 与整帧写出方法，帧与归还句柄随 RawFrame 一并移交；报头键名与状态行文本改为静态缓存
 *
 *****************************************************************************/
 using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Common.Encryption;
 using SAEA.Http.Base;
 using SAEA.Http.Base.Net;
@@ -90,6 +91,18 @@ namespace SAEA.Http
         // Expires 文本随「当前秒 + 缓存秒数」变化，两者都对上才复用；
         // 每次重算生成一个不可变条目整体替换，避免读到半新半旧的组合
         static ExpiresCacheEntry _expiresCache;
+
+        // 状态行文本只随状态码变化，按码值缓存；数组元素为不可变字符串，并发重复写入同值无副作用
+        const int StatusCodeMin = 100;
+
+        const int StatusCodeMax = 511;
+
+        // 报头键名每请求都要用，缓存一次即可，避免枚举装箱与描述查表
+        static readonly string _connectionKey = ResponseHeaderType.Connection.GetDescription();
+
+        static readonly string _contentLengthKey = ResponseHeaderType.ContentLength.GetDescription();
+
+        static readonly string[] _statusTexts = new string[StatusCodeMax - StatusCodeMin + 1];
 
         /// <summary>
         /// 当前响应关联的连接通道，发送与 WebSocket 升级依赖它
@@ -169,7 +182,7 @@ namespace SAEA.Http
         {
             sink.Text(this.Protocal);
             sink.Text(" ");
-            sink.Text(Status.ToNVString());
+            sink.Text(GetStatusText(this.Status));
             sink.Break();
 
             sink.Line(ConstHelper.ServerName);
@@ -208,6 +221,28 @@ namespace SAEA.Http
                     sink.Break();
                 }
             }
+        }
+
+        /// <summary>
+        /// 取状态行文本，按状态码缓存：报头计量与报头编码各取一次，缓存后每请求不再重复格式化
+        /// </summary>
+        /// <param name="status">响应状态码</param>
+        /// <returns>「状态码 枚举名」形式的文本</returns>
+        static string GetStatusText(HttpStatusCode status)
+        {
+            var code = (int)status;
+            if (code < StatusCodeMin || code > StatusCodeMax)
+                return status.ToNVString();
+
+            var slot = code - StatusCodeMin;
+            var cached = Volatile.Read(ref _statusTexts[slot]);
+            if (cached != null)
+                return cached;
+
+            var text = status.ToNVString();
+            Volatile.Write(ref _statusTexts[slot], text);
+
+            return text;
         }
 
         /// <summary>
@@ -605,32 +640,108 @@ namespace SAEA.Http
                 bodyLen = bdata.Length;
             }
 
-            this.SetHeader(ResponseHeaderType.ContentLength, bodyLen.ToString());
-
-            // 未显式指定时默认关闭连接：未知调用方仍按短连接处理，保持既有安全性。
-            // 键名与 Headers 的比较器都不区分大小写，先判存在再写，避免与调用方设置的值重复。
-            var connectionKey = ResponseHeaderType.Connection.GetDescription();
-            if (!this.Headers.ContainsKey(connectionKey))
-                this.SetHeader(ResponseHeaderType.Connection, "close");
+            PrepareFrameHeaders(bodyLen);
 
             // 报头、空行与报文体一次成帧：长度先算好只分配一次，报头直接编码进目标帧。
-            // 返回的 byte[] 会被调用方继续持有（输出缓存、异步写入），因此不能从 ArrayPool 借出。
+            // 本方法返回的 byte[] 会被调用方长期持有（如 Encode 的返回值），必须精确大小且不能来自池。
             var headerEncoding = Encoding.UTF8;
             var lineLen = _newLineBytes.Length;
             var headerLen = GetHeaderByteCount(headerEncoding, _newLineBytes);
 
-            // HEAD 只回报头：Content-Length 仍按等价 GET 的正文长度给出，帧里不追加正文
-            var sentBodyLen = SuppressBody ? 0 : bodyLen;
+            var result = new byte[headerLen + lineLen + FrameBodyLength(bodyLen)];
 
-            var result = new byte[headerLen + lineLen + sentBodyLen];
-
-            var headerOffset = WriteHeaderBytes(result, 0, headerEncoding, _newLineBytes);
-            Buffer.BlockCopy(_newLineBytes, 0, result, headerOffset, lineLen);
-
-            if (sentBodyLen > 0)
-                Buffer.BlockCopy(bdata, 0, result, headerOffset + lineLen, sentBodyLen);
+            WriteFrame(result, 0, bdata, bodyLen, headerEncoding);
 
             return result;
+        }
+
+        /// <summary>
+        /// 尝试把整帧编码进池化缓冲：成功时调用方按「帧 + 归还句柄」移交，写完成或失败后由接收方释放句柄。
+        /// gzip 正文与超过中型池阈值的帧仍走一次性分配。
+        /// </summary>
+        /// <param name="frame">编码后的完整帧，指向池化缓冲的有效段</param>
+        /// <param name="owner">背衬缓冲的归还句柄，随帧移交给传输层</param>
+        /// <returns>成功编码到池化缓冲返回 true；返回 false 时两个出参均为默认值</returns>
+        internal bool TryEncodeToPooled(out ReadOnlyMemory<byte> frame, out IDisposable owner)
+        {
+            frame = default;
+            owner = null;
+
+            // gzip 压缩结果本身就是新数组，池化省不掉这块分配，直接走一次性分配路径
+            if (_isZiped && this.Body != null)
+                return false;
+
+            var bdata = this.Body;
+            var bodyLen = bdata != null ? bdata.Length : 0;
+
+            PrepareFrameHeaders(bodyLen);
+
+            var headerLen = GetHeaderByteCount(Encoding.UTF8, _newLineBytes);
+            var totalLen = headerLen + _newLineBytes.Length + FrameBodyLength(bodyLen);
+
+            // 大帧归还成本高、池命中率低，一次性分配更稳，也不让大数组滞留在池里
+            if (totalLen > MemoryPoolManager.MediumThreshold)
+                return false;
+
+            var lease = MemoryPoolManager.RentPooled(totalLen);
+
+            try
+            {
+                WriteFrame(lease.Buffer, 0, bdata, bodyLen, Encoding.UTF8);
+            }
+            catch
+            {
+                // 计量与写入不一致时不能把租约带出去，先归还再按原路径抛出
+                lease.Dispose();
+                throw;
+            }
+
+            frame = lease.AsMemory();
+            owner = lease;
+
+            return true;
+        }
+
+        /// <summary>
+        /// 补齐 Content-Length 与默认 Connection 头：两者都要进报头，必须在计量之前完成
+        /// </summary>
+        /// <param name="bodyLen">正文（压缩后）字节长度</param>
+        void PrepareFrameHeaders(int bodyLen)
+        {
+            // 报头键名与 Headers 的比较器都不区分大小写，直接写字典可省掉枚举装箱与描述查表
+            this.Headers[_contentLengthKey] = bodyLen.ToString();
+
+            // 未显式指定时默认关闭连接：未知调用方仍按短连接处理，保持既有安全性。
+            if (!this.Headers.ContainsKey(_connectionKey))
+                this.Headers[_connectionKey] = "close";
+        }
+
+        /// <summary>
+        /// 帧内实际写出的正文字节数：HEAD 只回报头，Content-Length 仍按等价 GET 的长度给出
+        /// </summary>
+        /// <param name="bodyLen">正文（压缩后）字节长度</param>
+        /// <returns>帧里追加的正文长度</returns>
+        int FrameBodyLength(int bodyLen)
+        {
+            return SuppressBody ? 0 : bodyLen;
+        }
+
+        /// <summary>
+        /// 把「报头 + 空行 + 正文」写入目标缓冲，写入内容与 <see cref="BuildHeader"/> 逐字节一致
+        /// </summary>
+        /// <param name="buffer">目标缓冲</param>
+        /// <param name="offset">起始写入位置</param>
+        /// <param name="body">正文字节，可为 null</param>
+        /// <param name="bodyLen">正文字节长度</param>
+        /// <param name="headerEncoding">报头编码</param>
+        void WriteFrame(byte[] buffer, int offset, byte[] body, int bodyLen, Encoding headerEncoding)
+        {
+            var headerOffset = WriteHeaderBytes(buffer, offset, headerEncoding, _newLineBytes);
+            Buffer.BlockCopy(_newLineBytes, 0, buffer, headerOffset, _newLineBytes.Length);
+
+            var sentBodyLen = FrameBodyLength(bodyLen);
+            if (sentBodyLen > 0)
+                Buffer.BlockCopy(body, 0, buffer, headerOffset + _newLineBytes.Length, sentBodyLen);
         }
 
         /// <summary>
@@ -947,7 +1058,22 @@ namespace SAEA.Http
             var channel = Channel;
             if (channel == null) return;
 
-            await SendToHostAsync(channel, this.ToBytes()).ConfigureAwait(false);
+            var webHost = WebHost as WebHost;
+
+            if (webHost != null)
+            {
+                // 帧写进池化缓冲后随帧移交，等发送完成即由传输层归还，避免每请求一次整帧分配
+                if (TryEncodeToPooled(out var frame, out var owner))
+                {
+                    await webHost.SendFrameAsync(channel, frame, owner).ConfigureAwait(false);
+                    return;
+                }
+
+                await webHost.SendAsync(channel, this.ToBytes()).ConfigureAwait(false);
+                return;
+            }
+
+            WebHost.Send(channel, this.ToBytes());
         }
 
         /// <summary>
@@ -974,16 +1100,23 @@ namespace SAEA.Http
             var channel = Channel;
             if (channel == null) return;
 
-            this.SetHeader(ResponseHeaderType.Connection, "close");
-
-            var data = this.ToBytes();
+            this.Headers[_connectionKey] = "close";
 
             var webHost = WebHost as WebHost;
 
             if (webHost != null)
-                await webHost.EndAsync(channel, data).ConfigureAwait(false);
+            {
+                if (TryEncodeToPooled(out var frame, out var owner))
+                {
+                    await webHost.EndFrameAsync(channel, frame, owner).ConfigureAwait(false);
+                    Channel = null;
+                    return;
+                }
+
+                await webHost.EndAsync(channel, this.ToBytes()).ConfigureAwait(false);
+            }
             else
-                WebHost.End(channel, data);
+                WebHost.End(channel, this.ToBytes());
 
             Channel = null;
         }

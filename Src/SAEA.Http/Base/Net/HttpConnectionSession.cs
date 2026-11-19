@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/18 16:07:00
+ *修改时间：2026/11/20 10:30:00
  *修改人： yswenli
  *版本号： v26.11.16.1
- *描述：写出入口拆出异步版本：WriteBytesAsync 开放为 internal，新增吞异常的 WriteBytesSafeAsync 与先写完再关闭的 WriteBytesAndCloseAsync，原同步方法改为阻塞等待同一份实现
+ *描述：新增 WriteFrameSafeAsync、WriteFrameAndCloseAsync 与 WriteFrameAsync：整帧连同归还句柄交给 RawFrame，写出失败或没有管线时归还缓冲
  *
  *****************************************************************************/
 using System;
@@ -258,6 +258,67 @@ namespace SAEA.Http.Base.Net
                 throw new ChannelClosedException("连接尚未完成管线装配，不能发送。");
 
             await pipeline.WriteAsync(new RawFrame(data, null)).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 异步写出一段完整帧，背衬缓冲的所有权随帧移交；写失败只记录，未移交成功的缓冲当场归还。
+        /// </summary>
+        /// <param name="data">待写出的完整帧</param>
+        /// <param name="owner">背衬缓冲的归还句柄</param>
+        /// <returns>写出完成后的任务</returns>
+        internal async Task WriteFrameSafeAsync(ReadOnlyMemory<byte> data, IDisposable owner)
+        {
+            if (data.Length == 0)
+            {
+                owner.Dispose();
+                return;
+            }
+
+            try
+            {
+                await WriteFrameAsync(data, owner).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Debug("HTTP 响应写出失败:" + (Channel == null ? string.Empty : Channel.Id) + "," + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 异步写出一段完整帧，等写真正完成后才请求关闭连接。
+        /// </summary>
+        /// <param name="data">待写出的完整帧</param>
+        /// <param name="owner">背衬缓冲的归还句柄</param>
+        /// <returns>写完成并已提交关闭后的任务</returns>
+        internal async Task WriteFrameAndCloseAsync(ReadOnlyMemory<byte> data, IDisposable owner)
+        {
+            await WriteFrameSafeAsync(data, owner).ConfigureAwait(false);
+
+            Close();
+        }
+
+        private async Task WriteFrameAsync(ReadOnlyMemory<byte> data, IDisposable owner)
+        {
+            var pipeline = Pipeline;
+            if (pipeline == null)
+            {
+                // 没有管线就不可能完成移交，缓冲先归还再抛出，避免池化租约泄漏
+                owner.Dispose();
+                throw new ChannelClosedException("连接尚未完成管线装配，不能发送。");
+            }
+
+            var frame = new RawFrame(data, owner);
+
+            try
+            {
+                await pipeline.WriteAsync(frame).ConfigureAwait(false);
+            }
+            catch
+            {
+                // 链上拒绝时不会替调用方释放，这里补一次；已移交时 Dispose 是空操作
+                frame.Dispose();
+                throw;
+            }
         }
 
         private async Task SendRawCoreAsync(byte[] data)

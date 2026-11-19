@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 16:08:00
+*修改时间：2026/11/20 10:30:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：新增 SendAsync 与 EndAsync，写出过程交给连接会话异步完成；原 Send/End 改为阻塞等待同一份实现，写失败仍只记日志不抛
+*描述：新增 SendFrameAsync 与 EndFrameAsync，接收池化帧并连同归还句柄交给连接会话，写出路径不再整帧分配
 *
 *****************************************************************************/
 using System;
@@ -241,6 +241,26 @@ namespace SAEA.Http
         }
 
         /// <summary>
+        /// 异步发送池化帧，不关闭连接；缓冲所有权随帧移交，写完成、失败或拒绝时都由接收方释放
+        /// </summary>
+        /// <param name="channel">连接通道</param>
+        /// <param name="data">待发送的完整帧</param>
+        /// <param name="owner">背衬缓冲的归还句柄</param>
+        /// <returns>写出完成后的任务</returns>
+        internal Task SendFrameAsync(IChannel channel, ReadOnlyMemory<byte> data, IDisposable owner)
+        {
+            var session = HttpConnectionSession.TryGet(channel);
+            if (session == null)
+            {
+                // 没有会话就没有接收方，缓冲当场归还，不能让调用方背着一个池化租约收工
+                owner.Dispose();
+                return Task.CompletedTask;
+            }
+
+            return session.WriteFrameSafeAsync(data, owner);
+        }
+
+        /// <summary>
         /// 结束
         /// </summary>
         /// <param name="channel">连接通道</param>
@@ -291,6 +311,25 @@ namespace SAEA.Http
                 return Task.CompletedTask;
 
             return session.WriteBytesAndCloseAsync(data);
+        }
+
+        /// <summary>
+        /// 异步发送池化帧并在写完成后关闭连接；缓冲所有权随帧移交，关闭与否都会归还
+        /// </summary>
+        /// <param name="channel">连接通道</param>
+        /// <param name="data">待发送的完整帧</param>
+        /// <param name="owner">背衬缓冲的归还句柄</param>
+        /// <returns>写出完成并已提交关闭后的任务</returns>
+        internal Task EndFrameAsync(IChannel channel, ReadOnlyMemory<byte> data, IDisposable owner)
+        {
+            var session = HttpConnectionSession.TryGet(channel);
+            if (session == null)
+            {
+                owner.Dispose();
+                return Task.CompletedTask;
+            }
+
+            return session.WriteFrameAndCloseAsync(data, owner);
         }
 
         /// <summary>
