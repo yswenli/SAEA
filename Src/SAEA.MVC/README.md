@@ -249,6 +249,7 @@ public class ArticleController : Controller
 - `[Route]` 不限动词；任一动词特性限定为对应动词，属性路由与两段式两条路径按同一口径判定。
 - 属性路由路径命中但动词不符时返回 **405 Method Not Allowed**，响应头 `Allow` 列出该路径声明的动词（规则见下方「Allow 头」），不会回落到两段式。
 - 该路径完全没有属性路由条目时不算冲突，继续走两段式。
+- 方法名大小写不敏感：框架入口统一把请求方法规范成大写再分发，请求行里的 `get` / `options` 与全大写等价；无法识别的方法（如 `TRACE`）返回 **501 Not Implemented**，而不是 505。
 - 两段式 action 没有任何动词特性时不限动词，GET/POST/PUT/DELETE/PATCH/HEAD 全部放行，OPTIONS 由框架按 204 + `Allow` 应答；声明了一个或多个时，允许动词取声明的并集，请求方法与允许集合忽略大小写比较，不符时返回 **405 Method Not Allowed** 并带 `Allow`，action、过滤器与 WebSocket 入口都不执行。`WebConfig.DefaultRoute` 默认路由与 `/{Controller}/{Action}` 两条两段式分支都生效。
 
 ### Allow 头
@@ -267,6 +268,7 @@ public class ArticleController : Controller
 - 显式 `[HttpHead]` 优先于 GET 别名：同一路径同时声明 `[HttpGet]` 与 `[HttpHead]` 时，HEAD 请求执行 `[HttpHead]` 的 action；只有没有显式 `[HttpHead]` 时才回落到 GET 的 action。
 - **OPTIONS**：先匹配显式 `[HttpOptions]` action，命中就正常执行；没有声明时返回 **204 No Content** 并带 `Allow` 头，`Allow` 按上方规则生成。未声明任何动词特性的 action 收到 OPTIONS 也不会被执行，同样返回 204 + `Allow`。
 - OPTIONS 不再像以前那样在进入路由前直接返回空响应短路：现在先路由，命中 `[HttpOptions]` 就交给它，否则由框架按 `Allow` 统一应答。
+- 完全未命中的路径收到 OPTIONS 返回 **404 Not Found**；命中的是静态文件时仍按 204 自动应答（静态资源是真实存在的路径，不做 404）。
 - `[Route]` 与显式 `[HttpHead]` / `[HttpOptions]` 可以在同一路径共存：启动期冲突检测里，只带 `[Route]` 的条目只占用 GET/POST/PUT/DELETE/PATCH 五个动词键，不占用 HEAD 与 OPTIONS。
 - 与 `[HttpHead]` 共存时 HEAD 命中显式 action，其余动词仍走 `[Route]` 条目；与 `[HttpOptions]` 共存时 OPTIONS 命中显式 action，其余动词仍走 `[Route]` 条目，这类路径不会产生 405。
 
@@ -331,7 +333,7 @@ RouteEntry put = table.GetOrAdd(typeof(HomeController), "Index", "PUT");
 升级时注意两条行为变化：
 
 - **405 的 `Allow` 增加 `HEAD`**：属性路由与两段式的 405 响应中，声明 GET 的路径现在会同时列出 `HEAD`（如 `Allow: GET, HEAD`）。
-- **OPTIONS 行为改变**：以前 OPTIONS 在进入路由前直接返回空响应；现在先路由，命中 `[HttpOptions]` 就执行，否则返回 204 + `Allow`。依赖「OPTIONS 一律空响应」的客户端或中间件需要复核。
+- **OPTIONS 行为改变**：以前 OPTIONS 在进入路由前直接返回空响应；现在先路由，命中 `[HttpOptions]` 就执行它，未声明但路径存在（含静态资源）返回 204 + `Allow`，路径完全未命中返回 404。依赖「OPTIONS 一律空响应」的客户端或中间件需要复核。
 
 已知限制：
 

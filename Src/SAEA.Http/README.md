@@ -68,7 +68,7 @@ curl http://localhost:28080/api/test
 | 特性 | 说明 | 优势 |
 |------|------|------|
 | 🚀 **跨平台异步 IO** | 基于 SAEA.Sockets 异步 IO | 面向高并发请求场景，低延迟 |
-| 📡 **标准 HTTP 方法** | GET/POST/PUT/DELETE/OPTIONS | 完整 RESTful 支持 |
+| 📡 **标准 HTTP 方法** | GET/POST/PUT/DELETE/PATCH/HEAD/OPTIONS（HEAD 只回报头） | 完整 RESTful 支持 |
 | 📁 **静态文件服务** | 自动缓存、分块传输 | 大文件高效传输，内存优化 |
 | 📤 **文件上传** | multipart/form-data 解析 | 轻松处理文件上传 |
 | 🔒 **Session 管理** | HttpSession + Manager | 会话状态追踪，超时清理 |

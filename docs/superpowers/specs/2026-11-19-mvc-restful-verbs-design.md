@@ -72,6 +72,7 @@ public sealed class HttpGetAttribute : HttpMethodAttribute
 - 匹配按「路径 + 谓词」进行：同一路径形状下，各 action 按各自声明的谓词入库。
 - 路径命中但谓词不符返回 405，`Allow` 取该路径上所有显式声明谓词的并集；不回落到两段式。
 - 判断谓词时统一忽略大小写（`OrdinalIgnoreCase`），与请求行里的方法写法无关。
+- 入口统一把方法名规范成大写后再分发；请求行写成 `get` / `options` 与全大写等价，不会因为大小写不同而被拒。
 - 只声明 `[Route]`、没有任何谓词特性的条目对 6 个可声明谓词放行：GET/POST/PUT/DELETE/PATCH/HEAD 都执行该 action；OPTIONS 不执行，交由框架回 204 + `Allow`，`Allow` 给全 6 项 `GET, HEAD, POST, PUT, DELETE, PATCH`。
 - 冲突检测按「路径形状 + 动词」建键：只声明 `[Route]` 的条目只占用 GET/POST/PUT/DELETE/PATCH 五个动词键，不占用 HEAD 与 OPTIONS，因此可与同路径的显式 `[HttpHead]` / `[HttpOptions]` 共存。与 `[HttpHead]` 共存时 HEAD 命中显式 action，其余动词仍走 `[Route]` 条目；与 `[HttpOptions]` 共存时 OPTIONS 命中显式 action，其余动词仍走 `[Route]` 条目，这类路径不会产生 405。
 
@@ -124,11 +125,13 @@ public sealed class HttpGetAttribute : HttpMethodAttribute
 2. 命中显式 `[HttpOptions]` action：照常执行 action 与过滤器，返回它的结果。
 3. 未声明 `[HttpOptions]`：由框架应答 `204 No Content`，写入 `Allow` 头（按 4.3 生成），不执行任何 action。
 4. 未声明任何谓词特性的 action 收到 OPTIONS 同样不执行，走第 3 步。
-5. 路径完全未命中：仍按 404 处理。
+5. 路径完全未命中：按 404 处理；命中的是静态文件时仍回 204 自动应答（静态资源是真实存在的路径，不做 404）。
 
 ### 6.2 与旧行为差异
 
 以前 OPTIONS 在进入路由前直接返回空响应，既不读路由也不生成 `Allow`。现在 OPTIONS 进入正常路由流程，因此：路径不存在时是 404 而不是空 200；未声明 `[HttpOptions]` 的已注册路径一定会带 `Allow`；显式 `[HttpOptions]` 可以接管预检逻辑。
+
+无法识别的方法名（如 `TRACE`）不进入上述流程，由入口直接返回 501 Not Implemented。505 表示 HTTP 版本不受支持，与「方法不认识」语义不同，不能用它作答。
 
 ## 7. 公开 API 变化与兼容性
 

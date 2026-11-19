@@ -68,7 +68,7 @@ curl http://localhost:28080/api/test
 | Feature | Description | Benefit |
 |---------|-------------|---------|
 | 🚀 **Cross-platform async IO** | Built on SAEA.Sockets async IO | Low latency under high concurrency |
-| 📡 **Standard HTTP methods** | GET/POST/PUT/DELETE/OPTIONS | Full RESTful support |
+| 📡 **Standard HTTP methods** | GET/POST/PUT/DELETE/PATCH/HEAD/OPTIONS (HEAD returns headers only) | Full RESTful support |
 | 📁 **Static files** | Automatic caching, chunked transfer | Efficient large-file delivery |
 | 📤 **File upload** | multipart/form-data parsing | Uploads without manual parsing |
 | 🔒 **Session management** | HttpSession + Manager | State tracking with idle expiry |
