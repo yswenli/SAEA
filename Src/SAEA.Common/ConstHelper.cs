@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 17:05:40
+*修改时间：2026/11/19 18:21:44
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：新增 PATCH、HEAD 方法名常量，并同步控制器与输出缓存特性全名
+*描述：CORS 默认方法清单补 PATCH/HEAD，与 MVC 放行的六谓词对齐
 *
 *****************************************************************************/
 using System;
@@ -278,7 +278,7 @@ namespace SAEA.Common
                 {
                     var builder = new StringBuilder();
                     //支持跨域
-                    builder.AppendLine("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+                    builder.AppendLine("Access-Control-Allow-Methods: GET, HEAD, POST, PUT, DELETE, PATCH, OPTIONS");
                     builder.AppendLine("Access-Control-Allow-Origin: *");
                     builder.Append("Access-Control-Allow-Headers: Content-Type,X-Requested-With,Accept,Authorization,token,yswenli");//可自行增加额外的header
                     if (_crossDomainHeaders.Any())
@@ -290,7 +290,7 @@ namespace SAEA.Common
                         }
                     }
                     builder.AppendLine();
-                    builder.AppendLine("Access-Control-Request-Methods: GET, POST, PUT, DELETE, OPTIONS");
+                    builder.AppendLine("Access-Control-Request-Methods: GET, HEAD, POST, PUT, DELETE, PATCH, OPTIONS");
                     _crossDomain = builder.ToString();
                 }
                 return _crossDomain;
