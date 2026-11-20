@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 20:00:41
+*修改时间：2026/11/20 17:10:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：补充并发不同秒数下 Max-Age 不错配的用例，覆盖秒数与文本分两次读写的竞态窗口
+*描述：Expires 解析改为按 UTC 处理并与 DateTime.UtcNow 比较，配套 ToGMTString 换算到 UTC 的修正
 *
 *****************************************************************************/
 using System;
@@ -142,7 +142,7 @@ namespace SAEA.Http.Tests
             var firstExpires = ParseGmt(Read(first, "Expires"));
             var secondExpires = ParseGmt(Read(second, "Expires"));
 
-            var offset = (firstExpires - DateTime.Now).TotalSeconds;
+            var offset = (firstExpires - DateTime.UtcNow).TotalSeconds;
 
             Assert.IsTrue(offset > 55 && offset <= 65, "Expires 应为当前时刻加 60 秒，实际偏移：" + offset);
 
@@ -166,7 +166,7 @@ namespace SAEA.Http.Tests
 
             Assert.AreEqual("Max-Age=30", fresh.Headers[CacheControlKey], "秒数变化后 Max-Age 必须重算，实际值：" + Read(fresh, CacheControlKey));
 
-            var offset = (ParseGmt(Read(fresh, "Expires")) - DateTime.Now).TotalSeconds;
+            var offset = (ParseGmt(Read(fresh, "Expires")) - DateTime.UtcNow).TotalSeconds;
 
             Assert.IsTrue(offset > 25 && offset <= 35, "秒数变化后 Expires 必须按新时长重算，实际偏移：" + offset);
         }
@@ -280,11 +280,12 @@ namespace SAEA.Http.Tests
         }
 
         /// <summary>
-        /// 按 RFC1123 解析报头里的 GMT 文本，不做时区换算：服务端写出的就是本地时钟值
+        /// 按 RFC1123 解析报头里的 GMT 文本：报头里的 GMT 文本是 UTC，解析时按 UTC 处理
         /// </summary>
         private static DateTime ParseGmt(string value)
         {
-            return DateTime.ParseExact(value, "r", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None);
+            return DateTime.ParseExact(value, "r", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal);
         }
     }
 }

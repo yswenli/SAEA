@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:40:45
+*修改时间：2026/11/20 17:10:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.16.1
+*描述：ToGMTString 先换算到 UTC 再格式化，修正报头写出带 GMT 后缀的本地时钟值
 *
 *****************************************************************************/
 using System;
@@ -133,11 +133,12 @@ namespace SAEA.Common
         /// <summary>
         /// 将日期时间转换为GMT格式的字符串
         /// </summary>
-        /// <param name="dt">要转换的日期时间</param>
-        /// <returns>GMT格式的日期时间字符串</returns>
+        /// <param name="dt">要转换的日期时间；Kind 为 Utc 时原样输出，Local 与 Unspecified 均按 .NET 约定视为本地时间换算为 UTC，与 DateTime.ToUniversalTime 的行为一致</param>
+        /// <returns>RFC1123 格式的 UTC 文本，如 Fri, 20 Nov 2026 08:10:00 GMT</returns>
         public static string ToGMTString(this DateTime dt)
         {
-            return dt.ToString("r", CultureInfo.InvariantCulture);
+            // "r" 只按原样格式化时钟字段并追加 GMT 字面量，Kind 为 Local 时会写出带 GMT 后缀的本地时间
+            return dt.ToUniversalTime().ToString("r", CultureInfo.InvariantCulture);
         }
 
         /// <summary>
