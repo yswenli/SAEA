@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 19:15:49
+*修改时间：2026/11/20 09:30:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：形参与 Result 属性改为按 action 与任务类型缓存，每请求不再重复取反射元数据
+*描述：action 调用与 Task<T> 结果读取改为按 action 缓存的编译委托，编译失败时永久回退反射调用
 *
 *****************************************************************************/
 using SAEA.Common.NameValue;
@@ -36,6 +36,7 @@ using SAEA.MVC.Results;
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -52,6 +53,10 @@ namespace SAEA.MVC.Invocation
         static readonly ConcurrentDictionary<MethodInfo, ParameterInfo[]> _parametersCache = new ConcurrentDictionary<MethodInfo, ParameterInfo[]>();
 
         static readonly ConcurrentDictionary<Type, PropertyInfo> _resultPropertyCache = new ConcurrentDictionary<Type, PropertyInfo>();
+
+        // 调用委托同样属于 action 的固定信息：首次调用时编译并缓存，之后只做一次字典查找。
+        // 编译失败时把委托留空即为「不可编译」标记，该 action 之后永久走 MethodInfo.Invoke
+        static readonly ConcurrentDictionary<MethodInfo, ActionCallSite> _callSiteCache = new ConcurrentDictionary<MethodInfo, ActionCallSite>();
 
         /// <summary>
         /// 取 action 的形参元数据，同一 action 只获取一次
@@ -86,6 +91,275 @@ namespace SAEA.MVC.Invocation
         }
 
         /// <summary>
+        /// 单个 action 的调用站点：编译委托（为空表示不可编译，走反射回退）与任务结果读取委托
+        /// </summary>
+        sealed class ActionCallSite
+        {
+            internal readonly MethodInfo Action;
+
+            internal readonly bool HasTaskResult;
+
+            internal readonly Func<object, object> NoArgInvoker;
+
+            internal readonly Func<object, object[], object> ArgsInvoker;
+
+            internal readonly Func<object, object> ResultReader;
+
+            internal ActionCallSite(MethodInfo action, bool hasTaskResult, Func<object, object> noArgInvoker, Func<object, object[], object> argsInvoker, Func<object, object> resultReader)
+            {
+                Action = action;
+                HasTaskResult = hasTaskResult;
+                NoArgInvoker = noArgInvoker;
+                ArgsInvoker = argsInvoker;
+                ResultReader = resultReader;
+            }
+        }
+
+        /// <summary>
+        /// 取 action 的调用站点，同一 action 只构建一次
+        /// </summary>
+        /// <param name="action">目标 action</param>
+        /// <returns>含编译委托或回退标记的调用站点</returns>
+        static ActionCallSite GetCallSite(MethodInfo action)
+        {
+            if (_callSiteCache.TryGetValue(action, out var cached)) return cached;
+
+            var callSite = CreateCallSite(action);
+
+            _callSiteCache.TryAdd(action, callSite);
+
+            // 并发首次调用可能各建一份等价的委托，以先写入的那份为准，保证后续只读同一副本
+            return _callSiteCache.TryGetValue(action, out cached) ? cached : callSite;
+        }
+
+        /// <summary>
+        /// 构建调用站点：能编译就编译，编译失败只留回退标记
+        /// </summary>
+        /// <param name="action">目标 action</param>
+        /// <returns>构建好的调用站点</returns>
+        static ActionCallSite CreateCallSite(MethodInfo action)
+        {
+            var parameters = GetParameters(action);
+
+            var hasTaskResult = action.ReturnType != null && action.ReturnType.IsGenericType && action.ReturnType.GetGenericTypeDefinition() == typeof(Task<>);
+
+            Func<object, object> noArgInvoker = null;
+
+            Func<object, object[], object> argsInvoker = null;
+
+            Func<object, object> resultReader = null;
+
+            if (CanCompile(action))
+            {
+                try
+                {
+                    if (parameters.Length == 0)
+                        noArgInvoker = CompileNoArgInvoker(action);
+                    else
+                        argsInvoker = CompileArgsInvoker(action, parameters);
+                }
+                catch (Exception)
+                {
+                    // 编译失败不再重试：委托保持为 null，该 action 后续调用全部走反射回退
+                    noArgInvoker = null;
+
+                    argsInvoker = null;
+                }
+
+                if (hasTaskResult)
+                {
+                    try
+                    {
+                        resultReader = CompileResultReader(action.ReturnType.GetGenericArguments()[0]);
+                    }
+                    catch (Exception)
+                    {
+                        // 结果读取编译失败只影响取值方式，回退到 Result 属性反射读取
+                        resultReader = null;
+                    }
+                }
+            }
+
+            return new ActionCallSite(action, hasTaskResult, noArgInvoker, argsInvoker, resultReader);
+        }
+
+        /// <summary>
+        /// 判断 action 是否适合编译委托：不适合的形态直接走反射，避免改变原有语义
+        /// </summary>
+        /// <param name="action">目标 action</param>
+        /// <returns>可以编译时返回 true</returns>
+        static bool CanCompile(MethodInfo action)
+        {
+            if (action == null || action.DeclaringType == null) return false;
+
+            // 非 public 成员或不可见类型在动态代码里可能受访问权限限制，交给反射
+            if (!action.IsPublic || !action.DeclaringType.IsVisible) return false;
+
+            // 静态方法需要 null 目标，而调用点始终传入控制器实例，保留反射调用以免改变目标语义
+            if (action.IsStatic) return false;
+
+            if (action.ContainsGenericParameters) return false;
+
+            if (action.ReturnType == null || action.ReturnType.IsByRef || action.ReturnType.IsPointer) return false;
+
+            var parameters = GetParameters(action);
+
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                var parameterType = parameters[i].ParameterType;
+
+                // byref（ref/out）与指针形参无法从 object 拆箱成目标类型，交给反射处理
+                if (parameterType.IsByRef || parameterType.IsPointer) return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 编译无参 action 的调用委托
+        /// </summary>
+        /// <param name="action">目标 action</param>
+        /// <returns>入参为控制器实例、返回装箱结果的委托</returns>
+        static Func<object, object> CompileNoArgInvoker(MethodInfo action)
+        {
+            var instance = Expression.Parameter(typeof(object), "instance");
+
+            var call = Expression.Call(Expression.Convert(instance, action.DeclaringType), action);
+
+            return Expression.Lambda<Func<object, object>>(BoxCall(action.ReturnType, call), instance).Compile();
+        }
+
+        /// <summary>
+        /// 编译有参 action 的调用委托
+        /// </summary>
+        /// <param name="action">目标 action</param>
+        /// <param name="parameters">按声明顺序排列的形参元数据</param>
+        /// <returns>入参为控制器实例与实参数组、返回装箱结果的委托</returns>
+        static Func<object, object[], object> CompileArgsInvoker(MethodInfo action, ParameterInfo[] parameters)
+        {
+            var instance = Expression.Parameter(typeof(object), "instance");
+
+            var args = Expression.Parameter(typeof(object[]), "args");
+
+            var callArgs = new Expression[parameters.Length];
+
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                // 与 MethodInfo.Invoke 一样按声明顺序把实参数组元素转成对应形参类型
+                callArgs[i] = Expression.Convert(Expression.ArrayIndex(args, Expression.Constant(i)), parameters[i].ParameterType);
+            }
+
+            var call = Expression.Call(Expression.Convert(instance, action.DeclaringType), action, callArgs);
+
+            return Expression.Lambda<Func<object, object[], object>>(BoxCall(action.ReturnType, call), instance, args).Compile();
+        }
+
+        /// <summary>
+        /// 把 action 调用结果统一转成 object：void 与反射调用一致返回 null
+        /// </summary>
+        /// <param name="returnType">action 的返回类型</param>
+        /// <param name="call">已构造的调用表达式</param>
+        /// <returns>返回 object 的表达式</returns>
+        static Expression BoxCall(Type returnType, MethodCallExpression call)
+        {
+            if (returnType == typeof(void))
+                return Expression.Block(call, Expression.Constant(null, typeof(object)));
+
+            return Expression.Convert(call, typeof(object));
+        }
+
+        /// <summary>
+        /// 编译 Task&lt;T&gt; 的结果读取委托
+        /// </summary>
+        /// <param name="resultType">任务的泛型结果类型</param>
+        /// <returns>入参为任务对象、返回装箱结果的委托</returns>
+        static Func<object, object> CompileResultReader(Type resultType)
+        {
+            var taskType = typeof(Task<>).MakeGenericType(resultType);
+
+            var task = Expression.Parameter(typeof(object), "task");
+
+            // 只有任务已完成才会读取结果，这里直接取 Result，不再等待也不再抛任务包装异常
+            var result = Expression.Property(Expression.Convert(task, taskType), "Result");
+
+            return Expression.Lambda<Func<object, object>>(Expression.Convert(result, typeof(object)), task).Compile();
+        }
+
+        /// <summary>
+        /// 执行 action：有编译委托时直接调用，否则回退到反射调用
+        /// </summary>
+        /// <param name="callSite">本次 action 的调用站点</param>
+        /// <param name="obj">控制器实例</param>
+        /// <param name="parameters">实参数组；无参 action 为 null</param>
+        /// <returns>action 的返回值</returns>
+        static object InvokeAction(ActionCallSite callSite, object obj, object[] parameters)
+        {
+            if (parameters == null || parameters.Length == 0)
+            {
+                var noArgInvoker = callSite.NoArgInvoker;
+
+                if (noArgInvoker != null)
+                {
+                    try
+                    {
+                        return noArgInvoker(obj);
+                    }
+                    catch (Exception ex)
+                    {
+                        // 编译委托没有反射的异常外壳，这里补一层同类型外壳，异常链与 500 文案保持与反射调用一致
+                        throw new TargetInvocationException(ex);
+                    }
+                }
+            }
+            else
+            {
+                var argsInvoker = callSite.ArgsInvoker;
+
+                if (argsInvoker != null)
+                {
+                    try
+                    {
+                        return argsInvoker(obj, parameters);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new TargetInvocationException(ex);
+                    }
+                }
+            }
+
+            // 回退路径与优化前完全一致，包括 TargetInvocationException 的形态
+            return callSite.Action.Invoke(obj, parameters);
+        }
+
+        /// <summary>
+        /// 读取已完成任务的结果：优先用编译委托，委托缺席或取值失败时回退到 Result 属性反射
+        /// </summary>
+        /// <param name="callSite">本次 action 的调用站点</param>
+        /// <param name="task">已完成的任务</param>
+        /// <returns>任务结果；非泛型任务为 null</returns>
+        static object GetTaskResult(ActionCallSite callSite, Task task)
+        {
+            var resultReader = callSite.ResultReader;
+
+            if (resultReader != null)
+            {
+                try
+                {
+                    return resultReader(task);
+                }
+                catch (Exception)
+                {
+                    // 任务类型与声明不符等情况下转为反射读取，取值语义以 Result 属性为准
+                }
+            }
+
+            var resultProperty = GetResultProperty(task.GetType());
+
+            return resultProperty?.GetValue(task);
+        }
+
+        /// <summary>
         /// 异步代理执行方法：未启用超时时直接等待 action 完成；启用超时时等待完成或到点返回 408
         /// </summary>
         /// <param name="action">目标 action</param>
@@ -101,6 +375,10 @@ namespace SAEA.MVC.Invocation
             object data = null;
 
             var @params = GetParameters(action);
+
+            // 调用站点（编译委托或回退标记）按 action 缓存，首次请求建好，之后每请求只做一次字典查找
+            var callSite = GetCallSite(action);
+
             int timeoutMs = (int)(GetActionTimeoutSeconds(webConfig) * 1000);
 
             // 只有显式配置 ActionTimeout 才启用超时包装：默认的 Timeout 兜底长达 180 秒，实际不会命中，
@@ -134,7 +412,7 @@ namespace SAEA.MVC.Invocation
                     // 快路径：不设超时。同步 action 直接调用，异步 action 真正 await，等待期间不占用线程
                     if (isAsync)
                     {
-                        var task = (Task)action.Invoke(obj, parameters);
+                        var task = (Task)InvokeAction(callSite, obj, parameters);
 
                         try
                         {
@@ -148,17 +426,16 @@ namespace SAEA.MVC.Invocation
                         }
 
                         // 任务完成，Task<T> 取 Result，非泛型 Task 没有结果
-                        if (action.ReturnType.IsGenericType && action.ReturnType.GetGenericTypeDefinition() == typeof(Task<>))
+                        if (callSite.HasTaskResult)
                         {
-                            var resultProperty = GetResultProperty(task.GetType());
-                            data = resultProperty?.GetValue(task);
+                            data = GetTaskResult(callSite, task);
                         }
                     }
                     else
                     {
                         try
                         {
-                            data = action.Invoke(obj, parameters);
+                            data = InvokeAction(callSite, obj, parameters);
                         }
                         catch (Exception ex)
                         {
@@ -170,7 +447,7 @@ namespace SAEA.MVC.Invocation
                 else if (isAsync)
                 {
                     // 处理异步方法
-                    var task = (Task)action.Invoke(obj, parameters);
+                    var task = (Task)InvokeAction(callSite, obj, parameters);
 
                     // 等待任务完成或超时
                     if (!await WaitWithTimeoutAsync(task, timeoutMs).ConfigureAwait(false))
@@ -190,16 +467,15 @@ namespace SAEA.MVC.Invocation
                     RethrowLikeWait(task);
 
                     // 任务完成，Task<T> 取 Result，非泛型 Task 没有结果
-                    if (action.ReturnType.IsGenericType && action.ReturnType.GetGenericTypeDefinition() == typeof(Task<>))
+                    if (callSite.HasTaskResult)
                     {
-                        var resultProperty = GetResultProperty(task.GetType());
-                        data = resultProperty?.GetValue(task);
+                        data = GetTaskResult(callSite, task);
                     }
                 }
                 else
                 {
                     // 处理同步方法
-                    var task = Task.Run(() => action.Invoke(obj, parameters));
+                    var task = Task.Run(() => InvokeAction(callSite, obj, parameters));
 
                     // 等待任务完成或超时
                     if (!await WaitWithTimeoutAsync(task, timeoutMs).ConfigureAwait(false))
