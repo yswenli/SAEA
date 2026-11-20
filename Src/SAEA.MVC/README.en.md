@@ -519,74 +519,87 @@ ActionResult ──┬── JsonResult ────────► JSON Seriali
 
 ### Measured on one machine (reference)
 
-The table below is one snapshot from a loopback load test. The site under test is a SAEA.MVC application assembled on top of SAEA.Http; SAEA.Http as a standalone server has not been benchmarked separately.
+The snapshot below comes from one round of same-machine load testing. The site under test is a SAEA.MVC application assembled on top of SAEA.Http; SAEA.Http as a standalone server has not been benchmarked separately. Each of the six cells was run 3 times and the table reports the median.
 
-| Scenario | Result |
-|---|---:|
-| HTTP serial (5,000 requests, short connections) | 943 RPS |
-| HTTP 16 concurrent (10 s) | 4,140 RPS |
-| HTTP 64 concurrent (10 s) | 3,529 RPS |
-| HTTPS serial (2,000 requests, short connections) | 220 RPS |
-| Static 100 KB serial (memory cache hit) | 529 RPS / 51.7 MiB/s |
-| WebSocket single-connection echo | 7,078 msg/s |
+| Scenario | RPS | p50 / p99 |
+|---|---:|---:|
+| HTTP serial (5,000 requests, short connections) | 1,144 | 0.70 / 1.78 ms |
+| HTTP 16 concurrent (10 s, short connections) | 5,830 | 2.11 / 12.36 ms |
+| HTTP 64 concurrent (10 s, short connections) | 5,408 | 10.10 / 27.72 ms |
+| HTTPS serial (2,000 requests, short connections) | 203 | 4.51 / 8.13 ms |
+| Static 100 KB serial (memory cache hit) | 345 RPS / 33.7 MiB·s⁻¹ | 2.51 / 4.41 ms |
+| WebSocket single-connection echo | 7,892 msg/s | 0.12 / 0.22 ms |
 
-How to read these numbers:
+Scope and boundaries:
 
-- Client and server ran on the same machine in the same process over IPv4 loopback; under concurrency the load generator is itself a bottleneck (in this run 64-concurrent RPS is 0.85x the 16-concurrent figure), so it does not indicate the server's scaling limit.
-- This group was measured on short connections (one TCP connection per request) and does not represent throughput under the default keep-alive; for the connection policy see the keep-alive benchmark section below.
-- Self-signed certificate with TLS 1.2 fixed and certificate validation skipped; static files are served from the in-memory cache, so this is not the first-read or large-file chunked path.
-- Single-run snapshot: the same probe varies 20%–35% between runs (another run on this machine measured 749 RPS HTTP serial, 183 RPS HTTPS serial, 515 RPS static 100 KB serial and 5,782 msg/s WebSocket single connection). Use it only for relative comparison within one run, never as a production absolute value or for cross-framework comparison.
+- The whole group is measured on **short connections**: each request opens its own connection, carries `Connection: close` and reads to EOF; for the keep-alive basis see the next section.
+- Client and server run in two separate processes over IPv4 loopback on the same machine; HTTPS uses a self-signed certificate, TLS 1.2 fixed and certificate validation skipped; static files are served from the in-memory cache, so this is not the first-read or large-file chunked path.
+- Raw values per round: HTTP serial 1,153 / 1,144 / 1,138; 16 concurrency 5,830 / 5,380 / 5,831; 64 concurrency 5,408 / 5,326 / 5,795; HTTPS 213 / 165 / 203; static 345 / 281 / 421 (33.7 / 27.4 / 41.1 MiB·s⁻¹); WebSocket 7,892 / 5,752 / 8,127 msg/s. HTTPS does one handshake per request and the static cell has only 300 samples, so these two cells vary most between rounds.
+- Both concurrency cells had 1–8 connections out of every 30,000–60,000 receive no response (about 1×10⁻⁴, showing up as `unexpected EOF before response header` or an RST at teardown), and the RPS denominator is the number of requests actually completed. The same load generator at the same concurrency against a Kestrel minimal API completed 33,951 short connections with 0 failures, which located the problem in the SAEA connection layer rather than the load generator: a disconnect left over from the previous connection closed the socket of a new connection after its token had already been recycled and reused. The table above was collected before the fix. After the fix the same load generator completed 1,000,000 short connections at concurrency 64 / 128 / 256 with 0 no-response failures (1 connection at concurrency 128 failed locally in the client at `connect` because it ran out of local socket resources, so no request was sent).
+- Single-round snapshot: the same probe varies 20%–35% between rounds (the two concurrency cells differ by about 8% across their three repeats), so use it only for relative comparison within one run, never as a production absolute value, and never for cross-framework comparison.
 
-Full data, failure rates and resource usage: [MVC / TLS acceptance record](../../docs/superpowers/plans/2026-11-13-mvc-tls-acceptance.md).
+The historical acceptance record (old version, old methodology) is at [MVC / TLS acceptance record](../../docs/superpowers/plans/2026-11-13-mvc-tls-acceptance.md).
 
 ### Keep-alive benchmark (process-isolated)
 
-This round runs the load generator and the server in separate processes and measures framework overhead on persistent connections: one IPv4 loopback connection per worker, HTTP/1.1 keep-alive, session cookie sent back; concurrency 1 / 16 / 64, 2 s warm-up then 8 s measured, three runs per cell with the median reported. 5 scenarios x 3 concurrency levels x 3 repeats = 45 runs, 10,822,329 requests in total, 0 failures, 0 non-200, 0 errors, 0 reconnects.
+The load generator and the server run in two separate processes and measure framework overhead on persistent connections: one IPv4 loopback connection per worker, HTTP/1.1 keep-alive, session cookie sent back; concurrency 1 / 16 / 64. Each cell warms up for 3 s and then runs two consecutive 5 s windows, of which only the second is used (the first still carries the one-off process start-up cost); each cell is repeated 3 times and the median reported. 5 scenarios x 3 concurrency levels x 3 repeats = 45 cells, all `status=ok`.
 
 | Scenario | 1 concurrent | 16 concurrent | 64 concurrent |
 | --- | ---: | ---: | ---: |
-| Two-stage route `/bench/echo` | 9,991 RPS / p50 0.09 ms | 43,906 / 0.28 | 40,738 / 1.22 |
-| Attribute route `/api/v1/bench/echo` | 7,499 / 0.13 | 43,778 / 0.28 | 42,774 / 1.19 |
-| Attribute route + path parameter | 9,539 / 0.10 | 40,687 / 0.29 | 40,503 / 1.22 |
-| Output cache hit | 7,430 / 0.13 | 42,417 / 0.29 | 37,031 / 1.28 |
-| JSON response | 7,112 / 0.13 | 40,897 / 0.29 | 38,369 / 1.26 |
+| Two-stage route `/bench/echo` | 6,385 / 0.15 | 52,186 / 0.28 | 57,372 / 0.97 |
+| Attribute route `/api/v1/bench/echo` | 6,238 / 0.15 | 55,570 / 0.27 | 55,464 / 0.97 |
+| Attribute route + path parameter | 6,030 / 0.16 | 56,289 / 0.27 | 60,763 / 0.92 |
+| Output cache hit | 6,783 / 0.14 | 57,016 / 0.27 | 62,105 / 0.91 |
+| JSON response | 6,496 / 0.15 | 52,028 / 0.28 | 56,904 / 0.94 |
 
 (Each cell is RPS / p50; environment: Windows 10, 16 logical cores, .NET 10, Release build, workstation GC.)
 
-- Per-request CPU cost drops to about 152 µs in the serial cell (24% below the previous round) and to about 165 µs at 64 concurrency (11% lower): removing the thread hop and the spin-wait with timeout from the request path and cutting per-request allocations mainly lower the cost per request, not the peak throughput.
-- Throughput still peaks around 16 concurrent connections (~44k RPS), and 64 concurrency reaches 93% of it; the median p50 is 0.09 -> 0.28 -> 1.17 ms and the median p99 is 0.20 -> 2.16 -> 5.71 ms. The server process uses only 45% / 42% of the 16 logical cores, but that **does not** mean the server has headroom left: the load generator and background programs run on the same machine, and a per-round breakdown measured 6.3 cores for the server + 3.3 cores for the client + 5.8 cores for background and kernel ≈ 96% of the whole machine (100% at peak), so under same-machine load testing the server only gets about 6 cores of compute.
-- All five entry points stay within 10% of each other; the output cache cell varies widely between repeats at 64 concurrency this round (35.2k–40k+), so no conclusion about the cache gain can be drawn from it.
-- Compared with the previous round (old code, same machine, same parameters): the serial cell goes from 7,427 to 9,991 RPS (+34.5%) and per-request CPU from 199 µs to 152 µs (-24%); 16 concurrency goes from 47,292 to 43,906 (-7%) with per-request CPU from 168 µs to 166 µs (-1%), where the earlier 47,292 was the upper edge of the noise (the old code repeated 33.6k–40.1k on the same cell, and this round's 42–44k falls in the same band); 64 concurrency goes from 41,603 to 40,738 (-2%) with per-request CPU from 184 µs to 165 µs (-11%). The 64-to-16 concurrency ratio rises from 88% to 93%, narrowing the drop from 12% to 7%.
-- Same-machine capacity control (decisive experiment): the same load generator against a minimal socket server that replies a fixed 200 as soon as a request arrives reaches 73k–77k RPS with the machine at 100%; under equally saturated conditions SAEA.MVC reaches 27k–36k. The per-request server CPU cost is 95–99 µs·core versus 159–206 µs·core (1.7–2.2x), so the gap comes from the cost per request, not from the concurrency model or from how CPU is allocated.
-- Reproducibility of absolute numbers: the table above comes from the same round of 45 runs, but the same code re-run at another time differs noticeably (a same-machine re-test today measured 6.6k–7.1k RPS in the serial cell, 37k–40k at 16 concurrency and 33k–39k at 64, with the difference coming from background load). Use the table only for relative comparison within one round; do not subtract numbers across rounds.
+- The median p99 lands at 0.22–0.25 ms at 1 concurrency, 1.04–1.28 ms at 16 and 3.34–4.08 ms at 64; the median p50 rises with concurrency as 0.15 -> 0.27 -> 0.94 ms.
+- Throughput at 64 concurrency is still higher than at 16 (57,372 versus 52,186, a ratio of 1.10), so there is no fall-off as concurrency grows.
+- Per-request server CPU (process-level `Process.TotalProcessorTime` divided by completed requests) falls with concurrency: 160–175 µs at 1 concurrency, 124–136 µs at 16 and 117–125 µs at 64. Converted over the window, 1 concurrency uses about 1.0 core, while 16 and 64 concurrency both use about 6.4–6.8 cores (40%–43% of the 16 logical cores); that does **not** mean the server has headroom left, because the load generator and background programs run on the same machine.
+- The five entry points stay within a 12% RPS spread at every concurrency level; the output cache cell is highest at 64 concurrency, but judging the cache gain needs a dedicated control run, and this table does not draw a conclusion from it.
+- Absolute values are not comparable across rounds: re-running the same code at another time has produced 6.4k–10k in the serial cell, 37k–56k at 16 concurrency and 33k–62k at 64, with the differences coming from background load and machine state. Use the table only for relative comparison within one round.
 
 How to read these numbers:
 
-- Connection policy: HTTP/1.1 answers `Connection: keep-alive` by default and actually reuses the connection, HTTP/1.0 closes by default, and a connection is closed only when the request explicitly sends `Connection: close`; the 45 runs this round re-established 0 connections.
+- Connection policy: HTTP/1.1 answers `Connection: keep-alive` by default and really reuses the connection, HTTP/1.0 closes by default, and a connection is closed only when the request explicitly sends `Connection: close`.
 - Sessions: a request without a cookie creates a new session, and an expired session is removed from the session table by the sweep thread (`SweepExpired`), so memory no longer grows monotonically with the request count during long runs; this round still sends the cookie back to pin a single session and reduce noise from session allocation.
-- Coverage: loopback only, with very small response bodies; large bodies, static files and TLS are not covered, and the self-written load generator was not compared against Kestrel or other frameworks.
-- Cross-round comparability: the same cell varies far more than 10%–20% between rounds (this round's serial cell is 9,991 RPS, while the same code re-run on the same machine a day later measured 6.6k–7.1k; 16 concurrency went from 43.9k to 37k–40k and 64 concurrency from 40.7k to 33k–39k). Background load and machine state both change the absolute values, so the table is only meant for relative comparison within one round.
+- Coverage: loopback only, with very short response bodies; large bodies and TLS are not covered here (TLS is the short-connection cell in the previous section).
 
 Deployment note: enable server GC on hosts with high concurrency. The evidence is a same-machine 16-core comparison that only switched the GC mode without touching code: on the old code, 16 concurrency went from 33.6k–40.1k to 42.4k–45.9k, 64 concurrency from 25.3k–34.4k to 43.9k–44.1k, and p99 fell from 9.3 ms to 3.9 ms. Two ways to enable it: `<ServerGarbageCollection>true</ServerGarbageCollection>` in the project file, or the `DOTNET_gcServer=1` runtime environment variable. The gain is clear on multi-core hosts with many concurrent connections; on a single core or at low concurrency it is limited, and workstation GC starts faster and uses less memory.
 
-### Per-request allocation (interleaved A/B re-run)
+### Per-request allocation and CPU cost
 
-Method: the load generator and the server run in separate processes against `GET /bench/echo` (two-stage route, response body `ok`) over HTTP/1.1 keep-alive (one raw socket per worker), with the session cookie sent back; 3 s warm-up + 10 s measured, at 1 / 16 / 64 concurrency. A is the commit `87417317` before the three optimizations (end-to-end async, response headers written straight into the target buffer, index-based request parsing), B is the current `5b7b334f`; A and B alternate (A1 B1 A2 B2 A3 B3, plus A5 B5 A6 B6 at 1 concurrency). 26 runs in total, 7.59 million requests, 0 failures, 0 reconnects.
+Method: the load generator and the server run in two separate processes against five entry points over HTTP/1.1 keep-alive (one raw socket per worker), with the session cookie sent back; concurrency 1 / 16 / 64, a 3 s warm-up followed by two consecutive 5 s windows of which only the second is used, three runs per cell with the median reported. Allocation and server CPU come from the same window.
 
-How per-request allocation is measured: inside the server process, `GC.GetTotalAllocatedBytes(true)` is sampled at the start and end of the measurement window and the difference is divided by the requests completed in that window, covering every managed allocation in the process (socket, parsing, dispatch, encoding and runtime bookkeeping). Independent `dotnet-counters` alloc-rate sampling reports 18,342 / 10,159 B, 7% / 2% away from the in-process figure, in the same direction.
+How per-request allocation is measured: inside the server process, `GC.GetTotalAllocatedBytes(true)` is sampled at the start and end of the measurement window and the difference is divided by the requests completed in that window, covering every managed allocation in the process (socket, parsing, dispatch, encoding and runtime bookkeeping).
 
-| Concurrency | A before | B current | Reduction |
-| ---: | ---: | ---: | ---: |
-| 1 | 19,576 | 10,357 | −47.1% |
-| 16 | 19,655 | 10,385 | −47.2% |
-| 64 | 19,643 | 10,373 | −47.2% |
+| Scenario | 1 concurrent | 16 concurrent | 64 concurrent |
+| --- | ---: | ---: | ---: |
+| Two-stage route `/bench/echo` | 1,768 | 1,768 | 1,767 |
+| Attribute route `/api/v1/bench/echo` | 1,856 | 1,856 | 1,855 |
+| Attribute route + path parameter | 2,512 | 2,512 | 2,511 |
+| Output cache hit | 1,896 | 1,896 | 1,895 |
+| JSON response | 3,624 | 3,624 | 3,623 |
+
+(Unit: B/req.)
+
+Per-request CPU (µs/req, same window):
+
+| Scenario | 1 concurrent | 16 concurrent | 64 concurrent |
+| --- | ---: | ---: | ---: |
+| Two-stage route `/bench/echo` | 160 | 124 | 118 |
+| Attribute route `/api/v1/bench/echo` | 175 | 132 | 125 |
+| Attribute route + path parameter | 162 | 136 | 120 |
+| Output cache hit | 163 | 135 | 117 |
+| JSON response | 166 | 135 | 121 |
 
 Findings and boundaries:
 
-- The per-request allocation of the 13 A rounds and the 13 B rounds form two fully disjoint sets, with a stable ratio of 1.89x at all three concurrency levels: this is the only gain established with certainty in this round. The magnitude sits on the same basis and in the same band as the 16–23 KB recorded in the "Async entry points" section of this document.
-- GC pause as a share of the measurement window: at 1 concurrency from 0.47% to 0.29%, at 16 concurrency from 14.3% to 8.9% (in-process `GC.GetTotalPauseDuration()`; independent `dotnet-counters` sampling gives 14.1% / 8.9%, same direction). At 64 concurrency two rounds had cores taken by other processes on the same machine (overall machine busy above 99%), so the pause share for that cell is not used.
-- The median per-request CPU cost appears 4%–15% lower, but after re-measuring A under the same machine state the two sides overlap completely (A clean rounds 164.9 / 167.9 µs versus B 160.7–177.3 µs): the difference is inside a ±10% noise band and cannot be counted as a gain. The 152 / 165 µs recorded in the previous section compares an earlier round against the round before it, so those absolute values must not be subtracted from the ones in this section.
-- RPS is likewise not used for conclusions: at 64 concurrency two B rounds were pushed down to 23k / 29k by external load, while clean rounds under the same conditions gave 46.7k / 48.6k. Only ranges are reported: about 7.1k–8.5k at 1 concurrency, about 44k at 16, and about 38k–49k at 64.
+- Allocation barely depends on concurrency: the three concurrency levels differ by less than 0.1% in every scenario, so per-request allocation depends only on the request shape and not on the concurrency level.
+- Allocation across the five entry points spans 1,767–3,624 B/req; the JSON cell is highest because every request has to serialise and produce a response body.
+- The output cache hit cell never reaches the action, so the server-side counting probe cannot see it; that row uses the client-side completed count as its denominator, over the same window and the same batch of requests as the other rows.
+- Per-request CPU is only for relative comparison within one round: the process-level total includes GC, JIT and thread-pool background overhead, and it is not single-request latency.
 
 ### Comparison with Other Web Frameworks
 
@@ -598,7 +611,17 @@ Findings and boundaries:
 | **Startup Time** | Fast (no IIS/Kestrel) | Slower | Medium | Fast |
 | **Concurrent Connections** | Built for high concurrency | Built for high concurrency | Medium | Medium |
 
-> 📌 The table above is a qualitative comparison. SAEA has not published cross-framework benchmarks; actual performance depends on hardware and workload, so measure your own scenario.
+Same-machine measurements (same machine, same load generator, byte-identical response bodies):
+
+| Implementation | Per-request allocation (20,000-run window) | Steady state (200,000 runs) |
+| --- | ---: | ---: |
+| SAEA.MVC (two-stage route) | 1,770 B | 1,768 B |
+| ASP.NET Core minimal API | 1,017 B | 1,016 B |
+| ASP.NET Core MVC controller | 2,040 B | 2,004 B |
+
+- Over a 20,000-run window the Kestrel MVC controller carries about 35–44 B/req of start-up amortisation and settles at 2,004 B/req in steady state; the fixed term is only about 2 B/req for both SAEA and the minimal API, so the two bases are essentially the same. On the steady-state basis, SAEA.MVC allocates 12% less than the Kestrel MVC controller and 1.74x what the minimal API does.
+- The bytes on the wire are not equivalent: SAEA writes `X-Powered-By`, 4 CORS headers, `Cache-Control`, `Connection` and `Set-Cookie` on every response, about 440 B extra; `Content-Type` matches on both sides.
+- Spring Boot was not measured on this machine. In the public TechEmpower Round 23 (2025-02; the final round, the project was archived in 2026-03) Fortunes test, Spring on Java reaches about 244k req/s versus about 610k req/s for ASP.NET Core, roughly 0.4x. This is a throughput figure across different machines and implementations; that round moved to 56-core servers on 40 Gbps networking, which raised network-bound results 3–4x over earlier rounds, so the absolute numbers are not comparable across rounds and cannot be subtracted from the per-request allocation (B/req) figures above.
 
 ### Output Cache Effect
 
@@ -1204,7 +1227,7 @@ Conventions:
 - The `IHttpContext` interface gained no members — reuse is declared by the separate interface `SAEA.Http.Model.IReusableHttpContext` — so a custom implementation that only overrides `HttpHandle` is not bypassed.
 - A custom `IWebHost` implementation (one that does not inherit the built-in `WebHost`) falls back to synchronous writes on the async path, behaving exactly as before.
 - Measured thread usage: 64 concurrent requests against an action that does `await Task.Delay(200)` and then returns keep the server process at a stable 30 threads; changing the same action to a synchronous `Thread.Sleep(200)` gives 46 threads. The threads really do go back to the pool while waiting.
-- Async entry points **do not raise throughput**: across the same benchmark set (concurrency 1 / 16 / 64) the difference before and after the change stays within ±6%. That is expected — the bottleneck measured on this machine is per-request CPU and GC (about 16–23 KB allocated per request, 18%–30% of wall time in GC pauses), not the threading model.
+- Async entry points **do not raise throughput**: across the same benchmark set (concurrency 1 / 16 / 64) the difference before and after the change stays within ±6%. That is expected — the bottleneck measured on this machine is per-request CPU and GC (about 1.8–3.6 KB allocated per request, see "Per-request allocation and CPU cost" above), not the threading model.
 
 ### WebSocket Long-Lived Connections
 
