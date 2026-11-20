@@ -202,7 +202,7 @@ public interface IChannelInboundHandler : IChannelHandler
 
 > 这是本次接口扩展的一组：`IChannelHandler` 与 `IChannelInboundHandler` 共增加 4 个成员；另两组是 §5.8 的 `IChannelHandlerContext.CloseAfterWriteAsync` 与 `IChannelPipeline.WriteAsync`。仓库内所有 handler 都继承适配器，不受影响；外部直接实现这些接口的代码会编译失败。C# 8 在 `netstandard2.0` 上不能用默认接口实现，无法规避。
 
-**单次调用的状态放在调用绑定的 context 视图，不放在常驻节点字段，也不使用 `AsyncLocal`。** `DefaultChannelHandlerContext` 继续作为节点常驻上下文，仅供 `HandlerAdded` / `HandlerRemoved` 等连接级回调保存；每次入站或出站 handler 调用则创建轻量视图，视图绑定当前节点及本次 `InboundDispatch` / 出站操作，并沿下游调用传递同一操作对象。这样并发写不会互相覆盖操作号、额度或异常标记，回调结束后视图失效，跨回调保存它也不能继续转发消息。视图只委托连接属性与生命周期能力，不改变公开接口签名。
+**单次调用的状态放在调用绑定的 context 视图，不放在常驻节点字段，也不使用 `AsyncLocal`。** `DefaultChannelHandlerContext` 继续作为节点常驻上下文，仅供 `HandlerAdded` / `HandlerRemoved` 等连接级回调保存；每次入站或出站 handler 调用则从节点租用一个轻量视图（每节点一个单槽，槽被并发占用时新建，不做无界池），视图绑定当前节点及本次 `InboundDispatch` / 出站操作，并沿下游调用传递同一操作对象。这样并发写不会互相覆盖操作号、额度或异常标记；回调结束后视图失效并归还，跨回调保存的旧引用要么已失效抛 `InvalidOperationException`，要么已被下一次调用复用而静默作用到那次调用，不能继续转发消息。视图只委托连接属性与生命周期能力，不改变公开接口签名。
 
 执行器需要新增派发点：
 
@@ -393,7 +393,7 @@ public interface IChannelHandlerContext
 - 计数必须 **exactly-once**：业务入口 +1 后用 `try/catch` 兜住同步异常并调用 `TryComplete`，真实链 Task 的成功 / 失败 / 取消以及关闭超时、串行器移除都竞争同一个原子完成路径。公共 Task 用 `TrySetResult` / `TrySetException` / `TrySetCanceled` 只完成一次；迟到的真实链完成只让当前所有权边界清理资源，不再次完成公共 Task、归还额度或减计数。
 - **关闭要走单一状态机 `Open → DrainingWrites → Closing`，普通 `CloseAsync` 与 `CloseAfterWriteAsync` 共用它。** 「停止接纳新写」与「快照并等待已提交写」必须在同一个同步边界内完成，否则计数归零到 `BeginShutdown` 之间还能插进新写；等待期间另一线程调普通 `CloseAsync` 也不能抢先置 `_closing`，否则已排队的写会以 `ChannelClosedException` 告终，语义被破坏。普通关闭在 `Open` 时直接进入 `Closing`，在 `DrainingWrites` 时加入现有等待而不是取消它；重复 `CloseAfterWriteAsync` 复用同一个完成源，进入 `Closing` 后两者均为 no-op。
 - `CloseAfterWriteAsync` 先 `await` 计数归零，再推进到 `Closing`。等待上限复用 `DrainTimeout`，但**零值不能沿用**：`WaitForInFlightAsync` 把 `TimeSpan.Zero` 定义为无限等待，直接复用会让一个卡住的写永久挂住收口。规则改为：该入口下 `DrainTimeout <= 0` 一律取 5 秒默认值，超时强制收口，并对待完成操作的**公共 Task** 调 `TryComplete` 使其失败。对 `Queued`（含 active-not-handed）项同时禁止后续移交并按 §5.6 补偿 `RawFrame`；对 `HandedOff` 项不伪装强制完成真实 handler Task、不释放其消息，由下游与迟完成回调继续清理。`DrainInFlight` 的零值语义保持不变，选项 XML 把两种口径分别写清。
-- **禁止出站回调内的两种重入。** 当前出站 handler 不得在自己的 `WriteAsync` 栈里调用 `CloseAfterWriteAsync`，否则当前写会自等；也不得通过本次 `ctx.Pipeline.WriteAsync` 发起并等待另一笔独立业务写，否则新写排在当前写之后形成串行器自死锁。操作绑定 context 的 `Pipeline` 属性返回同操作守卫视图，这两类直接重入均同步抛 `InvalidOperationException`；当前写加工只能 `ctx.WriteAsync`，独立新写必须在当前写完成后由业务侧发起。通过外部保存的 pipeline / 常驻 ctx 别名绕过守卫视图同样属于装配违约，无 `AsyncLocal` 方案不承诺识别所有调用别名，但不得把这种别名当成支持的写法。P0 覆盖两种重入及串行器不自死锁用例。
+- **禁止出站回调内的两种重入。** 当前出站 handler 不得在自己的 `WriteAsync` 栈里调用 `CloseAfterWriteAsync`，否则当前写会自等；也不得通过本次 `ctx.Pipeline.WriteAsync` 发起并等待另一笔独立业务写，否则新写排在当前写之后形成串行器自死锁。出站调用视图的 `Pipeline` 属性返回整条链共用的守卫视图（业务写入口恒抛，不按操作区分），这两类直接重入均同步抛 `InvalidOperationException`；当前写加工只能 `ctx.WriteAsync`，独立新写必须在当前写完成后由业务侧发起。通过外部保存的 pipeline / 常驻 ctx 别名绕过守卫视图同样属于装配违约，无 `AsyncLocal` 方案不承诺识别所有调用别名，但不得把这种别名当成支持的写法。P0 覆盖两种重入及串行器不自死锁用例。
 - 语义边界写清楚：只保证「已提交给传输层」，不保证对端已收到；要等对端确认由协议层自己做（FTP `226`、WS close 握手）。「已提交」的完成点依赖 §5.5 的可等待发送 Task：非 TLS 要等 socket 发送完成/写闸门释放，TLS 要等本次应用数据的全部 TLS 记录完成底层发送，不能只等加密与 `FlushOutput` 入队，否则计数归零不代表最后一帧已安全交接。
 - `ChannelInactiveAsync` 里调用它不生效（已进 `Closing`），这是有意的：收尾帧必须在最后一条消息的处理器里写完。
 - 计数口径改为：**凡被业务写入口接受的写都计入一次，与调用方是否 `await` 返回的 Task 无关**；尚未调到入口、或在入口计数之前就失败的写不计入，出站链内部转发不新增计数。关闭请求之后新发起的业务写一律拒绝，已接受写的内部转发不在此列。
@@ -420,7 +420,7 @@ public sealed class OutboundSerializingHandler : OutboundHandlerAdapter
 }
 ```
 
-- **位置在出站前缀的最右侧（紧贴第一个入站节点），不是链首。** 出站是沿 `Prev` 方向走的：业务 `ctx.Pipeline.WriteAsync` 先碰到最右的出站节点，最后才到链头。若串行器装在链首，业务写得先穿过编码器才排队，只要编码器里有异步等待，先发起的写就可能后到串行器——即使业务严格按顺序调用也照样乱序。装在最右侧才能「先排队、再编码」。装配因此固定为：编码类出站 handler 先 `AddLast`，**串行器最后 `AddLast`**，然后才允许加第一个入站 handler。
+- **位置在出站前缀的最右侧（紧贴第一个入站节点），不是链首。** 出站是沿 `Prev` 方向走的：业务 `ctx.Pipeline.WriteAsync` 先碰到最右的出站节点，最后才到链头。若串行器装在链首，业务写得先穿过编码器才排队，只要编码器里有异步等待，先发起的写就可能后到串行器——即使业务严格按顺序调用也照样乱序。装在最右侧才能「先排队、再编码」。装配因此固定为：编码类出站 handler 先 `AddLast`，**串行器最后 `AddLast`**，然后才允许加第一个入站 handler。空闲（无写者在途、队列为空）时串行器在锁内取得写者角色后直接调下游，不建排队项；「到达即排队」与 `MaxPendingWrites` 预算只约束有写在途的情形，FIFO 语义不变。
 - 保证的边界：单线程业务顺序 = 上线顺序。多线程**并发**调用业务 `WriteAsync` 本身没有定义顺序，串行器只保证到达即排队；要并发下也严格有序，得在公共写入口统一发序号，本设计不做。
 - 实现：`lock` + `Queue<PendingWrite>` + 一个 `_active` 标志及 `_activeItem`。业务入口已创建 `OutboundOperation` 与公共完成源；调用方在锁内入队，空闲的那个调用方成为写者。写者每次在锁内取队首、登记 `_activeItem` 并把仍为 `Queued` 的项原子推进为 `HandedOff`，随后在锁外 `await ctx.WriteAsync(msg)`，按真实结果调用 `TryComplete`；再回锁内清 active、取下一个，队列空时清 `_active`。若关闭或移除已先把 active-not-handed 项完成，写者必须跳过下游调用。**不能用 `SemaphoreSlim` 的唤醒顺序当 FIFO 依据**，它不保证先到先得。
 - **必须有背压预算，「等待者列表」不等于有上限。** 推送/广播/fire-and-forget 可以不 `await` 返回的 Task 而持续入队。新增 `MaxPendingWrites`（默认 256，可配）：超限时本次写直接失败，不静默排队；若消息已是 `RawFrame`，串行器按 §5.6 的「未移交」路径补偿释放，尚未编码的业务对象则由创建方在写失败后回收，串行器不猜测任意 `IDisposable` 的所有权。串行器位于编码器之前，排队项可能是任意业务对象，通用层无法可靠计算字节数，因此**不设虚假的 `MaxPendingBytes`**；这里只承诺待写项数有界，单项大小仍由协议自己的帧/请求上限约束，总字节数没有固定上界。
@@ -650,7 +650,7 @@ WS 的消息边界不等于 wire frame 边界：continuation 分片要拼，控�
 | `CloseAfterWriteAsync` 等写出队列清空 | 对端不读时关闭被拖到 `DrainTimeout` | 超时按超时收口并记 Warn；不无限等 |
 | 5.7 的 `RequireTerminalHandler` 误伤 | 已有装配少装链尾导致启动失败 | 默认 false；只在迁移包显式开启 |
 | HTTP 上限只设 `MaxFrameLength` | 413 在 64MB 到齐后才发，防不住慢速攻击 | 分帧器先解析头、早判 `Content-Length`，头另设 64KB 上限（§八. F） |
-| 出站乱序（不是交错） | 响应顺序错、WS 帧序错，且不报错 | 出站前缀最右侧 `OutboundSerializingHandler` 先排队再编码；用异步编码器验证 FIFO（§5.9） |
+| 出站乱序（不是交错） | 响应顺序错、WS 帧序错，且不报错 | 出站前缀最右侧 `OutboundSerializingHandler` 空闲直写、有写在途时排队再编码；用异步编码器验证 FIFO（§5.9） |
 | 默认 16 路入站并发打乱协议顺序 | 出站 FIFO 仍会按业务完成先后发出错误响应序列 | 请求/响应及有序消息链显式 `MaxConcurrentMessages = 1`，并加慢请求阻塞后续请求的用例（§5.9） |
 | socket 发送超时立即归还 owner | 内核迟完成仍读旧缓冲，池化数组复用后造成数据损坏 | 超时先关 socket，等完成回调后由唯一路径回收；无法证明退出则放弃回收（§5.5） |
 | FTP 死代码被当成活代码迁移 | 白做一套服务端，且仓库留下两套实现 | P4 先删 `Net/ServerSocket.cs` / `Net/FTPStream.cs` / `Core/FTPDataSocketManager.cs` / `Net/ClientSocket.cs`，再重写现行控制/数据传输；FTP 不存在同连接双读者 |
@@ -690,7 +690,7 @@ WS 的消息边界不等于 wire frame 边界：continuation 分片要拼，控�
 | 8 | 除 P2P 的既定例外外，客户端与服务器对称：都删接收事件、都给 `ConfigurePipeline` | §4.1、§七 |
 | 9 | 迁移包启用 `RequireTerminalHandler` 后，链上缺 `ExceptionTerminalHandler` 时 `Start()` 直接失败，不允许静默丢消息与业务侧 `IDisposable`（池化帧本身由执行器兜底，不泄漏）；既有场景默认不启用 | §5.7 |
 | 10 | 收口用 `CloseAfterWriteAsync` 等已提交的出站写交接完再断；`ChannelInactiveAsync` 里仍禁止回包 | §5.8 |
-| 11 | 出站串行器放在出站前缀最右侧，先排队再编码；`MaxPendingWrites` 限制待写项数，各包不再自己加锁 | §5.9 |
+| 11 | 出站串行器放在出站前缀最右侧，空闲直写、有写在途时排队再编码；`MaxPendingWrites` 限制待写项数，各包不再自己加锁 | §5.9 |
 | 12 | 协议升级不换链节点：入口 `HttpProtocolHandler` 内部按阶段分派，避免在途 handler 被 `HandlerRemoved` 释放；`SplitterSwitchTimeout` 默认 10 秒兜底 | §八. D、§5.3 |
 | 13 | `CloseAfterWriteAsync` 只在业务写入口计数，handler 转发沿用同一操作；普通/写出感知关闭共用状态机；复用 `DrainTimeout` 但该入口不接受零值无限等待 | §5.8 |
 | 14 | **深审后改**：`ByteToMessageDecoder.Decode` 输入改为 `PooledMessage`，基类**不**释放输入帧，原始引用仍由执行器释放 | §5.1 |
@@ -707,7 +707,7 @@ WS 的消息边界不等于 wire frame 边界：continuation 分片要拼，控�
 | 25 | **出站 API 已选定**：新增 `IChannelPipeline.WriteAsync` 作为唯一业务入口；`ctx.WriteAsync` 专职链内转发，写计数与 draining 只在前者生效，不引入 `AsyncLocal` | §4.1、§4.3、§4.5、§5.8 |
 | 26 | **终审后补齐**：单次调用用 context 视图携带操作；写操作有独立公共完成源与 `Queued / HandedOff / Completed` 状态，关闭和移除只补偿未移交项；禁止出站关闭与独立写重入 | §5.2、§5.8、§5.9 |
 | 27 | **入站异常已选定**：普通异常通知一次后冒泡，按逐次调用所有权补偿未转发项；原始帧与 decoder 输出即使引用同一 `PooledMessage` 也分别记账 | §5.1、§5.2 |
-| 28 | **P0 实测后定**：`--bench` 门禁改为「吞吐不低于基线 95% + 每帧分配记录趋势」。实测吞吐提升 43%–53%，每帧分配增加约 135 B，来源是 §5.2 强制的调用绑定视图与 §5.1 的派发状态对象，属固定成本；不再按 5% 卡分配，避免用热路径优化推翻「每次调用新建视图」的并发前提 | §十 |
+| 28 | **P0 实测后定**：`--bench` 门禁改为「吞吐不低于基线 95% + 每帧分配记录趋势」。实测吞吐提升 43%–53%，每帧分配增加约 135 B，来源是 §5.2 强制的调用绑定视图与 §5.1 的派发状态对象，属固定成本；不再按 5% 卡分配，避免用热路径优化推翻「每次调用独占一个视图」的并发前提 | §十 |
 | 29 | **P0 实施中校正**：§十 P0 验收里的「413/431 上链收尾」拆开理解——P0 只交付泵侧「分帧协议错误上链 + 有界收尾」能力；413/431 响应由 HTTP 分帧器与 handler 生成，随 P1 交付与验收 | §八. F、§十 |
 
 当前等待你人工审查本文件；在你最终确认前不创建实施计划、不继续迁移代码。确认后才按 P0 → P1 写实施计划（`docs/superpowers/plans/2026-11-06-*.md`）。

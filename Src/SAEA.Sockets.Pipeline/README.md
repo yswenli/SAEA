@@ -86,7 +86,7 @@ server.Start();
 8. **`RawFrame` 与信封模型互斥**：`FramePassthroughHandler` 原始帧旁路与 `Envelope*` / `Codec*` 信封链不能装在同一条链上，二选一。
 9. **`CloseAfterWriteAsync` 只保证已提交传输层**：返回成功只表示已提交的写出完成交接，不表示对端收到；`DrainTimeout <= 0` 在该入口按 5 秒处理，超时强制收口并补偿未移交的 `RawFrame`。
 10. **内存只承诺两项有界**：`MaxBufferedBytes` 约束单连接未成帧输入残余字节，`MaxPendingWrites` 约束出站待写项数；排队帧、在途帧、解码后业务消息、TLS 加密复制与 socket 发送缓冲、池化保留都不在固定总上界内。
-11. **装配位置与限制**：`OutboundSerializingHandler` 必须恰好一个且位于出站前缀最右侧（紧贴第一个入站节点），先排队再编码；`SwitchableSplitter` 每连接一个实例，`StopAfterCurrent` 屏障期间只能调 `SwitchTo` 解除，`MaxFrameLength` 在创建时按所有可切换协议取最大值、切换目标不得超限，`SplitterSwitchTimeout` 默认 10 秒，超时按 `FrameProtocolException` 收口；`TakeAvailableSplitter` 以一次读取为消息边界，`MaxFrameLength` 是单帧硬上界（可用缓冲超出时按上限切块，不抛异常），且不豁免 `ChannelPipeline.Create` 的缓冲下限校验。
+11. **装配位置与限制**：`OutboundSerializingHandler` 必须恰好一个且位于出站前缀最右侧（紧贴第一个入站节点），空闲时直接调下游、有写在途时才排队再编码；`SwitchableSplitter` 每连接一个实例，`StopAfterCurrent` 屏障期间只能调 `SwitchTo` 解除，`MaxFrameLength` 在创建时按所有可切换协议取最大值、切换目标不得超限，`SplitterSwitchTimeout` 默认 10 秒，超时按 `FrameProtocolException` 收口；`TakeAvailableSplitter` 以一次读取为消息边界，`MaxFrameLength` 是单帧硬上界（可用缓冲超出时按上限切块，不抛异常），且不豁免 `ChannelPipeline.Create` 的缓冲下限校验。
 
 ---
 
@@ -144,7 +144,7 @@ pipeline.AddLast(new FrameEncoderHandler(new LengthFieldFrameEncoder()));
 pipeline.AddLast(new CodecEncoderHandler(codec));
 pipeline.AddLast(new EnvelopeWrapHandler(registry, new JsonMessageCodec()));
 
-// 串行器必须恰好一个，且位于出站前缀最右侧：先排队再编码，避免异步编码器打乱先后。
+// 串行器必须恰好一个，且位于出站前缀最右侧：空闲直写、忙时排队再编码，避免异步编码器打乱先后。
 pipeline.AddLast(new OutboundSerializingHandler());
 
 // 入站：分帧已由接收泵完成，链上不再需要 FrameSplitterHandler。
@@ -366,7 +366,8 @@ public sealed class SocketStreamAdapter : IRawByteStream
 ## 🐞 出站转发检查
 
 - 同一个出站节点对同一次业务写只允许调用一次 `ctx.WriteAsync`，重复转发抛 `InvalidOperationException`；该检查在 `Release` 构建同样生效。不同节点依次透传同一实例（例如日志 handler 原样透传中间载体）是合法的。
-- 上下文视图只在出站回调内有效：回调外调用 `ctx.WriteAsync`，或在出站回调内调用 `CloseAfterWriteAsync` / `ctx.Pipeline.WriteAsync`，都会同步抛 `InvalidOperationException`。
+- 上下文视图按节点复用，只在本次回调内有效：每个节点持有一个单槽，派发前租用、回调结束后失效并归还，槽被并发占用时退回新建，不做无界池。回调返回后不得继续持有 `ctx`——跨回调保存的引用会失效，且实例可能已被下一次调用复用而静默作用到那次调用，需要跨回调保留的状态请保存在处理器自身字段。回调外调用 `ctx.WriteAsync`、或对失效视图调用 `ctx.FireChannelReadAsync` / `CloseAfterWriteAsync`，都会同步抛 `InvalidOperationException`；在出站回调内调用 `CloseAfterWriteAsync` / `ctx.Pipeline.WriteAsync` 同样同步抛。
+- 出站回调内的 `ctx.Pipeline` 是整条链共用的守卫视图（业务写入口恒抛），不要按引用比较或缓存。
 - 它**不覆盖**“忘记转发”：handler 直接返回、截断出站链，与“明确丢弃”在运行时不可区分；出站边界只对未移交的 `RawFrame` 做补偿，普通业务对象需由业务自行管理。
 - 直接调用 `IRawByteStream.SendAsync` 绕过链头的情形也不做运行时检测，属于代码评审禁止项。
 
@@ -379,7 +380,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 | `FrameEncoderHandler` | 出站 | 把 `EncodedBody` 补成完整帧，包成 `TransportFrame` 交给链头 |
 | `CodecEncoderHandler` | 出站 | `Envelope` → `EncodedBody`（调用 `ICodec.Encode`） |
 | `EnvelopeWrapHandler` | 出站 | 业务实体 → `Envelope.Type` + `Envelope.Payload` |
-| `OutboundSerializingHandler` | 出站 | 单写者 FIFO 串行器：先排队再编码，必须是出站前缀最右侧节点 |
+| `OutboundSerializingHandler` | 出站 | 单写者 FIFO 串行器：空闲时直接调下游、有写在途时排队再编码，必须是出站前缀最右侧节点 |
 | `OutboundLoggingHandler` | 出站 | 记录出站消息类型，原样转发 |
 | `CodecDecoderHandler` | 入站 | `PooledMessage` → `Envelope`，随后释放帧字节 |
 | `AuthHandler` | 入站 | 第一级鉴权：只看 `Envelope.Type` 白名单，不解析 payload |

@@ -86,7 +86,7 @@ The following 11 changes affect both `SAEA.Sockets` and `SAEA.Sockets.Pipeline`;
 8. **`RawFrame` and the envelope model are mutually exclusive**: the `FramePassthroughHandler` raw-frame bypass and the `Envelope*` / `Codec*` envelope chain cannot live on the same chain; pick one.
 9. **`CloseAfterWriteAsync` only guarantees submission to the transport**: a successful return means submitted writes completed their handoff, not that the peer received them; `DrainTimeout <= 0` is treated as 5 seconds at this entry, and a timeout forces shutdown while compensating un-handed-off `RawFrame` instances.
 10. **Only two memory quantities are bounded**: `MaxBufferedBytes` bounds per-connection un-framed input leftovers, and `MaxPendingWrites` bounds the outbound pending-write item count. Queued frames, in-flight frames, decoded business messages, TLS encryption copies, socket send buffers, and pool retention are not covered by a fixed total upper bound.
-11. **Assembly positions and limits**: exactly one `OutboundSerializingHandler` must sit at the rightmost end of the outbound prefix (immediately next to the first inbound node) so writes are queued before encoding; `SwitchableSplitter` must be one instance per connection, `SwitchTo` is the only way to release the `StopAfterCurrent` barrier, its `MaxFrameLength` is fixed at construction to the maximum of every switchable protocol and a switch target may not exceed it, and `SplitterSwitchTimeout` defaults to 10 seconds before failing with `FrameProtocolException`; `TakeAvailableSplitter` treats one read as one message boundary, its `MaxFrameLength` is the hard per-frame upper bound (buffered bytes beyond it are split at the limit instead of throwing an exception), and it does not exempt `ChannelPipeline.Create` from the buffer lower-bound check.
+11. **Assembly positions and limits**: exactly one `OutboundSerializingHandler` must sit at the rightmost end of the outbound prefix (immediately next to the first inbound node), writing straight downstream when idle and queuing before encoding only while a write is in flight; `SwitchableSplitter` must be one instance per connection, `SwitchTo` is the only way to release the `StopAfterCurrent` barrier, its `MaxFrameLength` is fixed at construction to the maximum of every switchable protocol and a switch target may not exceed it, and `SplitterSwitchTimeout` defaults to 10 seconds before failing with `FrameProtocolException`; `TakeAvailableSplitter` treats one read as one message boundary, its `MaxFrameLength` is the hard per-frame upper bound (buffered bytes beyond it are split at the limit instead of throwing an exception), and it does not exempt `ChannelPipeline.Create` from the buffer lower-bound check.
 
 ---
 
@@ -146,7 +146,7 @@ pipeline.AddLast(new CodecEncoderHandler(codec));
 pipeline.AddLast(new EnvelopeWrapHandler(registry, new JsonMessageCodec()));
 
 // Exactly one serializer, at the rightmost end of the outbound prefix:
-// queue before encoding so an async encoder cannot reorder writes.
+// write straight through when idle, queue before encoding while busy, so an async encoder cannot reorder writes.
 pipeline.AddLast(new OutboundSerializingHandler());
 
 // Inbound: the pump already performs framing, so no FrameSplitterHandler is needed here.
@@ -371,7 +371,8 @@ public sealed class SocketStreamAdapter : IRawByteStream
 ## 🐞 Outbound Forwarding Checks
 
 - The same outbound node may call `ctx.WriteAsync` at most once per business write; a second forward throws `InvalidOperationException`, and this check is active in `Release` builds too. Different nodes forwarding the same instance in turn (for example a logging handler passing an intermediate carrier through) is legal.
-- A context view is only valid inside its outbound callback: calling `ctx.WriteAsync` outside a callback, or `CloseAfterWriteAsync` / `ctx.Pipeline.WriteAsync` inside an outbound callback, throws `InvalidOperationException` synchronously.
+- A context view is reused per node and is only valid inside its current callback: each node keeps one slot, the view is rented before dispatch and invalidated and returned after the callback, and a concurrently occupied slot falls back to a fresh instance rather than an unbounded pool. Do not keep `ctx` after the callback returns: a reference saved across callbacks becomes invalid, and the instance may already be reused by a later call and silently act on that call, so keep cross-callback state in the handler's own fields. Calling `ctx.WriteAsync` outside a callback, or `ctx.FireChannelReadAsync` / `CloseAfterWriteAsync` on an invalidated view, throws `InvalidOperationException` synchronously; `CloseAfterWriteAsync` / `ctx.Pipeline.WriteAsync` inside an outbound callback throws synchronously as well.
+- Inside an outbound callback `ctx.Pipeline` is a guard view shared by the whole chain (its business-write entry always throws); neither compare it by reference nor cache it.
 - It does **not** cover "forgot to forward": returning without forwarding and deliberately dropping a message are indistinguishable at runtime. The outbound boundary only compensates a `RawFrame` that was not handed off; ordinary business objects remain the business code's responsibility.
 - Calling `IRawByteStream.SendAsync` directly and bypassing the chain head is not detected at runtime either; code review forbids it.
 
@@ -384,7 +385,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 | `FrameEncoderHandler` | Outbound | Completes an `EncodedBody` into a full frame and wraps it as `TransportFrame` for the head |
 | `CodecEncoderHandler` | Outbound | `Envelope` → `EncodedBody` via `ICodec.Encode` |
 | `EnvelopeWrapHandler` | Outbound | Business entity → `Envelope.Type` + `Envelope.Payload` |
-| `OutboundSerializingHandler` | Outbound | Single-writer FIFO serializer: queue before encoding; must be the rightmost outbound node |
+| `OutboundSerializingHandler` | Outbound | Single-writer FIFO serializer: writes straight downstream when idle, queues before encoding while a write is in flight; must be the rightmost outbound node |
 | `OutboundLoggingHandler` | Outbound | Logs the outbound message type and forwards it |
 | `CodecDecoderHandler` | Inbound | `PooledMessage` → `Envelope`, then releases the frame bytes |
 | `AuthHandler` | Inbound | First-level authentication: checks only the `Envelope.Type` allow-list, never parses the payload |
