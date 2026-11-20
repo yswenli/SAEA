@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 16:54:00
+*修改时间：2026/11/20 16:20:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：注释与实现对齐：只有未声明动词的 action 才按 All 补写全部动词键，声明了动词的只写当前键；说明当前键的 TryAdd 不能省
+*描述：控制器名索引拆成全名与裸名两张表并保留列表下标，两段式只认后缀；路由缓存键改为不分配的结构键
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -44,12 +44,148 @@ namespace SAEA.MVC.Routing
     /// </summary>
     public class RouteTable
     {
-        ConcurrentDictionary<string, RouteEntry> _cDic = new ConcurrentDictionary<string, RouteEntry>();
+        // 键只用控制器类型名而不是 Type：旧实现按类型名拼键，同名不同类型会命中同一条目，
+        // 换成 Type 会改变这种碰撞下的行为
+        ConcurrentDictionary<(string ControllerName, string ActionName, string Method), RouteEntry> _cDic =
+            new ConcurrentDictionary<(string ControllerName, string ActionName, string Method), RouteEntry>();
+
+        static List<Type> _types = new List<Type>();
+
+        // 控制器名索引，注册期一次性建好；构建完只读，请求期只做字典查找
+        // _byFullName 键是类型全名，_byBareName 键是去掉结尾 Controller 的裸名，
+        // 值里的下标用于跨两种名字形式复现「列表里第一个命中」
+        static Dictionary<string, KeyValuePair<int, Type>> _byFullName;
+
+        static Dictionary<string, KeyValuePair<int, Type>> _byBareName;
+
+        // 建索引时的列表长度，用于发现外部绕过 setter 的原地追加
+        static int _indexedTypeCount;
 
         /// <summary>
         /// 已扫描到的控制器类型集合
         /// </summary>
-        public static List<Type> Types { get; set; } = new List<Type>();
+        public static List<Type> Types
+        {
+            get
+            {
+                return _types;
+            }
+            set
+            {
+                _types = value;
+
+                RebuildControllerIndex();
+            }
+        }
+
+        /// <summary>
+        /// 按控制器名查类型：两种名字形式都认，同名时取列表里靠前的那个
+        /// </summary>
+        /// <param name="name">控制器名，可带或不带 Controller 后缀</param>
+        /// <returns>列表顺序里第一个命中的类型；名字为空或未命中时返回 null</returns>
+        internal Type FindController(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+
+            var types = _types;
+
+            if (types == null || types.Count == 0) return null;
+
+            EnsureControllerIndex(types.Count);
+
+            var hasFullName = _byFullName.TryGetValue(name, out var fullNameEntry);
+
+            var hasBareName = _byBareName.TryGetValue(name, out var bareNameEntry);
+
+            // 两种形式都命中时比下标，复现「列表里第一个命中」
+            if (hasFullName && hasBareName) return fullNameEntry.Key <= bareNameEntry.Key ? fullNameEntry.Value : bareNameEntry.Value;
+
+            if (hasFullName) return fullNameEntry.Value;
+
+            if (hasBareName) return bareNameEntry.Value;
+
+            return null;
+        }
+
+        /// <summary>
+        /// 按两段式约定查类型：只认「段名 + Controller」，不回退裸名
+        /// </summary>
+        /// <param name="name">地址里的控制器段名，不带 Controller 后缀</param>
+        /// <returns>列表顺序里第一个后缀匹配的类型；名字为空或未命中时返回 null</returns>
+        internal Type FindControllerBySuffix(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+
+            var types = _types;
+
+            if (types == null || types.Count == 0) return null;
+
+            EnsureControllerIndex(types.Count);
+
+            return _byBareName.TryGetValue(name, out var entry) ? entry.Value : null;
+        }
+
+        /// <summary>
+        /// 索引缺失或列表长度变化时重建
+        /// </summary>
+        /// <param name="count">当前类型列表长度</param>
+        static void EnsureControllerIndex(int count)
+        {
+            // 外部直接往 Types 里追加类型时不经过 setter，按列表长度不一致兜底重建
+            if (_byFullName == null || _indexedTypeCount != count) RebuildControllerIndex();
+        }
+
+        /// <summary>
+        /// 按列表顺序重建控制器名索引：一次遍历同时建全名表与裸名表，先到先得并记录列表下标
+        /// </summary>
+        static void RebuildControllerIndex()
+        {
+            var types = _types;
+
+            var count = types == null ? 0 : types.Count;
+
+            var byFullName = new Dictionary<string, KeyValuePair<int, Type>>(count, StringComparer.OrdinalIgnoreCase);
+
+            var byBareName = new Dictionary<string, KeyValuePair<int, Type>>(count, StringComparer.OrdinalIgnoreCase);
+
+            for (var i = 0; i < count; i++)
+            {
+                var type = types[i];
+
+                if (type == null) continue;
+
+                var typeName = type.Name;
+
+                AddControllerKey(byFullName, typeName, i, type);
+
+                // 只有以 Controller 结尾的类型才进裸名表，裸名可能为空时不写
+                if (typeName.EndsWith(ConstHelper.CONTROLLERNAME, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddControllerKey(byBareName, typeName.Substring(0, typeName.Length - ConstHelper.CONTROLLERNAME.Length), i, type);
+                }
+            }
+
+            // 先建好两张新表再赋值：读侧即使读到半新半旧，两张表也来自同一份列表快照
+            _byFullName = byFullName;
+
+            _byBareName = byBareName;
+
+            _indexedTypeCount = count;
+        }
+
+        /// <summary>
+        /// 写入一个索引键，已存在时不覆盖，保留列表里靠前的类型
+        /// </summary>
+        /// <param name="map">待写入的索引</param>
+        /// <param name="key">控制器名</param>
+        /// <param name="index">该类型在 Types 里的下标</param>
+        /// <param name="type">对应的控制器类型</param>
+        static void AddControllerKey(Dictionary<string, KeyValuePair<int, Type>> map, string key, int index, Type type)
+        {
+            if (string.IsNullOrEmpty(key)) return;
+
+            if (!map.ContainsKey(key)) map[key] = new KeyValuePair<int, Type>(index, type);
+        }
 
         /// <summary>
         /// 获取routing中的缓存
@@ -79,7 +215,8 @@ namespace SAEA.MVC.Routing
             // 未给出方法时按 GET 处理，保持旧的重载与空方法调用等价
             if (string.IsNullOrEmpty(method)) method = ConstHelper.GET;
 
-            var key = controllerType.Name + actionName + "_" + method;
+            // 键是值元组，不装箱也不分配；控制器名取 Name 而不是 Type，保持旧键的碰撞语义
+            var key = (ControllerName: controllerType.Name, ActionName: actionName, Method: method);
 
             // 只为当前请求动词的键做一次 GetOrAdd：未声明动词的 action 由工厂补写全部动词的键，
             // 声明了动词的 action 只落回自己声明的键；解析为空时工厂返回 null 并作为该键的缓存值，后续请求直接命中
@@ -95,7 +232,7 @@ namespace SAEA.MVC.Routing
         /// <param name="method">请求方法，决定 action 的解析范围与条目的动词标记</param>
         /// <param name="key">当前动词的路由缓存键</param>
         /// <returns>当前动词对应的路由条目；找不到 action 时返回 null</returns>
-        RouteEntry BuildEntry(Type controllerType, string actionName, string method, string key)
+        RouteEntry BuildEntry(Type controllerType, string actionName, string method, (string ControllerName, string ActionName, string Method) key)
         {
             var actions = ActionResolver.Resolve(controllerType, actionName, method);
 
@@ -156,7 +293,7 @@ namespace SAEA.MVC.Routing
                     // 未声明动词时对全部已知动词放行，按 All 补写缓存键
                     for (var i = 0; i < HttpMethodCatalog.All.Length; i++)
                     {
-                        _cDic.TryAdd(controllerType.Name + actionName + "_" + HttpMethodCatalog.All[i], entry);
+                        _cDic.TryAdd((controllerType.Name, actionName, HttpMethodCatalog.All[i]), entry);
                     }
                 }
             }

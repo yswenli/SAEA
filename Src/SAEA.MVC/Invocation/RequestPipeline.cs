@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 19:15:49
+*修改时间：2026/11/20 16:20:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：两段式路由只取最后两段并按需建子串，不再每请求切出全部路径分段
+*描述：控制器类型查找改为走 RouteTable 的控制器名索引，根路径认两种名字形式、两段式只认 Controller 后缀，不再每请求做线性扫描
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -303,10 +303,7 @@ namespace SAEA.MVC.Invocation
                 {
                     var defaultName = _context.WebConfig.DefaultRoute.Name;
 
-                    if (RouteTable.Types != null)
-                    {
-                        controllerType = RouteTable.Types.Where(b => string.Compare(b.Name, defaultName, true) == 0 || string.Compare(b.Name, defaultName + ConstHelper.CONTROLLERNAME, true) == 0).FirstOrDefault();
-                    }
+                    controllerType = _routeTable.FindController(defaultName);
 
                     actionName = _context.WebConfig.DefaultRoute.Value.ToString();
                 }
@@ -315,10 +312,7 @@ namespace SAEA.MVC.Invocation
             {
                 var controllerName = controllerSegment;
 
-                if (RouteTable.Types != null)
-                {
-                    controllerType = RouteTable.Types.Where(b => string.Compare(b.Name, controllerName + ConstHelper.CONTROLLERNAME, true) == 0).FirstOrDefault();
-                }
+                controllerType = _routeTable.FindControllerBySuffix(controllerName);
 
                 actionName = actionSegment;
             }
@@ -488,7 +482,7 @@ namespace SAEA.MVC.Invocation
                     {
                         if (RouteTable.Types == null) return new ContentResult("o_o，找不到任何路由信息！url:" + url, System.Net.HttpStatusCode.NotFound);
 
-                        var d = RouteTable.Types.Where(b => (string.Compare(b.Name, _context.WebConfig.DefaultRoute.Name, true) == 0 || string.Compare(b.Name, _context.WebConfig.DefaultRoute.Name + ConstHelper.CONTROLLERNAME, true) == 0)).FirstOrDefault();
+                        var d = _routeTable.FindController(_context.WebConfig.DefaultRoute.Name);
 
                         nameValues = _context.Request.Parmas.ToNameValueCollection();
 
@@ -517,16 +511,13 @@ namespace SAEA.MVC.Invocation
                 default:
                     var controllerName = controllerSegment;
 
-                    if (RouteTable.Types != null && RouteTable.Types.Any())
+                    var first = _routeTable.FindControllerBySuffix(controllerName);
+
+                    if (first != null)
                     {
-                        var first = RouteTable.Types.Where(b => string.Compare(b.Name, controllerName + ConstHelper.CONTROLLERNAME, true) == 0).FirstOrDefault();
+                        nameValues = _context.Request.Parmas.ToNameValueCollection();
 
-                        if (first != null)
-                        {
-                            nameValues = _context.Request.Parmas.ToNameValueCollection();
-
-                            return await MvcInvoker.InvokeResultAsync(_routeTable, first, actionSegment, nameValues, method).ConfigureAwait(false);
-                        }
+                        return await MvcInvoker.InvokeResultAsync(_routeTable, first, actionSegment, nameValues, method).ConfigureAwait(false);
                     }
 
                     filePath = _context.Server.MapPath(url);

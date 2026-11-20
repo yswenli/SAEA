@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 19:15:49
+*修改时间：2026/11/20 16:20:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：WebSocket 特性与过滤器方法改为按类型缓存，无过滤器时不再创建结果中转数组
+*描述：过滤器判空改用列表 Count，不再每请求走 LINQ Any
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -238,7 +238,7 @@ namespace SAEA.MVC.Hosting
             ActionResult beforeResult = null;
 
             //类过滤器
-            if (routing.FilterAtrrs != null && routing.FilterAtrrs.Any())
+            if (routing.FilterAtrrs != null && routing.FilterAtrrs.Count > 0)
             {
                 foreach (var arr in routing.FilterAtrrs)
                 {
@@ -252,7 +252,7 @@ namespace SAEA.MVC.Hosting
             }
 
             //方法过滤器
-            if (routing.ActionFilterAtrrs != null && routing.ActionFilterAtrrs.Any())
+            if (routing.ActionFilterAtrrs != null && routing.ActionFilterAtrrs.Count > 0)
             {
                 foreach (var arr in routing.ActionFilterAtrrs)
                 {
@@ -370,7 +370,7 @@ namespace SAEA.MVC.Hosting
             // 过滤器通过数组回写结果：没有过滤器时不必每请求建一个中转数组
             object[] nargs = null;
 
-            if (routing.FilterAtrrs != null && routing.FilterAtrrs.Any())
+            if (routing.FilterAtrrs != null && routing.FilterAtrrs.Count > 0)
             {
                 foreach (var arr in routing.FilterAtrrs)
                 {
@@ -387,7 +387,7 @@ namespace SAEA.MVC.Hosting
                 }
             }
 
-            if (routing.ActionFilterAtrrs != null && routing.ActionFilterAtrrs.Any())
+            if (routing.ActionFilterAtrrs != null && routing.ActionFilterAtrrs.Count > 0)
             {
                 foreach (var arr in routing.ActionFilterAtrrs)
                 {
