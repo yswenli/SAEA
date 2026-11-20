@@ -272,20 +272,22 @@ Under the same send/receive benchmark, the span-based receive path of `SAEA.Sock
 
 ### End-to-end measurements (HTTP / WebSocket)
 
-Load test of `SAEA.MVC` assembled on top of `SAEA.Http` and `SAEA.Sockets`: single machine, same process, one snapshot.
+The full-stack benchmark of `SAEA.MVC` on top of `SAEA.Http` and `SAEA.Sockets`: client and server run in two separate processes over IPv4 loopback on one machine, and each of the six cases is the median of 3 runs:
 
-| Scenario | Result |
-|---|---:|
-| HTTP serial (5,000 requests, short connections) | 943 RPS |
-| HTTP 16 concurrent (10 s) | 4,140 RPS |
-| HTTP 64 concurrent (10 s) | 3,529 RPS |
-| HTTPS serial (2,000 requests, short connections) | 220 RPS |
-| Static 100 KB serial (memory cache hit) | 529 RPS / 51.7 MiB/s |
-| WebSocket single-connection echo | 7,078 msg/s |
+| Case | RPS | p50 / p99 |
+|---|---:|---:|
+| HTTP serial (5,000 requests, short connections) | 1,144 | 0.70 / 1.78 ms |
+| HTTP 16 concurrent (10 s, short connections) | 5,830 | 2.11 / 12.36 ms |
+| HTTP 64 concurrent (10 s, short connections) | 5,408 | 10.10 / 27.72 ms |
+| HTTPS serial (2,000 requests, short connections) | 203 | 4.51 / 8.13 ms |
+| Static 100 KB serial (memory cache hit) | 345 RPS / 33.7 MiB·s⁻¹ | 2.51 / 4.41 ms |
+| WebSocket single-connection echo | 7,892 msg/s | 0.12 / 0.22 ms |
 
-> Scope: client and server on the same machine in the same process over IPv4 loopback; this group was measured on short connections (one TCP connection per request) and does not represent throughput under the default keep-alive — see the keep-alive benchmark section in [SAEA.MVC](Src/SAEA.MVC/README.md) for the connection policy; static files are served from the in-memory cache, so this is not the first-read or large-file path. Single-run snapshot: the same probe varies 20%–35% between runs (another run measured 749 RPS HTTP serial, 183 RPS HTTPS serial, 515 RPS static serial and 5,782 msg/s WebSocket single connection), so it is only valid for relative comparison within one run.
+> Scope: the whole set uses short connections (one TCP connection per request) and does not represent throughput under the default keep-alive; see the "Keep-alive benchmark (process-isolated)" and "Per-request allocation and CPU cost" sections of [SAEA.MVC](Src/SAEA.MVC/README.md) for those. HTTPS uses a self-signed certificate, TLS 1.2 fixed and certificate validation skipped; static files are served from the in-memory cache, so this is not the first-read or large-file path. The same probe varies 20%–35% between runs, so these numbers are only valid for relative comparison within one run, not as production absolutes.
+>
+> Before the fix, both concurrency cases had 1–8 connections out of every 30,000–60,000 receive no response (showing up as `unexpected EOF before response header` or an RST at teardown). The table above was collected before the fix; after the connection-layer race was fixed (a disconnect left over from the previous connection closed a new connection whose token had already been reused), the same load generator completed 1,000,000 short connections at concurrency 64 / 128 / 256 with 0 no-response failures. The RPS denominator is the number of requests actually completed.
 
-> Full data, failure rates and resource usage: [MVC / TLS acceptance record](docs/superpowers/plans/2026-11-13-mvc-tls-acceptance.md); per-component scope: the measured sections in [SAEA.Http](Src/SAEA.Http/README.md) and [SAEA.MVC](Src/SAEA.MVC/README.md). `SAEA.Http` as a standalone server has not been benchmarked separately.
+> Full data, failure rates and resource usage (old versions, old methodology) are in the [MVC / TLS acceptance record](docs/superpowers/plans/2026-11-13-mvc-tls-acceptance.md); component-level scopes are in the benchmark sections of [SAEA.Http](Src/SAEA.Http/README.md) and [SAEA.MVC](Src/SAEA.MVC/README.md). `SAEA.Http` has not been benchmarked separately as a stand-alone server.
 
 ---
 

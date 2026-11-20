@@ -272,20 +272,22 @@ server.Start();
 
 ### 整栈实测（HTTP / WebSocket）
 
-`SAEA.MVC` 装配在 `SAEA.Http` 与 `SAEA.Sockets` 之上的整栈压测，单机同进程、单次快照：
+`SAEA.MVC` 装配在 `SAEA.Http` 与 `SAEA.Sockets` 之上的整栈压测，客户端与服务端分两个进程、同机走 IPv4 回环，六档各跑 3 轮取中位数：
 
-| 场景 | 结果 |
-|---|---:|
-| HTTP 串行（5000 次，短连接） | 943 RPS |
-| HTTP 并发 16（10s） | 4140 RPS |
-| HTTP 并发 64（10s） | 3529 RPS |
-| HTTPS 串行（2000 次，短连接） | 220 RPS |
-| 静态 100KB 串行（命中内存缓存） | 529 RPS / 51.7 MiB/s |
-| WebSocket 单连接回显 | 7078 条/秒 |
+| 场景 | RPS | p50 / p99 |
+|---|---:|---:|
+| HTTP 串行（5,000 次，短连接） | 1,144 | 0.70 / 1.78 ms |
+| HTTP 并发 16（10 s，短连接） | 5,830 | 2.11 / 12.36 ms |
+| HTTP 并发 64（10 s，短连接） | 5,408 | 10.10 / 27.72 ms |
+| HTTPS 串行（2,000 次，短连接） | 203 | 4.51 / 8.13 ms |
+| 静态 100 KB 串行（命中内存缓存） | 345 RPS / 33.7 MiB·s⁻¹ | 2.51 / 4.41 ms |
+| WebSocket 单连接回显 | 7,892 条/秒 | 0.12 / 0.22 ms |
 
-> 口径：客户端与服务端同机同进程、走 IPv4 回环；该组为短连接口径（每个请求单独建连），不代表默认 keep-alive 下的吞吐，连接策略见 [SAEA.MVC](Src/SAEA.MVC/README.md) 的「长连接压测（进程隔离）」小节；静态文件命中内存缓存，不代表首次磁盘读取与大文件路径。单次快照，同一探针跨轮波动 20%–35%（另一次复跑为 HTTP 串行 749 RPS、HTTPS 串行 183 RPS、静态串行 515 RPS、WebSocket 单连接 5782 条/秒），只能做同一轮内的相对比较。
+> 口径：整组是短连接口径（每个请求单独建连），不代表默认 keep-alive 下的吞吐；长连接档与每请求分配见 [SAEA.MVC](Src/SAEA.MVC/README.md) 的「长连接压测（进程隔离）」「每请求分配与 CPU 成本」小节。HTTPS 为自签证书、固定 TLS 1.2、客户端跳过证书校验；静态文件命中内存缓存，不代表首次磁盘读取与大文件路径。同一探针跨轮波动可达 20%–35%，只能做同一轮内的相对比较，不能当生产绝对值。
+>
+> 两个并发档在修复前每 3–6 万条连接有 1–8 条没拿到响应（表现为 `unexpected EOF before response header` 或收尾 RST）。上表为修复前采集的数据。连接层竞态（上一代连接遗留的断开调用误关了已复用的新连接）修复后，同一压测器以并发 64 / 128 / 256 复测 1,000,000 条短连接，0 条无响应失败。RPS 的分母是实际完成的请求数。
 
-> 完整数据、失败率与资源占用见 [MVC / TLS 验收记录](docs/superpowers/plans/2026-11-13-mvc-tls-acceptance.md)；组件级口径见 [SAEA.Http](Src/SAEA.Http/README.md) 与 [SAEA.MVC](Src/SAEA.MVC/README.md) 的实测小节。`SAEA.Http` 作为独立服务器未单独采集基准。
+> 完整数据、失败率与资源占用（旧版本、旧口径）见 [MVC / TLS 验收记录](docs/superpowers/plans/2026-11-13-mvc-tls-acceptance.md)；组件级口径见 [SAEA.Http](Src/SAEA.Http/README.md) 与 [SAEA.MVC](Src/SAEA.MVC/README.md) 的实测小节。`SAEA.Http` 作为独立服务器未单独采集基准。
 
 ---
 

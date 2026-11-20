@@ -285,31 +285,32 @@ Client ──► HTTP Request ──► pump (PipeReader + splitter)
 
 ### Measured on one machine (reference)
 
-The table below is one snapshot from a loopback load test. The site under test is a SAEA.MVC application assembled on top of SAEA.Http; SAEA.Http as a standalone server has not been benchmarked separately.
+The table below is one snapshot from a same-machine load test. The site under test is a SAEA.MVC application assembled on top of SAEA.Http; SAEA.Http as a standalone server has not been benchmarked separately. Client and server run in two separate processes over IPv4 loopback on one machine, and each of the six cases is the median of 3 runs.
 
-| Scenario | Result |
-|---|---:|
-| HTTP serial (5,000 requests, short connections) | 943 RPS |
-| HTTP 16 concurrent (10 s) | 4,140 RPS |
-| HTTP 64 concurrent (10 s) | 3,529 RPS |
-| HTTPS serial (2,000 requests, short connections) | 220 RPS |
-| Static 100 KB serial (memory cache hit) | 529 RPS / 51.7 MiB/s |
-| WebSocket single-connection echo | 7,078 msg/s |
+| Case | RPS | p50 / p99 |
+|---|---:|---:|
+| HTTP serial (5,000 requests, short connections) | 1,144 | 0.70 / 1.78 ms |
+| HTTP 16 concurrent (10 s, short connections) | 5,830 | 2.11 / 12.36 ms |
+| HTTP 64 concurrent (10 s, short connections) | 5,408 | 10.10 / 27.72 ms |
+| HTTPS serial (2,000 requests, short connections) | 203 | 4.51 / 8.13 ms |
+| Static 100 KB serial (memory cache hit) | 345 RPS / 33.7 MiB·s⁻¹ | 2.51 / 4.41 ms |
+| WebSocket single-connection echo | 7,892 msg/s | 0.12 / 0.22 ms |
 
-How to read these numbers:
+Scope and boundaries:
 
-- Client and server ran on the same machine in the same process over IPv4 loopback; under concurrency the load generator is itself a bottleneck (in this run 64-concurrent RPS is 0.85x the 16-concurrent figure), so it does not indicate the server's scaling limit.
-- This group was measured on short connections (one TCP connection per request) and does not represent throughput under the default keep-alive; the connection policy is that HTTP/1.1 reuses connections by default, HTTP/1.0 closes by default, and a connection is closed only when the request explicitly sends `Connection: close`.
-- Self-signed certificate with TLS 1.2 fixed and certificate validation skipped; static files are served from the in-memory cache, so this is not the first-read or large-file chunked path.
-- Single-run snapshot: the same probe varies 20%–35% between runs (another run on this machine measured 749 RPS HTTP serial, 183 RPS HTTPS serial, 515 RPS static 100 KB serial and 5,782 msg/s WebSocket single connection). Use it only for relative comparison within one run, never as a production absolute value or for cross-framework comparison.
+- The whole group is measured on **short connections**: each request opens its own connection, carries `Connection: close` and reads to EOF; for the keep-alive basis see the "Keep-alive benchmark (process-isolated)" section of [SAEA.MVC](../SAEA.MVC/README.md).
+- HTTPS uses a self-signed certificate, TLS 1.2 fixed and certificate validation skipped; static files are served from the in-memory cache, so this is not the first-read or large-file chunked path.
+- Raw values per round: HTTP serial 1,153 / 1,144 / 1,138; 16 concurrency 5,830 / 5,380 / 5,831; 64 concurrency 5,408 / 5,326 / 5,795; HTTPS 213 / 165 / 203; static 345 / 281 / 421 (33.7 / 27.4 / 41.1 MiB·s⁻¹); WebSocket 7,892 / 5,752 / 8,127 msg/s. HTTPS does one handshake per request and the static cell has only 300 samples, so these two cells vary most between rounds.
+- Both concurrency cells had 1–8 connections out of every 30,000–60,000 receive no response before the fix (about 1×10⁻⁴, showing up as `unexpected EOF before response header` or an RST at teardown), and the RPS denominator is the number of requests actually completed. The table above was collected before the fix; after the connection-layer race was fixed (a disconnect left over from the previous connection closed a new connection whose token had already been reused), the same load generator completed 1,000,000 short connections at concurrency 64 / 128 / 256 with 0 no-response failures.
+- Single-round snapshot: the same probe varies 20%–35% between rounds (the two concurrency cells differ by about 8% across their three repeats), so use it only for relative comparison within one run, never as a production absolute value, and never for cross-framework comparison.
 
-Full data, failure rates and resource usage: [MVC / TLS acceptance record](../../docs/superpowers/plans/2026-11-13-mvc-tls-acceptance.md).
+The historical acceptance record (old version, old methodology) is at [MVC / TLS acceptance record](../../docs/superpowers/plans/2026-11-13-mvc-tls-acceptance.md).
 
 ### Per-request processing cost
 
 - Response framing no longer builds the headers as a string and then encodes it: the header order has a single segmented description, and the string output (`BuildHeader`), the length accounting and the direct byte write all derive from it, so the final frame is allocated once and written directly, with no header string or intermediate byte array. The signature and textual output of `BuildHeader` are unchanged.
 - Request parsing now scans the header text by index: the request line, each header line, the query string and the cookies no longer produce intermediate arrays, and the header and query dictionaries are pre-sized from the line count / separator count.
-- In-process measurement on one machine (request parsing + dispatch + response encoding, **excluding socket send/receive**): per-request allocation 15,640 B -> 7,600 B. This is an in-process figure; for per-request allocation on the full network path see the "Per-request allocation (interleaved A/B re-run)" section in the MVC README.
+- In-process measurement on one machine (request parsing + dispatch + response encoding, **excluding socket send/receive**): per-request allocation 15,640 B -> 7,600 B. This is an in-process figure; for per-request allocation on the full network path see the "Per-request allocation and CPU cost" section in the MVC README.
 
 ### Server comparison
 
