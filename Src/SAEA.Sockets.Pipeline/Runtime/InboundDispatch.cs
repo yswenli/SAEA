@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 11:04:09
+*修改时间：2026/11/20 15:28:50
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：单次入站派发的所有权与异常通知状态，按调用边界记录转发结果
+*版本号： v26.11.16.1
+*描述：异常通知标记并入派发状态根实例，派生边界只引用根，不再单独分配标记对象
 *
 *****************************************************************************/
 using System.Threading;
@@ -47,27 +47,14 @@ namespace SAEA.Sockets.Pipeline
     /// </summary>
     internal sealed class InboundDispatch
     {
-        /// <summary>同一次消息派发共享的异常通知标记；用引用传递，避免逐边界复制后失真。</summary>
-        private sealed class NotifyState
+        // 共享标记落在本次派发的根实例上：派生边界只引用根，不再为标记单独分配一个对象。
+        private readonly InboundDispatch _root;
+
+        private int _notified;
+
+        private InboundDispatch(InboundDispatch root, bool chainOwned, object operation)
         {
-            private int _notified;
-
-            public bool Notified
-            {
-                get { return Volatile.Read(ref _notified) != 0; }
-            }
-
-            public void Mark()
-            {
-                Volatile.Write(ref _notified, 1);
-            }
-        }
-
-        private readonly NotifyState _notify;
-
-        private InboundDispatch(NotifyState notify, bool chainOwned, object operation)
-        {
-            _notify = notify;
+            _root = root;
             ChainOwned = chainOwned;
             Operation = operation;
         }
@@ -81,7 +68,11 @@ namespace SAEA.Sockets.Pipeline
         /// <summary>同一次消息派发是否已经向下游通知过异常。</summary>
         public bool ExceptionNotified
         {
-            get { return _notify.Notified; }
+            get
+            {
+                var root = _root ?? this;
+                return Volatile.Read(ref root._notified) != 0;
+            }
         }
 
         /// <summary>
@@ -95,7 +86,7 @@ namespace SAEA.Sockets.Pipeline
         /// <returns>新派发状态。</returns>
         internal static InboundDispatch CreateExecutorOwned(object operation)
         {
-            return new InboundDispatch(new NotifyState(), false, operation);
+            return new InboundDispatch(null, false, operation);
         }
 
         /// <summary>创建链持有的消息派发；未成功转发时由该边界释放。</summary>
@@ -103,7 +94,7 @@ namespace SAEA.Sockets.Pipeline
         /// <returns>新派发状态。</returns>
         internal static InboundDispatch CreateChainOwned(object operation)
         {
-            return new InboundDispatch(new NotifyState(), true, operation);
+            return new InboundDispatch(null, true, operation);
         }
 
         /// <summary>
@@ -113,13 +104,14 @@ namespace SAEA.Sockets.Pipeline
         /// <returns>下游边界的派发状态。</returns>
         internal InboundDispatch Derive(bool chainOwned)
         {
-            return new InboundDispatch(_notify, chainOwned, Operation);
+            return new InboundDispatch(_root ?? this, chainOwned, Operation);
         }
 
         /// <summary>标记本次消息派发已经向下游通知过异常，上游不再重复通知。</summary>
         internal void MarkExceptionNotified()
         {
-            _notify.Mark();
+            var root = _root ?? this;
+            Volatile.Write(ref root._notified, 1);
         }
     }
 }
