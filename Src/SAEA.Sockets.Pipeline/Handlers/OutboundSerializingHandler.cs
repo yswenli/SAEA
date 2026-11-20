@@ -22,14 +22,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 12:05:00
+*修改时间：2026/11/20 10:12:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：实现 lock + 队列的单写者 FIFO、待写项数预算与摘链清理
+*版本号： v26.11.16.1
+*描述：增加空闲快路径：空闲写不再建待写项与队列，锁内取得写者角色并移交后直接调下游
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using SAEA.Common;
 
@@ -52,6 +53,9 @@ namespace SAEA.Sockets.Pipeline
         private bool _closed;
         private PendingWrite _activeItem;
 
+        // 快路径不建 PendingWrite，摘链清理需要单独看到它当前持有的操作。
+        private OutboundOperation _activeOperation;
+
         /// <summary>以默认待写上限 256 创建串行器。</summary>
         public OutboundSerializingHandler()
             : this(DefaultMaxPendingWrites)
@@ -72,7 +76,7 @@ namespace SAEA.Sockets.Pipeline
         }
 
         /// <summary>
-        /// 到达即入队：空闲调用方成为写者，其余调用方按到达顺序排队。
+        /// 到达即入队：空闲调用方直接取得写者角色并同步开始调下游，其余调用方按到达顺序排队。
         /// 已摘链或超过待写上限时本次写直接失败；原始帧按未移交补偿，其他对象不代管。
         /// </summary>
         /// <param name="ctx">当前处理器在链上的节点上下文。</param>
@@ -87,8 +91,11 @@ namespace SAEA.Sockets.Pipeline
                     "OutboundSerializingHandler 只能作为业务写出站链的第一个节点：缺少本次写的操作绑定。");
             }
 
-            var pending = new PendingWrite(ctx, view.Operation, msg);
+            var operation = view.Operation;
+            PendingWrite pending = null;
             var startDrain = false;
+            var fast = false;
+            var handedOff = false;
             Exception rejection = null;
 
             lock (_gate)
@@ -103,8 +110,21 @@ namespace SAEA.Sockets.Pipeline
                     rejection = new InvalidOperationException(
                         "出站待写项数已达到上限 MaxPendingWrites=" + _maxPendingWrites + "，本次写被拒绝。");
                 }
+                else if (!_active && _queue.Count == 0)
+                {
+                    // 空闲快路径：取得写者角色与移交必须在同一把锁内完成，否则摘链清理会落在
+                    // 「已取得角色但未移交」的空窗里，既不 abort 也不补偿原始帧。
+                    _active = true;
+                    handedOff = operation.TryMarkHandedOff();
+                    fast = handedOff;
+                    if (handedOff)
+                        _activeOperation = operation;
+                    else
+                        _active = false;
+                }
                 else
                 {
+                    pending = new PendingWrite(ctx, operation, msg);
                     _queue.Enqueue(pending);
                     if (!_active)
                     {
@@ -120,6 +140,15 @@ namespace SAEA.Sockets.Pipeline
                 return Task.FromException(rejection);
             }
 
+            if (fast)
+                return FastWriteAsync(view, operation, msg);
+
+            if (pending == null)
+            {
+                // 移交权已被超时或摘链抢先完成：与排水分支同一口径，跳过下游只解除调用方等待。
+                return Task.FromException(new ChannelClosedException("本次写已在移交前完成，不再交给下游。"));
+            }
+
             // 写者不让调用方等待整个队列：只有本项自己的 Task 会回到发起方。
             if (startDrain)
                 _ = DrainAsync();
@@ -129,8 +158,8 @@ namespace SAEA.Sockets.Pipeline
 
         /// <summary>
         /// 摘链清理：排队项与已出队未移交项禁止再移交，公共任务以
-        /// <see cref="ChannelClosedException"/> 失败并补偿原始帧；已移交项只让公共任务失败，
-        /// 消息仍由下游负责，迟完成不会重复减计数。
+        /// <see cref="ChannelClosedException"/> 失败并补偿原始帧；已移交项（含空闲快路径拿走、未建待写项的项）
+        /// 只让公共任务失败，消息仍由下游负责，迟完成不会重复减计数。
         /// </summary>
         /// <param name="ctx">已摘链节点的上下文。</param>
         public override void HandlerRemoved(IChannelHandlerContext ctx)
@@ -138,6 +167,7 @@ namespace SAEA.Sockets.Pipeline
             var closed = new ChannelClosedException("出站串行器已摘链，待写消息不再移交。");
             List<PendingWrite> queued;
             PendingWrite active;
+            OutboundOperation fastActive;
 
             lock (_gate)
             {
@@ -146,6 +176,8 @@ namespace SAEA.Sockets.Pipeline
                 _queue.Clear();
                 active = _activeItem;
                 _activeItem = null;
+                fastActive = _activeOperation;
+                _activeOperation = null;
                 _active = false;
             }
 
@@ -156,19 +188,27 @@ namespace SAEA.Sockets.Pipeline
                 item.TrySetException(closed);
             }
 
-            if (active == null)
-                return;
-
-            if (active.Operation.TryAbortQueued(closed))
+            if (active != null)
             {
-                // active-not-handed：本节点仍持有消息，按未移交补偿后解除调用方等待。
-                active.TrySetException(closed);
+                if (active.Operation.TryAbortQueued(closed))
+                {
+                    // active-not-handed：本节点仍持有消息，按未移交补偿后解除调用方等待。
+                    active.TrySetException(closed);
+                    return;
+                }
+
+                // active-handed-off 或已被竞态完成：只让公共任务失败，消息由下游与迟完成回调清理；
+                // 这里不能完成本项的交接 Task，否则上游视图会提前失效，让下游调用拿到已失效的上下文。
+                active.Operation.TryComplete(closed);
                 return;
             }
 
-            // active-handed-off 或已被竞态完成：只让公共任务失败，消息由下游与迟完成回调清理；
-            // 这里不能完成本项的交接 Task，否则上游视图会提前失效，让下游调用拿到已失效的上下文。
-            active.Operation.TryComplete(closed);
+            if (fastActive == null)
+                return;
+
+            // 空闲快路径：锁内已移交，消息在下游手里；只让公共任务失败，下游结果由迟完成回调收口。
+            if (!fastActive.TryAbortQueued(closed))
+                fastActive.TryComplete(closed);
         }
 
         /// <summary>
@@ -217,6 +257,52 @@ namespace SAEA.Sockets.Pipeline
                 item.Operation.TryComplete(error);
                 item.Complete(error);
             }
+        }
+
+        /// <summary>
+        /// 空闲快路径的单写者：直接调下游，按真实结果完成操作后让出写者角色。
+        /// 与 <see cref="DrainAsync"/> 共用同一完成点；期间新到的写已排进队列时继续排水，避免后续写永远不被处理。
+        /// </summary>
+        /// <param name="ctx">本次写出站调用的上下文视图。</param>
+        /// <param name="operation">本次业务写操作；进入前已在锁内取得移交权。</param>
+        /// <param name="msg">待发送消息。</param>
+        /// <returns>下游写出完成后结束的任务，失败时保留原始异常与堆栈。</returns>
+        private async Task FastWriteAsync(DefaultChannelHandlerContext ctx, OutboundOperation operation, object msg)
+        {
+            Exception error = null;
+            try
+            {
+                await ctx.WriteAsync(msg).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
+
+            // 真实结果只驱动唯一完成路径；已由超时或摘链完成的项在这里是无操作。
+            operation.TryComplete(error);
+
+            var startDrain = false;
+            lock (_gate)
+            {
+                _activeOperation = null;
+                if (_closed || _queue.Count == 0)
+                {
+                    _activeItem = null;
+                    _active = false;
+                }
+                else
+                {
+                    // 快写期间已有新写排进队列：写者角色不释放，锁外接力排水。
+                    startDrain = true;
+                }
+            }
+
+            if (startDrain)
+                _ = DrainAsync();
+
+            if (error != null)
+                ExceptionDispatchInfo.Capture(error).Throw();
         }
 
         /// <summary>未成功移交时释放原始帧；普通业务对象不代管。</summary>
