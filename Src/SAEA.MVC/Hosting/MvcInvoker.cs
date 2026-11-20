@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/20 16:20:00
+*修改时间：2026/11/20 14:59:51
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：过滤器判空改用列表 Count，不再每请求走 LINQ Any
+*描述：WebSocket 能力入口改为仅在命中 WSController 时按需物化，普通请求不再每请求新建入口对象
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -216,13 +216,18 @@ namespace SAEA.MVC.Hosting
                 return new ContentResult("o_o，当前请求方式不被允许 url:" + System.Net.WebUtility.HtmlEncode(requestUrl) + "，允许的方式：" + allow, System.Net.HttpStatusCode.MethodNotAllowed);
             }
 
-            var websockets = context.WebSockets as WebSocketsFeature;
+            // 能力入口按需物化：HttpContext.ResetForNextRequest 每请求都会把入口清空，
+            // 在这里无条件取属性会让每个普通 HTTP 请求都新建一个只承载 WS 状态的入口对象
+            WebSocketsFeature websockets = null;
 
             var isWebSocketAction = IsWebSocketAction(routing.Action);
 
             // WSController 上的非 [WebSocket] action（MessageAsync / CloseAsync / ErrorAsync）不允许普通 HTTP 直连
             if (routing.Instance is WSController wsController)
             {
+                // 只有 WSController 才需要入口：user action 访问 context.WebSockets 时仍按需创建，语义不变
+                websockets = context.WebSockets as WebSocketsFeature;
+
                 websockets?.Attach(wsController);
 
                 if (!isWebSocketAction)

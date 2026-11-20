@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/20 16:20:00
+*修改时间：2026/11/20 14:59:51
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：控制器名索引拆成全名与裸名两张表并保留列表下标，两段式只认后缀；路由缓存键改为不分配的结构键
+*描述：控制器名索引拆成全名与裸名两张表并保留列表下标，两段式只认后缀；路由缓存键改为不分配的结构键；命中路径改为先查后建，不再每请求分配 GetOrAdd 闭包
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -218,7 +218,13 @@ namespace SAEA.MVC.Routing
             // 键是值元组，不装箱也不分配；控制器名取 Name 而不是 Type，保持旧键的碰撞语义
             var key = (ControllerName: controllerType.Name, ActionName: actionName, Method: method);
 
-            // 只为当前请求动词的键做一次 GetOrAdd：未声明动词的 action 由工厂补写全部动词的键，
+            // 先查后建：GetOrAdd 的工厂闭包会捕获 this 与 4 个局部量，命中缓存时工厂根本不执行，
+            // 闭包与委托属于纯白付；先判一次只多付一次字典查找，慢路径仍保留原来的 GetOrAdd 语义。
+            // TryGetValue 对缓存值为 null 的键同样返回 true：未知 action 的 404 结果就是缓存的 null，
+            // 命中时必须原样返回（含 null），不能因为值是 null 就落到慢路径重建
+            if (_cDic.TryGetValue(key, out var cached)) return cached;
+
+            // 未命中时才为当前请求动词的键做一次 GetOrAdd：未声明动词的 action 由工厂补写全部动词的键，
             // 声明了动词的 action 只落回自己声明的键；解析为空时工厂返回 null 并作为该键的缓存值，后续请求直接命中
             return _cDic.GetOrAdd(key, (k) => BuildEntry(controllerType, actionName, method, key));
         }
