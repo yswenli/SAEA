@@ -81,7 +81,7 @@ public CancellationToken RequestAborted { get; internal set; }   // 单次 actio
 
 `RoutingPath` 必须存**实际请求路径**而不是路由模板：存模板会让 `/users/5` 与 `/users/7` 得到同一个键，路径参数场景下缓存依旧串号。模板本身只作为匹配器的中间结果，不对外暴露。
 
-`RequestAborted` 加在 `SAEA.MVC.HttpContext` 上，而不是 `SAEA.Http.IHttpContext`：不改 `SAEA.Http` 的公共契约，普通 HTTP 宿主不受影响。取用时需要从 `HttpContext.Current` 判型或强转（其静态类型是 `SAEA.Http.Model.IHttpContext`）。它是**协作式取消**：只有观察令牌的代码才会停止，没观察令牌的同步代码无法被强制终止。令牌只在本次 action 调用期间有效，action 返回后取消源即释放，不要继续注册回调或交给后台任务长期持有；未进入 action 的请求（404、405、静态文件、`RequestDelegate`）读到的是不可取消的默认令牌。
+`RequestAborted` 加在 `SAEA.MVC.HttpContext` 上，而不是 `SAEA.Http.IHttpContext`：不改 `SAEA.Http` 的公共契约，普通 HTTP 宿主不受影响。取用时需要从 `HttpContext.Current` 判型或强转（其静态类型是 `SAEA.Http.Model.IHttpContext`）。它是**协作式取消**：只有观察令牌的代码才会停止，没观察令牌的同步代码无法被强制终止。令牌只在本次 action 调用期间有效，action 返回后取消源即释放，不要继续注册回调或交给后台任务长期持有；未进入 action 的请求（404、405、静态文件、`RequestDelegate`）读到的是不可取消的默认令牌。本次调用没有任何取消者时（`ActionTimeout = 0` 且 action 未声明 `CancellationToken` 形参）同样读到不可取消的默认令牌，`CanBeCanceled` 为 `false`，与「有取消源但从不取消」语义一致。
 
 ## 5. 模板语法与归一化
 

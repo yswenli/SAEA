@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/20 14:10:09
+*修改时间：2026/11/20 14:29:10
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：同步完成的写不再预建完成源，按需落地完成形态，省掉每次写的完成源与其任务分配
+*描述：同步完成的写改用 Task<bool> 的共享已完成任务，公开返回的任务运行时类型与改造前一致
 *
 *****************************************************************************/
 using System;
@@ -52,8 +52,9 @@ namespace SAEA.Sockets.Pipeline
         /// <summary>完成形态已落地，后续状态迁移与计数均被拒绝。</summary>
         internal const int Completed = 2;
 
-        // 同步成功的写共用这一个已完成任务；属性名与类型名同名，所以不能直接写 Task.CompletedTask。
-        private static readonly Task SharedCompletedTask = System.Threading.Tasks.Task.CompletedTask;
+        // 同步成功的写共用这一个已完成任务；用 Task<bool> 而不是 Task.CompletedTask，
+        // 保证调用方拿到的运行时类型与改造前一直返回的 Task<bool> 一致。
+        private static readonly Task<bool> SharedCompletedTask = Task.FromResult(true);
 
         // 完成形态只允许一次原子落地，三种取值：
         // null 表示还没有人取用过公共任务；TaskCompletionSource<bool> 表示已有等待方，完成后由它唤醒；

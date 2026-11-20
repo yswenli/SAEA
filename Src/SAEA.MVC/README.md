@@ -1181,7 +1181,7 @@ public class ExportController : Controller
 - 声明了 `CancellationToken` 形参时，令牌由框架按每次请求注入。
 - 不声明形参时，从 `((SAEA.MVC.Hosting.HttpContext)HttpContext.Current).RequestAborted` 读取；`HttpContext.Current` 的静态类型是 `SAEA.Http.Model.IHttpContext`，取用前需要判型或强转。
 - 只有显式配置 `ActionTimeout > 0` 才启用动作超时包装：单次调用超过 `ActionTimeout` 秒仍未完成时，框架返回 **408 Request Timeout**，并 `Cancel()` 该令牌。默认（`ActionTimeout = 0`）不启用超时包装：同步 action 阻塞会直接占用消费线程，没有 408 兜底；异步 action 由框架真正 `await`，等待期间线程归还线程池，不会被单个请求占死。`Timeout` 只负责连接空闲回收，单独调小它不会改变动作超时，但会提前回收空闲连接；只为缩短动作超时而调小 `Timeout` 会先回收连接、导致 408 写不出去，应改用 `ActionTimeout`。
-- 令牌只在本次 action 调用期间有效：action 返回后取消源即释放，不要继续注册回调或交给后台任务长期持有。未进入 action 的请求（404、405、静态文件、`RequestDelegate`）读到的是不可取消的默认令牌。
+- 令牌只在本次 action 调用期间有效：action 返回后取消源即释放，不要继续注册回调或交给后台任务长期持有。未进入 action 的请求（404、405、静态文件、`RequestDelegate`）读到的是不可取消的默认令牌。本次调用没有任何取消者时（`ActionTimeout = 0` 且 action 未声明 `CancellationToken` 形参）读到的同样是不可取消的默认令牌，此时 `CanBeCanceled` 为 `false`，语义与「有取消源但从不取消」一致。
 - 这是**协作式取消**：只有观察令牌的代码才会停止，比如 `token.ThrowIfCancellationRequested()`、`Task.Delay(..., token)`、向令牌注册的回调。没有观察令牌的同步代码无法被强制终止，会继续在后台跑完，其后续异常由框架观察并丢弃，不会再写响应。
 
 ### 异步入口

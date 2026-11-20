@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/20 09:30:00
+*修改时间：2026/11/20 14:29:10
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：action 调用与 Task<T> 结果读取改为按 action 缓存的编译委托，编译失败时永久回退反射调用
+*描述：取消源只在超时路径或 action 声明 CancellationToken 形参时才建，其余路径注入默认令牌，省掉每请求一次取消源分配
 *
 *****************************************************************************/
 using SAEA.Common.NameValue;
@@ -72,6 +72,22 @@ namespace SAEA.MVC.Invocation
             _parametersCache.TryAdd(action, parameters);
 
             return parameters;
+        }
+
+        /// <summary>
+        /// 判断 action 是否声明了 <see cref="CancellationToken"/> 形参：该形参会拿到本次调用的令牌，
+        /// 用户代码可能读它的可取消性，这种调用仍要落地真正的取消源
+        /// </summary>
+        /// <param name="params">action 的形参元数据</param>
+        /// <returns>声明了 CancellationToken 形参时返回 true</returns>
+        static bool HasCancellationTokenParameter(ParameterInfo[] @params)
+        {
+            for (var i = 0; i < @params.Length; i++)
+            {
+                if (@params[i].ParameterType == typeof(CancellationToken)) return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -385,8 +401,15 @@ namespace SAEA.MVC.Invocation
             // 却要让每个请求额外付出一次线程跳转与带超时的等待
             var withTimeout = alwaysTimeout || webConfig.ActionTimeout > 0;
 
-            // 每次调用一个取消源：超时前由 finally 释放，超时后交给任务观察回调释放
-            var cts = new CancellationTokenSource();
+            // 取消源只在本次调用真会交付可用令牌时才建：超时路径会取消它，action 声明了
+            // CancellationToken 形参时用户代码会读到它。其余路径没有任何取消者，令牌永不触发，
+            // 每请求多建一个取消源只是白付一次分配
+            var withToken = withTimeout || HasCancellationTokenParameter(@params);
+
+            var cts = withToken ? new CancellationTokenSource() : null;
+
+            // 没有令牌消费者的路径注入永不触发的默认令牌，与不建取消源时的语义一致
+            var token = cts != null ? cts.Token : CancellationToken.None;
 
             // 标记已交给超时路径处理，避免 finally 提前释放掉还在被 action 观察的取消源
             var handedToTimeout = false;
@@ -395,13 +418,13 @@ namespace SAEA.MVC.Invocation
             {
                 // 先落到上下文再调用 action，保证 action 内能读到本次令牌
                 if (mvcContext != null)
-                    mvcContext.RequestAborted = cts.Token;
+                    mvcContext.RequestAborted = token;
 
                 // 创建参数列表
                 object[] parameters = null;
                 if (@params.Length > 0)
                 {
-                    parameters = ParameterBinder.FillParameters(@params, nameValues, cts.Token);
+                    parameters = ParameterBinder.FillParameters(@params, nameValues, token);
                 }
 
                 // 检查是否为异步方法（Task / Task<T>）
@@ -497,8 +520,9 @@ namespace SAEA.MVC.Invocation
             }
             finally
             {
-                // 非超时路径（正常完成、action 同步抛异常、等待时抛 AggregateException）自己释放
-                if (!handedToTimeout) cts.Dispose();
+                // 非超时路径（正常完成、action 同步抛异常、等待时抛 AggregateException）自己释放；
+                // 没有取消源的路径无需释放
+                if (cts != null && !handedToTimeout) cts.Dispose();
             }
 
             // 处理各种返回类型
