@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/20 14:59:51
+*修改时间：2026/11/20 15:18:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：WebSocket 能力入口改为仅在命中 WSController 时按需物化，普通请求不再每请求新建入口对象
+*描述：JSON 列表形参分支在 nameValues 为 null 时按需新建集合，兼容无参数请求传 null
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -314,6 +314,9 @@ namespace SAEA.MVC.Hosting
                                     {
                                         if (item.ParameterType.Name == "List`1")
                                         {
+                                            // 无参数请求传进来的是 null，确实有列表值可加时再建集合
+                                            if (nameValues == null) nameValues = new NameValueCollection();
+
                                             nameValues.Add(item.Name, SerializeHelper.Deserialize(SerializeHelper.Serialize(list), item.ParameterType));
                                         }
                                     }

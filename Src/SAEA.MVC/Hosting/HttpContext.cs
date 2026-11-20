@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 20:10:00
+*修改时间：2026/11/20 15:18:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：声明为可复用上下文并实现 ResetForNextRequest，复位路由路径、取消令牌、响应开始标记与 WebSocket 能力入口
+*描述：请求管道改为首次用到时创建一次并在整条连接内复用，不再每请求新建一个管道对象
 *
 *****************************************************************************/
 using SAEA.Http;
@@ -50,6 +50,23 @@ namespace SAEA.MVC.Hosting
         RouteTable _routeTable = null;
 
         AttributeRouteTable _attributeRoutes = null;
+
+        // 管道只持有本上下文的三个只读引用、没有请求内状态，同一连接内创建一次即可复用
+        RequestPipeline _pipeline = null;
+
+        /// <summary>
+        /// 本次上下文的请求管道，首次使用时创建，之后整条连接复用
+        /// </summary>
+        private RequestPipeline Pipeline
+        {
+            get
+            {
+                if (_pipeline == null)
+                    _pipeline = new RequestPipeline(this, _routeTable, _attributeRoutes);
+
+                return _pipeline;
+            }
+        }
 
         /// <summary>
         /// 以宿主服务创建上下文并绑定其路由表
@@ -125,7 +142,7 @@ namespace SAEA.MVC.Hosting
         {
             InitContext(channel, httpMessage);
 
-            await new RequestPipeline(this, _routeTable, _attributeRoutes).HandleAsync().ConfigureAwait(false);
+            await Pipeline.HandleAsync().ConfigureAwait(false);
         }
 
         /// <summary>
@@ -161,7 +178,7 @@ namespace SAEA.MVC.Hosting
         /// <returns>业务处理结果</returns>
         public override async Task<IHttpResult> GetActionResultAsync()
         {
-            return await new RequestPipeline(this, _routeTable, _attributeRoutes).GetActionResultAsync().ConfigureAwait(false);
+            return await Pipeline.GetActionResultAsync().ConfigureAwait(false);
         }
     }
 }

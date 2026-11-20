@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/20 16:20:00
+*修改时间：2026/11/20 15:18:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：控制器类型查找改为走 RouteTable 的控制器名索引，根路径认两种名字形式、两段式只认 Controller 后缀，不再每请求做线性扫描
+*描述：参数集改为仅在有参数时转换，无参数请求直接传 null，不再为每个无参数请求新建空集合
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -45,7 +45,7 @@ using System.Threading.Tasks;
 namespace SAEA.MVC.Invocation
 {
     /// <summary>
-    /// 请求处理与路由解析管道：每次请求由 HttpContext 创建，承接参数合并、结果收尾与路由匹配
+    /// 请求处理与路由解析管道：由 HttpContext 首次用到时创建并在同一连接内复用，承接参数合并、结果收尾与路由匹配
     /// </summary>
     internal sealed class RequestPipeline
     {
@@ -194,6 +194,21 @@ namespace SAEA.MVC.Invocation
         }
 
         /// <summary>
+        /// 取本请求的参数集合，没有参数时返回 null
+        /// </summary>
+        /// <returns>按请求参数新建的集合；请求无参数时为 null</returns>
+        private NameValueCollection GetNameValues()
+        {
+            var parmas = _context.Request.Parmas;
+
+            // 无参数请求不必建空集合：下游一律先判空再取值，null 与空集合的绑定结果一致；
+            // Parmas 还可能被 JSON 正文整体替换成 null，这里一并按无参数处理
+            if (parmas == null || parmas.Count == 0) return null;
+
+            return parmas.ToNameValueCollection();
+        }
+
+        /// <summary>
         /// 把请求方法名规范成大写：HTTP 方法名区分大小写，但本框架的谓词判定一律忽略大小写，
         /// 统一在入口规范化可避免下游各处重复比较
         /// </summary>
@@ -320,7 +335,7 @@ namespace SAEA.MVC.Invocation
             if (controllerType != null)
             {
                 // 交给 MvcInvoker 按 action 声明的动词作答：声明了 [HttpOptions] 就执行，否则 204 加 Allow
-                return await MvcInvoker.InvokeResultAsync(_routeTable, controllerType, actionName, _context.Request.Parmas.ToNameValueCollection(), ConstHelper.OPTIONS).ConfigureAwait(false);
+                return await MvcInvoker.InvokeResultAsync(_routeTable, controllerType, actionName, GetNameValues(), ConstHelper.OPTIONS).ConfigureAwait(false);
             }
 
             // 静态资源仍是真实存在的路径，OPTIONS 照旧自动应答 204；只有完全未命中的路径才回 404
@@ -365,7 +380,7 @@ namespace SAEA.MVC.Invocation
 
             _context.RoutingPath = match.Path;
 
-            return await MvcInvoker.InvokeResultAsync(_routeTable, match.ControllerType, match.ActionName, _context.Request.Parmas.ToNameValueCollection(), method).ConfigureAwait(false);
+            return await MvcInvoker.InvokeResultAsync(_routeTable, match.ControllerType, match.ActionName, GetNameValues(), method).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -484,7 +499,7 @@ namespace SAEA.MVC.Invocation
 
                         var d = _routeTable.FindController(_context.WebConfig.DefaultRoute.Name);
 
-                        nameValues = _context.Request.Parmas.ToNameValueCollection();
+                        nameValues = GetNameValues();
 
                         return await MvcInvoker.InvokeResultAsync(_routeTable, d, _context.WebConfig.DefaultRoute.Value.ToString(), nameValues, method).ConfigureAwait(false);
                     }
@@ -515,7 +530,7 @@ namespace SAEA.MVC.Invocation
 
                     if (first != null)
                     {
-                        nameValues = _context.Request.Parmas.ToNameValueCollection();
+                        nameValues = GetNameValues();
 
                         return await MvcInvoker.InvokeResultAsync(_routeTable, first, actionSegment, nameValues, method).ConfigureAwait(false);
                     }
