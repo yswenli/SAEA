@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 17:33:09
+*修改时间：2026/11/20 20:52:03
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：接收提交时的 ObjectDisposedException 单独分支处理，按信息级记录关闭竞态
+*版本号： v26.11.16.1
+*描述：Disconnect 先捕获令牌绑定代次再取会话标识，释放时按代次校验
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -1392,6 +1392,9 @@ namespace SAEA.Sockets.Core.Tcp
             try
             {
                 if (userToken == null) return;
+                // 先取代次再取会话标识：代次只增不减，用它能判定「捕获之后令牌是否已被复用」
+                var baseToken = userToken as BaseUserToken;
+                var generation = baseToken == null ? 0L : baseToken.Generation;
                 // 只读取一次 ID：并发的 Disconnect（读错误 / 握手失败 / 空闲超时）会经
                 // SessionManager.Free 把 ID 置空，二次读取可能拿到 null 并让 TryRemove 抛异常。
                 var sessionId = userToken.ID;
@@ -1407,7 +1410,7 @@ namespace SAEA.Sockets.Core.Tcp
                 }
                 _channelManager.Remove(sessionId);
 
-                if (_sessionManager.Free(userToken))
+                if (_sessionManager.Free(userToken, generation))
                 {
                     Interlocked.Decrement(ref _clientCounts);
                     OnDisconnected?.Invoke(sessionId, ex);

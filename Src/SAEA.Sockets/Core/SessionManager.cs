@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 20:30:00
+*修改时间：2026/11/20 20:52:03
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：UDP 接收端点模板按套接字地址族选择
+*版本号： v26.11.16.1
+*描述：绑定前推进令牌代次，Free 增加代次校验重载，拒绝上一代遗留的释放调用
 *
 *****************************************************************************/
 using System;
@@ -114,6 +114,9 @@ namespace SAEA.Sockets.Core
                         throw new Exception("UserToken池中资源已耗尽");
 
                     userToken.Socket = socket;
+                    // 先推进代次再写会话标识：上一代遗留的断开调用即使晚到，也会因代次不匹配被 Free 拒绝
+                    var baseToken = userToken as BaseUserToken;
+                    if (baseToken != null) baseToken.NextGeneration();
                     userToken.ID = socket.RemoteEndPoint.ToString();
                     userToken.Actived = userToken.Linked = DateTimeHelper.Now;
                     _sessionCache.Set(userToken.ID, userToken, _freeTime);
@@ -189,6 +192,9 @@ namespace SAEA.Sockets.Core
         /// <param name="id"></param>
         public void EndBindUserToken(IUserToken userToken, string id)
         {
+            // 与 TCP 一致：先推进代次再写会话标识，保证读到新标识时读到的一定是新代次
+            var baseToken = userToken as BaseUserToken;
+            if (baseToken != null) baseToken.NextGeneration();
             userToken.ID = id;
             userToken.Actived = userToken.Linked = DateTimeHelper.Now;
             _sessionCache.Set(userToken.ID, userToken, _freeTime);
@@ -244,21 +250,43 @@ namespace SAEA.Sockets.Core
         }
 
         /// <summary>
-        /// 释放令牌并放回池中，同时清除会话缓存与超时豁免记录
+        /// 释放会话令牌，按令牌当前代次校验
+        /// </summary>
+        /// <param name="userToken">待释放的令牌</param>
+        /// <returns>是否成功入池，令牌为 null、无会话标识或入池失败时为 false</returns>
+        public bool Free(IUserToken userToken)
+        {
+            if (userToken == null) return false;
+            var baseToken = userToken as BaseUserToken;
+            return Free(userToken, baseToken == null ? 0L : baseToken.Generation);
+        }
+
+        /// <summary>
+        /// 释放指定代次的令牌并放回池中，同时清除会话缓存与超时豁免记录
         /// </summary>
         /// <remarks>
         /// 首次调用即返回 true 并释放信号量；令牌若仍有在途内核操作，则改为延迟回收：
         /// 由最后一个完成点经 <see cref="CompleteOperation"/> 入池，避免复用时 args 仍在使用。
+        /// 只有令牌代次仍等于 <paramref name="expectedGeneration"/> 时才回收；不匹配说明令牌已被复用给
+        /// 下一代连接，此时直接返回 false，不清会话标识、不关套接字、也不释放信号量。
         /// </remarks>
         /// <param name="userToken">待释放的令牌</param>
-        /// <returns>是否成功入池，令牌为 null、无会话标识或入池失败时为 false</returns>
-        public bool Free(IUserToken userToken)
+        /// <param name="expectedGeneration">调用方捕获到的令牌绑定代次</param>
+        /// <returns>是否成功入池，令牌为 null、代次不匹配、无会话标识或入池失败时为 false</returns>
+        public bool Free(IUserToken userToken, long expectedGeneration)
         {
             if (userToken == null) return false;
 
             try
             {
                 using var locker = ObjectLock.Create("SessionManager.Free");
+
+                var token = userToken as BaseUserToken;
+
+                // 代次在锁内比对：令牌被回收复用后，上一代遗留的断开调用必须在这里止步，
+                // 否则会清空并关闭同名的下一代连接
+                if (token != null && token.Generation != expectedGeneration)
+                    return false;
 
                 // 锁内只读取一次 ID 并立即清空：并发的 Disconnect 可能同时到达同一令牌，
                 // 首个调用完成入池后，后续调用若再次 Enqueue 会把同一令牌重复放回池中，
@@ -276,8 +304,7 @@ namespace SAEA.Sockets.Core
                 try
                 {
                     // 非内置实现没有在途操作计数，退回立即入池。
-                    var baseUserToken = userToken as BaseUserToken;
-                    if (baseUserToken != null)
+                    if (token != null)
                     {
                         // 先关闭 socket：关闭会让内核立即取消在途接收/发送并投递完成回调，
                         // 否则延迟回收要等对端下一次发包，令牌与 socket 会长期滞留在途。
@@ -288,7 +315,7 @@ namespace SAEA.Sockets.Core
                         }
                         catch { }
 
-                        if (!baseUserToken.RequestRecycle())
+                        if (!token.RequestRecycle())
                         {
                             // 仍有在途接收/发送：此刻入池会让下一次复用的 SetBuffer 抛异常并永久丢失令牌，
                             // 因此交给最后一个完成点入池；本次仍返回 true，保持计数与断线回调只触发一次。

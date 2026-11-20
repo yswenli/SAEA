@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 16:42:11
+*修改时间：2026/11/20 20:52:03
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：增加退役位：退役令牌禁止复用、禁止入池与归还池化缓冲
+*版本号： v26.11.16.1
+*描述：增加绑定代次：每次绑定自增，供 Free 拒绝上一代遗留的断开调用
 *
 *****************************************************************************/
 using System;
@@ -75,6 +75,11 @@ namespace SAEA.Sockets.Base
         int _retired;
 
         /// <summary>
+        /// 绑定代次：每次绑定到新连接时自增，用于丢弃上一代连接遗留的断开调用
+        /// </summary>
+        long _generation;
+
+        /// <summary>
         /// 创建令牌并生成唯一标识
         /// </summary>
         public BaseUserToken()
@@ -96,6 +101,14 @@ namespace SAEA.Sockets.Base
         /// 连接的套接字对象，Clear 后为 null
         /// </summary>
         public Socket Socket { get; set; }
+
+        /// <summary>
+        /// 当前绑定代次，0 表示尚未绑定过
+        /// </summary>
+        public long Generation
+        {
+            get { return Volatile.Read(ref _generation); }
+        }
 
         /// <summary>
         /// 读取操作的 SocketAsyncEventArgs，Clear 后为 null
@@ -202,6 +215,15 @@ namespace SAEA.Sockets.Base
         {
             try { _writeSemaphore.Release(); }
             catch (SemaphoreFullException) { }
+        }
+
+        /// <summary>
+        /// 推进绑定代次并返回新值
+        /// </summary>
+        /// <returns>自增后的代次</returns>
+        internal long NextGeneration()
+        {
+            return Interlocked.Increment(ref _generation);
         }
 
         /// <summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 16:42:11
+*修改时间：2026/11/20 20:52:03
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：发送完成异常补日志，并用入池前的令牌标识快照
+*版本号： v26.11.16.1
+*描述：Disconnect 先捕获令牌绑定代次再取会话标识，释放时按代次校验
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -819,9 +819,12 @@ namespace SAEA.Sockets.Core.Udp
         public void Disconnect(IUserToken userToken, Exception ex = null)
         {
             // Free() 会把 userToken.ID 置空，必须在释放前捕获用于 OnDisconnected。
+            // 先取代次再取标识：代次只增不减，用它能判定「捕获之后令牌是否已被复用」。
+            var baseToken = userToken as BaseUserToken;
+            var generation = baseToken == null ? 0L : baseToken.Generation;
             var sessionId = userToken?.ID;
 
-            if (_sessionManager.Free(userToken))
+            if (_sessionManager.Free(userToken, generation))
             {
                 if (ex == null) ex = new KernelException("The remote client has been closed.");
                 Interlocked.Decrement(ref _clientCounts);
