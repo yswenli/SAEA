@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 23:31:33
+*修改时间：2026/11/26 10:00:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：报头文本改为读取时转由底层消息按需生成；复位不再清空与消息共享的报头/查询/Cookie 集合
+*描述：Cookies 改为透传底层消息的按需解析实现，初始化时不再触发 Cookie 解析
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -65,6 +65,27 @@ namespace SAEA.Http
             set
             {
                 _headerStr = value;
+            }
+        }
+
+        /// <summary>
+        /// 请求携带的 Cookie 集合，未绑定底层消息时退回本实例的空集合
+        /// <para>
+        /// 底层消息在首次读取时才解析 Cookie 报头，未读 Cookie 的请求不产生解析分配；
+        /// 消息释放后本属性退回空集合，与新建实例的初始状态一致。
+        /// </para>
+        /// </summary>
+        public override HttpCookies Cookies
+        {
+            get
+            {
+                var httpMessage = _httpMessage;
+
+                return httpMessage == null ? base.Cookies : httpMessage.Cookies;
+            }
+            set
+            {
+                base.Cookies = value;
             }
         }
 
@@ -180,7 +201,8 @@ namespace SAEA.Http
             this.Query = _httpMessage.Query;
             this.Protocal = _httpMessage.Protocal;
             this.Headers = _httpMessage.Headers;
-            this.Cookies = _httpMessage.Cookies;
+
+            // Cookie 不在这里取：底层消息按需解析，此处读取会让每个请求都付出一次解析
             this.IsFormData = _httpMessage.IsFormData;
             this.Boundary = _httpMessage.Boundary;
             this.ContentType = _httpMessage.ContentType;
@@ -204,6 +226,26 @@ namespace SAEA.Http
                 this.Json = _httpMessage.Json;
                 this.Body = _httpMessage.Body;
             }
+        }
+
+        /// <summary>
+        /// 按名读取请求携带的 Cookie，不触发整段 Cookie 解析
+        /// </summary>
+        /// <param name="name">Cookie 名，区分大小写，与集合键的规则一致</param>
+        /// <param name="value">Cookie 值；名字不存在时为 null</param>
+        /// <returns>存在该名字的 Cookie 返回 true</returns>
+        internal bool TryGetCookieValue(string name, out string value)
+        {
+            var httpMessage = _httpMessage;
+
+            if (httpMessage == null)
+            {
+                value = null;
+
+                return false;
+            }
+
+            return httpMessage.TryGetCookieValue(name, out value);
         }
 
         /// <summary>

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 23:31:33
+*修改时间：2026/11/26 10:00:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：报头文本改为按需从池化缓冲生成，新增 ResetForNextRequest 供同连接复用消息实例
+*描述：Cookie 报头改为首次读取 Cookies 时解析，并新增不建集合的按名查找
 *
 *****************************************************************************/
 using System;
@@ -51,6 +51,14 @@ namespace SAEA.Http.Base
 
         string _headerStr;
 
+        // Cookie 报头原文与解析结果分开保存：解析推迟到 Cookies 被读取时，
+        // 不读 Cookie 的请求就不必付出集合、Cookie 实体与名字子串的分配
+        string _cookieHeader;
+
+        HttpCookies _cookies;
+
+        bool _cookiesParsed;
+
         /// <summary>
         /// 原始报头文本，首次读取时按需从池化缓冲解码，未读到报头时为 null
         /// </summary>
@@ -71,6 +79,33 @@ namespace SAEA.Http.Base
             set
             {
                 _headerStr = value;
+            }
+        }
+
+        /// <summary>
+        /// 请求携带的 Cookie 集合，首次读取时才解析 Cookie 报头；集合实例在连接内复用
+        /// </summary>
+        public override HttpCookies Cookies
+        {
+            get
+            {
+                if (!_cookiesParsed)
+                {
+                    _cookies = HttpCookies.Parse(_cookieHeader, _cookies);
+
+                    _cookiesParsed = true;
+                }
+
+                return _cookies;
+            }
+            set
+            {
+                _cookies = value;
+
+                // 显式赋值的集合优先于报头原文，避免读出被覆盖前的解析结果
+                _cookiesParsed = true;
+
+                _cookieHeader = null;
             }
         }
 
@@ -163,6 +198,44 @@ namespace SAEA.Http.Base
         }
 
         /// <summary>
+        /// 记录 Cookie 报头原文，实际解析推迟到 <see cref="Cookies"/> 首次被读取时
+        /// </summary>
+        /// <param name="cookieStr">Cookie 报头文本，无 Cookie 时传 null</param>
+        internal void SetCookieHeader(string cookieStr)
+        {
+            _cookieHeader = cookieStr;
+
+            // 新报头会替换旧内容，旧的解析结果等下次读取时才重建
+            _cookiesParsed = false;
+        }
+
+        /// <summary>
+        /// 直接在 Cookie 报头原文里查找指定名字的 Cookie，不建立集合
+        /// </summary>
+        /// <param name="name">Cookie 名，区分大小写，与集合键的规则一致</param>
+        /// <param name="value">Cookie 值，已按集合的解析规则解码；名字不存在时为 null</param>
+        /// <returns>存在该名字的 Cookie 返回 true</returns>
+        internal bool TryGetCookieValue(string name, out string value)
+        {
+            // 集合已被显式赋值或读取过时以集合为准，否则与报头原文可能不一致
+            if (_cookiesParsed)
+            {
+                if (_cookies != null && _cookies.TryGetValue(name, out var cookie))
+                {
+                    value = cookie == null ? null : cookie.Value;
+
+                    return true;
+                }
+
+                value = null;
+
+                return false;
+            }
+
+            return HttpCookies.TryGetValue(_cookieHeader, name, out value);
+        }
+
+        /// <summary>
         /// 复位消息，使同一个实例可以承载本连接的下一条请求；复位后的状态与新建实例一致
         /// </summary>
         internal void ResetForNextRequest()
@@ -204,10 +277,15 @@ namespace SAEA.Http.Base
             else
                 Headers.Clear();
 
-            if (Cookies == null)
-                Cookies = new HttpCookies();
+            // Cookie 报头原文与解析状态必须一起复位，否则下一次请求会读到上一次的 Cookie
+            _cookieHeader = null;
+
+            _cookiesParsed = false;
+
+            if (_cookies == null)
+                _cookies = new HttpCookies();
             else
-                Cookies.Clear();
+                _cookies.Clear();
 
             if (PostFiles == null)
                 PostFiles = new List<FilePart>();

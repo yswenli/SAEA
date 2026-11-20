@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 23:31:33
+*修改时间：2026/11/26 10:00:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：Set-Cookie 按需输出属性，空域与未设置的过期时间不再写成 Domain= 与 Expires=Session；新增可写入复用集合的 Cookie 解析重载
+*描述：新增不建集合的按名查找，供会话解析避开整段 Cookie 解析
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -245,6 +245,78 @@ namespace SAEA.Http
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// 直接在 Cookie 报头文本里查找指定名字的 Cookie，不建立集合
+        /// </summary>
+        /// <param name="cookieStr">Cookie 报头文本，分号分隔多个 Cookie</param>
+        /// <param name="name">Cookie 名，区分大小写，与集合键的规则一致</param>
+        /// <param name="value">Cookie 值，已按集合的解析规则解码；名字不存在时为 null</param>
+        /// <returns>存在该名字的 Cookie 返回 true</returns>
+        internal static bool TryGetValue(string cookieStr, string name, out string value)
+        {
+            value = null;
+
+            if (string.IsNullOrEmpty(cookieStr) || string.IsNullOrEmpty(name)) return false;
+
+            var found = false;
+
+            var start = 0;
+
+            while (start < cookieStr.Length)
+            {
+                var end = cookieStr.IndexOf(ConstHelper.SEMICOLON, start);
+
+                if (end < 0) end = cookieStr.Length;
+
+                if (end > start)
+                {
+                    var equals = cookieStr.IndexOf('=', start, end - start);
+
+                    var nameEnd = equals < 0 ? end : equals;
+
+                    if (SegmentEquals(cookieStr, start, nameEnd, name))
+                    {
+                        // 与写集合的规则一致：无等号与多等号都按空值，同名后者覆盖前者
+                        if (equals < 0 || cookieStr.IndexOf('=', equals + 1, end - equals - 1) > -1)
+                            value = string.Empty;
+                        else
+                            value = HttpUtility.HtmlDecode(HttpUtility.UrlDecode(cookieStr.Substring(equals + 1, end - equals - 1)));
+
+                        found = true;
+                    }
+                }
+
+                start = end + 1;
+            }
+
+            return found;
+        }
+
+        /// <summary>
+        /// 比较报头文本中的一段与目标名字是否逐字符相同
+        /// </summary>
+        /// <param name="text">Cookie 报头全文</param>
+        /// <param name="start">段起始下标</param>
+        /// <param name="end">段结束下标（不含）</param>
+        /// <param name="name">待比较的 Cookie 名</param>
+        /// <returns>相同返回 true</returns>
+        static bool SegmentEquals(string text, int start, int end, string name)
+        {
+            // 去空白规则与 TrimName 一致，但直接在原串上比较，不生成名字子串
+            while (start < end && char.IsWhiteSpace(text[start])) start++;
+
+            while (end > start && char.IsWhiteSpace(text[end - 1])) end--;
+
+            if (end - start != name.Length) return false;
+
+            for (var i = 0; i < name.Length; i++)
+            {
+                if (text[start + i] != name[i]) return false;
+            }
+
+            return true;
         }
 
         /// <summary>

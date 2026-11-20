@@ -452,6 +452,51 @@ namespace SAEA.MVC.Tests
         }
 
         /// <summary>
+        /// 第一条请求带 Cookie 报头时按报头解析，第二条请求不带 Cookie 时必须解析为空集合：
+        /// Cookie 解析推迟到读取时进行，复用的消息实例不能把上一次的报头原文带进下一次请求。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task Reuse_CookieHeaderThenNoCookie_DoesNotLeakCookies()
+        {
+            var port = TestAppFactory.GetFreePort();
+            var rootName = TestAppFactory.CreateRootName();
+            var app = TestAppFactory.CreateApp(rootName, port);
+
+            try
+            {
+                app.Start();
+
+                using (var connection = await RawConnection.ConnectAsync(port).ConfigureAwait(false))
+                {
+                    var headers = new Dictionary<string, string> { { "Cookie", "reuse-cookie=first; other=second" } };
+
+                    var first = await connection.SendAsync("GET", ProbePath, null, null, headers).ConfigureAwait(false);
+
+                    Assert.AreEqual(200, first.Status, "带 Cookie 的探针应返回 200。");
+
+                    var firstEcho = ParseEcho(first.BodyText);
+
+                    Assert.AreEqual("2", firstEcho["cookieCount"], "第一条请求应按 Cookie 报头解析出两个 Cookie。");
+
+                    var second = await connection.SendAsync("GET", ProbePath).ConfigureAwait(false);
+
+                    Assert.AreEqual(200, second.Status, "不带 Cookie 的探针应返回 200。");
+
+                    var secondEcho = ParseEcho(second.BodyText);
+
+                    Assert.AreEqual("0", secondEcho["cookieCount"], "上一次请求的 Cookie 报头不能残留到下一次请求。");
+                    Assert.AreEqual(firstEcho["hash"], secondEcho["hash"], "两条请求应复用同一个上下文实例。");
+                }
+            }
+            finally
+            {
+                TestAppFactory.StopQuietly(app);
+                TestAppFactory.DeleteRootDirectory(rootName);
+            }
+        }
+
+        /// <summary>
         /// 拼一个最小的多段表单正文：一个文本类型文件段，分隔串与 Content-Type 里的 boundary 一致。
         /// </summary>
         /// <param name="boundary">不带前导 -- 的分隔串</param>

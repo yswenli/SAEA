@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 23:31:33
+*修改时间：2026/11/26 10:00:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：HeaderStr 改为虚成员以便派生类按需生成；ContentType 键名缓存为静态字段，避免每请求装箱查表
+*描述：Cookies 改为虚成员，供底层消息实现按需解析 Cookie 报头
 *
 *****************************************************************************/
 using System;
@@ -114,7 +114,7 @@ namespace SAEA.Http.Base
         /// <summary>
         /// 请求携带的 Cookie 集合
         /// </summary>
-        public HttpCookies Cookies
+        public virtual HttpCookies Cookies
         {
             get; set;
         } = new HttpCookies();

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 23:31:33
+*修改时间：2026/11/26 10:00:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：报头改为按字节解析并把原文放入池化缓冲，支持复用消息实例与集合，去掉整段报头字符串；查询值与 Cookie 支持写入复用集合
+*描述：Cookie 只记录报头原文，解析推迟到首次读取 Cookies 时
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -176,9 +176,15 @@ namespace SAEA.Http.Base
             }
 
             //cookies
+            // 只留报头原文，首次读取 Cookies 时才解析：不读 Cookie 的请求省掉集合、Cookie 实体与名字子串
             if (headers.TryGetValue(_cookieKey, out string cookiesStr))
             {
-                message.Cookies = HttpCookies.Parse(cookiesStr, target == null ? null : message.Cookies);
+                message.SetCookieHeader(cookiesStr);
+            }
+            else
+            {
+                // 复用实例必须显式清空，否则会沿用上一次请求的 Cookie 报头
+                message.SetCookieHeader(null);
             }
 
             // 解析Content-Length，对所有HTTP方法都处理

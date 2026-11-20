@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 20:10:00
+*修改时间：2026/11/26 10:00:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：新增 ResetForNextRequest 供可复用上下文复位；CallContext 改为每请求在 InitContext 里设置
+*描述：会话 ID 改为直接按名读 Cookie 报头，不再为取会话而解析整段 Cookie
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -180,13 +180,11 @@ namespace SAEA.Http.Base
 
             string sessionID;
 
-            if (!Request.Cookies.ContainsKey(ConstHelper.SESSIONID))
+            // 会话只认 SAEA.HttpServer.SessionID 一项：直接读 Cookie 报头原文，
+            // 不为取一个值就把整段 Cookie 解析成集合；请求方读 Cookies 时才解析
+            if (!Request.TryGetCookieValue(ConstHelper.SESSIONID, out sessionID))
             {
                 sessionID = HttpSessionManager.GeneratID();
-            }
-            else
-            {
-                sessionID = Request.Cookies[ConstHelper.SESSIONID].Value;
             }
 
             this.Session = HttpSessionManager.GetIfNotExistsSet(sessionID);

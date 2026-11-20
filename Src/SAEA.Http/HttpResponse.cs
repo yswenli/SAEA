@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/20 10:30:00
+*修改时间：2026/11/26 10:00:00
 *修改人： yswenli
 *版本号： v26.11.16.1
-*描述：响应成帧改走池化缓冲：新增 TryEncodeToPooled 与整帧写出方法，帧与归还句柄随 RawFrame 一并移交；报头键名与状态行文本改为静态缓存
+*描述：Content-Length 文本按 0–1024 缓存，Connection 判定改用 span 扫描并直接写缓存键名
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -101,6 +101,12 @@ namespace SAEA.Http
         static readonly string _connectionKey = ResponseHeaderType.Connection.GetDescription();
 
         static readonly string _contentLengthKey = ResponseHeaderType.ContentLength.GetDescription();
+
+        // Content-Length 文本按常见小长度预生成：缓存有界（0–1024），超长正文回退 ToString()，
+        // 不会因任意长度无限增长；数值文本不随区域变化，可安全共享
+        const int ContentLengthCacheLength = 1025;
+
+        static readonly string[] _contentLengthTexts = CreateContentLengthTexts();
 
         static readonly string[] _statusTexts = new string[StatusCodeMax - StatusCodeMin + 1];
 
@@ -703,13 +709,42 @@ namespace SAEA.Http
         }
 
         /// <summary>
+        /// 预生成 0–1024 的 Content-Length 文本
+        /// </summary>
+        /// <returns>下标即长度的文本数组</returns>
+        static string[] CreateContentLengthTexts()
+        {
+            var texts = new string[ContentLengthCacheLength];
+
+            for (var i = 0; i < texts.Length; i++)
+            {
+                texts[i] = i.ToString();
+            }
+
+            return texts;
+        }
+
+        /// <summary>
+        /// 取正文长度的 Content-Length 文本，小长度走缓存，超出缓存范围回退格式化
+        /// </summary>
+        /// <param name="bodyLen">正文字节长度，非负</param>
+        /// <returns>Content-Length 头值</returns>
+        static string GetContentLengthText(int bodyLen)
+        {
+            if ((uint)bodyLen < (uint)ContentLengthCacheLength)
+                return _contentLengthTexts[bodyLen];
+
+            return bodyLen.ToString();
+        }
+
+        /// <summary>
         /// 补齐 Content-Length 与默认 Connection 头：两者都要进报头，必须在计量之前完成
         /// </summary>
         /// <param name="bodyLen">正文（压缩后）字节长度</param>
         void PrepareFrameHeaders(int bodyLen)
         {
             // 报头键名与 Headers 的比较器都不区分大小写，直接写字典可省掉枚举装箱与描述查表
-            this.Headers[_contentLengthKey] = bodyLen.ToString();
+            this.Headers[_contentLengthKey] = GetContentLengthText(bodyLen);
 
             // 未显式指定时默认关闭连接：未知调用方仍按短连接处理，保持既有安全性。
             if (!this.Headers.ContainsKey(_connectionKey))
@@ -976,7 +1011,8 @@ namespace SAEA.Http
         {
             var keepAlive = AllowsKeepAlive(requestProtocol, connectionHeader);
 
-            this.SetHeader(ResponseHeaderType.Connection, keepAlive ? "keep-alive" : "close");
+            // 键名已缓存，直接写字典；走 SetHeader 会为枚举参数装箱，每请求多一个 24 字节的临时对象
+            this.Headers[_connectionKey] = keepAlive ? "keep-alive" : "close";
 
             return keepAlive;
         }
@@ -1023,12 +1059,42 @@ namespace SAEA.Http
                 return false;
 
             // Connection 头允许逗号分隔多个选项，必须逐项匹配，不能用子串包含判断。
-            var tokens = connectionHeader.Split(',');
+            // 直接在原串上按逗号切片，省掉 Split 生成的分段数组与逐段子串
+            var remaining = connectionHeader.AsSpan();
 
-            foreach (var item in tokens)
+            while (remaining.Length > 0)
             {
-                if (item.Trim().Equals(token, StringComparison.OrdinalIgnoreCase))
-                    return true;
+                var comma = remaining.IndexOf(',');
+
+                var item = comma < 0 ? remaining : remaining.Slice(0, comma);
+
+                var start = 0;
+
+                var end = item.Length;
+
+                while (start < end && char.IsWhiteSpace(item[start])) start++;
+
+                while (end > start && char.IsWhiteSpace(item[end - 1])) end--;
+
+                if (end - start == token.Length)
+                {
+                    var matched = true;
+
+                    for (var i = 0; i < token.Length; i++)
+                    {
+                        if (char.ToUpperInvariant(item[start + i]) != char.ToUpperInvariant(token[i]))
+                        {
+                            matched = false;
+                            break;
+                        }
+                    }
+
+                    if (matched) return true;
+                }
+
+                if (comma < 0) break;
+
+                remaining = remaining.Slice(comma + 1);
             }
 
             return false;
