@@ -23,14 +23,13 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 12:05:00
+*修改时间：2026/11/20 14:30:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：向串行器暴露本次出站调用绑定的业务写操作
+*版本号： v26.11.16.1
+*描述：调用视图改为按节点单槽复用，出站守卫改为全链共享
 *
 *****************************************************************************/
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -52,16 +51,17 @@ namespace SAEA.Sockets.Pipeline
     /// <summary>
     /// 链节点上的处理器上下文。节点常驻实例只用于 <see cref="IChannelHandler.HandlerAdded"/> /
     /// <see cref="IChannelHandler.HandlerRemoved"/> 与活动/失活等连接级回调；
-    /// 每次入站调用另建一个绑定当前节点与本次 <see cref="InboundDispatch"/> 的轻量视图，
-    /// 回调结束后视图失效，不把单条消息的状态放到常驻实例上，也不使用 AsyncLocal。
+    /// 每次入站/出站调用从节点租用一个绑定当前节点与本次调用的视图（单槽复用，槽被并发占用时新建），
+    /// 回调结束后失效并归还。回调结束后视图失效，跨回调保存的引用不得再使用；
+    /// 实例被复用后旧引用可能静默指向后续调用。
     /// </summary>
     internal sealed class DefaultChannelHandlerContext : IChannelHandlerContext, IInboundChainOwnedContext
     {
-        private readonly ChannelPipeline.Node _node;
-        private readonly InboundDispatch _dispatch;
-        private readonly object _inboundMessage;
-        private readonly OutboundOperation _operation;
-        private readonly IChannelPipeline _pipelineView;
+        private ChannelPipeline.Node _node;
+        private InboundDispatch _dispatch;
+        private object _inboundMessage;
+        private OutboundOperation _operation;
+        private IChannelPipeline _pipelineView;
         private int _viewValid;
         private int _outboundForwarded;
 
@@ -106,11 +106,36 @@ namespace SAEA.Sockets.Pipeline
             _dispatch = dispatch;
             _inboundMessage = inboundMessage;
             _operation = operation;
-            _pipelineView = operation == null ? (IChannelPipeline)pipeline : new OutboundGuardPipeline(pipeline);
+            // 出站守卫只把成员转发给真实链、WriteAsync 恒抛，无状态，全链共用一个实例即可。
+            _pipelineView = operation == null ? (IChannelPipeline)pipeline : pipeline.OutboundGuard;
             _viewValid = 1;
         }
 
-        internal ChannelPipeline Pipeline { get; }
+        internal ChannelPipeline Pipeline { get; private set; }
+
+        /// <summary>
+        /// 把从节点槽里租到的视图复位为本次调用的绑定。节点与链由租用方保证同值，这里不重复写；
+        /// 归还前 <see cref="InvalidateView"/> 已清空消息与操作，此处按本次调用重写并重新置为有效。
+        /// </summary>
+        /// <param name="dispatch">入站派发状态；出站调用为 null。</param>
+        /// <param name="inboundMessage">本次调用边界持有的消息。</param>
+        /// <param name="operation">本次业务写操作；入站调用为 null。</param>
+        /// <param name="pipelineView">本次调用暴露给处理器的链视图。</param>
+        internal void Reset(
+            InboundDispatch dispatch,
+            object inboundMessage,
+            OutboundOperation operation,
+            IChannelPipeline pipelineView)
+        {
+            _dispatch = dispatch;
+            _inboundMessage = inboundMessage;
+            _operation = operation;
+            _pipelineView = pipelineView;
+            _outboundForwarded = 0;
+
+            // 绑定先写完再置有效：读方只在看到有效标记后才使用本次绑定。
+            Volatile.Write(ref _viewValid, 1);
+        }
 
         /// <summary>本次出站调用绑定的业务写操作；入站视图与常驻实例为 null。</summary>
         internal OutboundOperation Operation
@@ -189,16 +214,18 @@ namespace SAEA.Sockets.Pipeline
 
         private Task FireChannelReadCoreAsync(object msg, bool forceChainOwned)
         {
-            if (_dispatch == null)
-            {
-                // 常驻实例不在某次消息派发内，没有上游所有权可继承，按链持有处理。
-                return Pipeline.FireChannelReadFromAsync(_node.Next, msg, InboundDispatch.CreateChainOwned(null));
-            }
-
+            // 失效判定必须先于常驻实例判定：归还到槽里的视图会把派发信息清空，
+            // 若先判 _dispatch 为空，失效视图就会被当成常驻实例继续向下游派发。
             if (Volatile.Read(ref _viewValid) == 0)
             {
                 throw new InvalidOperationException(
                     "入站处理器调用的上下文视图已失效，不能继续转发消息；需要跨回调保留状态时请保存处理器自身字段。");
+            }
+
+            if (_dispatch == null)
+            {
+                // 常驻实例不在某次消息派发内，没有上游所有权可继承，按链持有处理。
+                return Pipeline.FireChannelReadFromAsync(_node.Next, msg, InboundDispatch.CreateChainOwned(null));
             }
 
             var chainOwned = forceChainOwned || !ReferenceEquals(msg, _inboundMessage) || _dispatch.ChainOwned;
@@ -210,10 +237,16 @@ namespace SAEA.Sockets.Pipeline
             return Pipeline.FireChannelReadFromAsync(_node.Next, msg, next);
         }
 
-        /// <summary>使本次调用绑定的视图失效；回调结束后由链调用，常驻实例不受影响。</summary>
+        /// <summary>
+        /// 使本次调用绑定的视图失效；回调结束后由链调用，常驻实例不受影响。
+        /// 同时清空消息与操作绑定，停在节点槽里的视图不会长期钉住上一条消息与上一个操作。
+        /// </summary>
         internal void InvalidateView()
         {
             Volatile.Write(ref _viewValid, 0);
+            _dispatch = null;
+            _inboundMessage = null;
+            _operation = null;
         }
 
         /// <summary>
@@ -226,17 +259,19 @@ namespace SAEA.Sockets.Pipeline
         /// <returns>下一个出站处理器处理完成后结束的任务。</returns>
         public Task WriteAsync(object msg)
         {
+            // 失效判定必须先于操作绑定判定：归还到槽里的视图会把操作清空，
+            // 若先判 _operation 为空，失效视图会被报成「只能在出站回调内」，掩盖了真正原因。
+            if (Volatile.Read(ref _viewValid) == 0)
+            {
+                throw new InvalidOperationException(
+                    "出站处理器调用的上下文视图已失效，不能继续转发；需要跨回调保留状态时请保存处理器自身字段。");
+            }
+
             if (_operation == null)
             {
                 throw new InvalidOperationException(
                     "IChannelHandlerContext.WriteAsync 只能在出站处理器的 WriteAsync 回调内向前转发；"
                     + "独立业务写请使用 IChannelPipeline.WriteAsync。");
-            }
-
-            if (Volatile.Read(ref _viewValid) == 0)
-            {
-                throw new InvalidOperationException(
-                    "出站处理器调用的上下文视图已失效，不能继续转发；需要跨回调保留状态时请保存处理器自身字段。");
             }
 
             // 同一节点同一操作只允许转发一次：第二次转发会产生重复帧，且已移交的所有权不能再补偿。
@@ -275,6 +310,14 @@ namespace SAEA.Sockets.Pipeline
         /// <returns>已提交的写全部交接或等待超时后结束的任务。</returns>
         public Task CloseAfterWriteAsync(string reason)
         {
+            // 视图失效后不允许再借它触发连接级动作：入站视图失效前 _operation 本就是 null，
+            // 若只判 _operation，出站视图停放在槽里被旧引用调用就会静默关连接。
+            if (Volatile.Read(ref _viewValid) == 0)
+            {
+                throw new InvalidOperationException(
+                    "上下文视图已失效，不能继续发起关闭等待；需要跨回调收口时请保存处理器自身字段。");
+            }
+
             if (_operation != null)
             {
                 throw new InvalidOperationException(
@@ -282,75 +325,6 @@ namespace SAEA.Sockets.Pipeline
             }
 
             return Pipeline.CloseAfterWriteAsync(reason);
-        }
-
-        /// <summary>
-        /// 出站操作绑定视图返回的链视图：除业务写入口外全部转发到真实链。
-        /// 当前写加工只能走 <see cref="WriteAsync"/>，通过本视图发起独立业务写会排在当前写之后，直接拒绝。
-        /// </summary>
-        private sealed class OutboundGuardPipeline : IChannelPipeline
-        {
-            private readonly ChannelPipeline _pipeline;
-
-            internal OutboundGuardPipeline(ChannelPipeline pipeline)
-            {
-                _pipeline = pipeline;
-            }
-
-            public IChannelPipeline AddLast(IChannelHandler handler)
-            {
-                return _pipeline.AddLast(handler);
-            }
-
-            public IChannelPipeline AddFirst(IChannelHandler handler)
-            {
-                return _pipeline.AddFirst(handler);
-            }
-
-            public IChannelPipeline Remove(IChannelHandler handler)
-            {
-                return _pipeline.Remove(handler);
-            }
-
-            public IReadOnlyList<IChannelHandler> Handlers
-            {
-                get { return _pipeline.Handlers; }
-            }
-
-            public Task FireChannelReadAsync(object msg)
-            {
-                return _pipeline.FireChannelReadAsync(msg);
-            }
-
-            public Task FireChannelReadCompleteAsync()
-            {
-                return _pipeline.FireChannelReadCompleteAsync();
-            }
-
-            public Task FireExceptionCaughtAsync(Exception ex)
-            {
-                return _pipeline.FireExceptionCaughtAsync(ex);
-            }
-
-            /// <summary>出站回调内禁止发起独立业务写：新写会排在当前写之后，形成串行器自死锁。</summary>
-            /// <param name="msg">待发送的业务消息。</param>
-            /// <returns>不会返回，总是抛出。</returns>
-            public Task WriteAsync(object msg)
-            {
-                throw new InvalidOperationException(
-                    "出站回调内不能通过 ctx.Pipeline.WriteAsync 发起独立业务写：新写会排在当前写之后。"
-                    + "当前写加工请使用 ctx.WriteAsync，独立写应在当前写完成后由业务侧发起。");
-            }
-
-            public Task CloseAsync(string reason)
-            {
-                return _pipeline.CloseAsync(reason);
-            }
-
-            public void Dispose()
-            {
-                _pipeline.Dispose();
-            }
         }
     }
 }

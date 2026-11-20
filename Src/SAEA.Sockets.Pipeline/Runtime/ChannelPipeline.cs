@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 12:05:00
+*修改时间：2026/11/20 14:30:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：出站串行器作为最右侧节点时改由串行器在出队时推进 HandedOff，排队项保留未移交语义
+*版本号： v26.11.16.1
+*描述：节点单槽复用调用视图，出站守卫改为全链共享
 *
 *****************************************************************************/
 using System;
@@ -61,6 +61,24 @@ namespace SAEA.Sockets.Pipeline
 
             /// <summary>是否曾经挂上过链；用于区分 HandlerAdded 阶段的半初始化节点与正常摘链后的节点。</summary>
             public bool LinkedOnce;
+
+            // 每次派发复用一个视图即可：同节点不会被同一次派发重入，槽被并发占用时退回新建，不做无界池。
+            private DefaultChannelHandlerContext _pooledView;
+
+            /// <summary>取走停放中的调用视图；槽为空时返回 null，由调用方新建。</summary>
+            /// <returns>可复用的视图，或 null。</returns>
+            internal DefaultChannelHandlerContext RentView()
+            {
+                return Interlocked.Exchange(ref _pooledView, null);
+            }
+
+            /// <summary>归还调用视图；调用方必须先使视图失效。</summary>
+            /// <param name="view">本次调用租用的视图。</param>
+            internal void ReturnView(DefaultChannelHandlerContext view)
+            {
+                // 槽已被并发占用则直接丢弃，交给 GC，避免池无界增长。
+                Interlocked.CompareExchange(ref _pooledView, view, null);
+            }
         }
 
         private readonly ChannelPipelineOptions _options;
@@ -70,6 +88,9 @@ namespace SAEA.Sockets.Pipeline
         private readonly Node _head;
         private readonly Node _tail;
         private readonly object _gate = new object();
+
+        // 出站视图共享同一个无状态守卫：它只把成员转发给真实链、WriteAsync 恒抛，按连接惰性建一次即可。
+        private IChannelPipeline _outboundGuard;
 
         // 业务写计数、关闭状态与等待信号必须共用同一把锁，才能在同一个同步边界内完成
         // 「停止接纳 + 快照并等待」。
@@ -239,6 +260,23 @@ namespace SAEA.Sockets.Pipeline
         internal IChannelGuard EffectiveGuard
         {
             get { return _guard; }
+        }
+
+        /// <summary>
+        /// 出站回调内暴露给处理器的链视图，全链共用一个实例：除业务写入口外全部转发到真实链。
+        /// 守卫无状态，惰性创建；并发首次调用时以先写入者为准，落败的临时实例直接丢弃。
+        /// </summary>
+        internal IChannelPipeline OutboundGuard
+        {
+            get
+            {
+                var guard = Volatile.Read(ref _outboundGuard);
+                if (guard != null)
+                    return guard;
+
+                var created = new OutboundGuardPipeline(this);
+                return Interlocked.CompareExchange(ref _outboundGuard, created, null) ?? created;
+            }
         }
 
         /// <summary>连接标识；未接入传输层时为 null。</summary>
@@ -646,7 +684,12 @@ namespace SAEA.Sockets.Pipeline
         /// <param name="msg">本次边界持有的消息。</param>
         internal async Task InvokeOutboundAsync(Node node, OutboundOperation operation, object msg)
         {
-            var view = new DefaultChannelHandlerContext(node, this, operation, msg);
+            var view = node.RentView();
+            if (view == null)
+                view = new DefaultChannelHandlerContext(node, this, operation, msg);
+            else
+                view.Reset(null, msg, operation, OutboundGuard);
+
             try
             {
                 await ((IChannelOutboundHandler)node.Handler).WriteAsync(view, msg).ConfigureAwait(false);
@@ -663,7 +706,9 @@ namespace SAEA.Sockets.Pipeline
             }
             finally
             {
+                // 必须在回调及其交接任务彻底结束后才失效并归还，否则下游或排队项会拿到已失效的视图。
                 view.InvalidateView();
+                node.ReturnView(view);
             }
         }
 
@@ -903,8 +948,13 @@ namespace SAEA.Sockets.Pipeline
                 return;
             }
 
-            // 调用绑定视图：绑定当前节点与本次派发，回调结束后失效，跨回调保存也不能继续转发。
-            var view = new DefaultChannelHandlerContext(node, this, dispatch, msg);
+            // 调用绑定视图：绑定当前节点与本次派发，回调结束后失效并归还节点槽，跨回调保存也不能继续转发。
+            var view = node.RentView();
+            if (view == null)
+                view = new DefaultChannelHandlerContext(node, this, dispatch, msg);
+            else
+                view.Reset(dispatch, msg, null, this);
+
             try
             {
                 await ((IChannelInboundHandler)node.Handler).ChannelReadAsync(view, msg).ConfigureAwait(false);
@@ -931,7 +981,9 @@ namespace SAEA.Sockets.Pipeline
             }
             finally
             {
+                // 必须在回调彻底结束后才失效并归还：下游可能还沿着派生派发在跑，不能用同一实例。
                 view.InvalidateView();
+                node.ReturnView(view);
             }
         }
 
@@ -1144,6 +1196,76 @@ namespace SAEA.Sockets.Pipeline
             }
 
             return nodes;
+        }
+
+        /// <summary>
+        /// 出站调用视图暴露给处理器的链视图：除业务写入口外全部转发到真实链。
+        /// 当前写加工只能走 <see cref="DefaultChannelHandlerContext.WriteAsync"/>，
+        /// 通过本视图发起独立业务写会排在当前写之后，直接拒绝。
+        /// </summary>
+        private sealed class OutboundGuardPipeline : IChannelPipeline
+        {
+            private readonly ChannelPipeline _pipeline;
+
+            internal OutboundGuardPipeline(ChannelPipeline pipeline)
+            {
+                _pipeline = pipeline;
+            }
+
+            public IChannelPipeline AddLast(IChannelHandler handler)
+            {
+                return _pipeline.AddLast(handler);
+            }
+
+            public IChannelPipeline AddFirst(IChannelHandler handler)
+            {
+                return _pipeline.AddFirst(handler);
+            }
+
+            public IChannelPipeline Remove(IChannelHandler handler)
+            {
+                return _pipeline.Remove(handler);
+            }
+
+            public IReadOnlyList<IChannelHandler> Handlers
+            {
+                get { return _pipeline.Handlers; }
+            }
+
+            public Task FireChannelReadAsync(object msg)
+            {
+                return _pipeline.FireChannelReadAsync(msg);
+            }
+
+            public Task FireChannelReadCompleteAsync()
+            {
+                return _pipeline.FireChannelReadCompleteAsync();
+            }
+
+            public Task FireExceptionCaughtAsync(Exception ex)
+            {
+                return _pipeline.FireExceptionCaughtAsync(ex);
+            }
+
+            /// <summary>出站回调内禁止发起独立业务写：新写会排在当前写之后，形成串行器自死锁。</summary>
+            /// <param name="msg">待发送的业务消息。</param>
+            /// <returns>不会返回，总是抛出。</returns>
+            public Task WriteAsync(object msg)
+            {
+                throw new InvalidOperationException(
+                    "出站回调内不能通过 ctx.Pipeline.WriteAsync 发起独立业务写：新写会排在当前写之后。"
+                    + "当前写加工请使用 ctx.WriteAsync，独立写应在当前写完成后由业务侧发起。");
+            }
+
+            public Task CloseAsync(string reason)
+            {
+                return _pipeline.CloseAsync(reason);
+            }
+
+            public void Dispose()
+            {
+                _pipeline.Dispose();
+            }
         }
     }
 }
