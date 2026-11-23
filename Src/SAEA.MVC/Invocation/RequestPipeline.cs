@@ -93,33 +93,40 @@ namespace SAEA.MVC.Invocation
                     _context.Response.SuppressBody = true;
                 }
 
-                switch (method)
+                // 路由前钩子：鉴权与入口重定向必须早于路由，才能同时覆盖接口、静态文件与事件流；
+                // 返回非 null 表示钩子已接管本次请求，按普通结果走后续收尾
+                result = await _context.OnRequestExecutingAsync().ConfigureAwait(false);
+
+                if (result == null)
                 {
-                    case ConstHelper.GET:
-                    case ConstHelper.HEAD:
-                    case ConstHelper.POST:
-                    case ConstHelper.PUT:
-                    case ConstHelper.DELETE:
-                    case ConstHelper.PATCH:
+                    switch (method)
+                    {
+                        case ConstHelper.GET:
+                        case ConstHelper.HEAD:
+                        case ConstHelper.POST:
+                        case ConstHelper.PUT:
+                        case ConstHelper.DELETE:
+                        case ConstHelper.PATCH:
 
-                        MergeParameters();
+                            MergeParameters();
 
-                        if (_context.WebConfig != null && _context.WebConfig.RequestDelegate != null)
-                        {
-                            _context.WebConfig.RequestDelegate(_context);
-                        }
-                        else
-                        {
-                            result = await GetActionResultAsync().ConfigureAwait(false);
-                        }
-                        break;
-                    case ConstHelper.OPTIONS:
-                        result = await HandleOptionsAsync().ConfigureAwait(false);
-                        break;
-                    default:
-                        // 未知方法用 501：505 是 HTTP 版本不支持，与「方法不认识」不是一回事
-                        result = new ContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
-                        break;
+                            if (_context.WebConfig != null && _context.WebConfig.RequestDelegate != null)
+                            {
+                                _context.WebConfig.RequestDelegate(_context);
+                            }
+                            else
+                            {
+                                result = await GetActionResultAsync().ConfigureAwait(false);
+                            }
+                            break;
+                        case ConstHelper.OPTIONS:
+                            result = await HandleOptionsAsync().ConfigureAwait(false);
+                            break;
+                        default:
+                            // 未知方法用 501：505 是 HTTP 版本不支持，与「方法不认识」不是一回事
+                            result = new ContentResult("不支持的请求方式", System.Net.HttpStatusCode.NotImplemented);
+                            break;
+                    }
                 }
             }
             catch (Exception ex)

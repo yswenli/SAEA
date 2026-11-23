@@ -115,7 +115,9 @@ namespace SAEA.Http
             double connectTimeout = 3,
             bool isDebug = false)
         {
-            if (httpContentType != null && _httpContentType.GetInterface("SAEA.Http.Model.IHttpContext", true) != null)
+            // 只接受实现了 IHttpContext 的类型：校验对象必须是入参，字段此刻仍是默认值，
+            // 用字段校验会让任何类型都通过，随后在预编译构造委托时抛出难以定位的表达式异常
+            if (httpContentType != null && httpContentType.GetInterface("SAEA.Http.Model.IHttpContext", true) != null)
             {
                 _httpContentType = httpContentType;
             }

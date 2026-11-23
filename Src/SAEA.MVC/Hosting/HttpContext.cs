@@ -180,5 +180,44 @@ namespace SAEA.MVC.Hosting
         {
             return await Pipeline.GetActionResultAsync().ConfigureAwait(false);
         }
+
+        /// <summary>
+        /// 路由前的请求钩子：返回非 null 表示由钩子接管本次请求，不再解析路由。
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// 鉴权、入口重定向这类判定必须早于路由，才能同时覆盖接口、静态文件与事件流；
+        /// 默认返回 null，交给请求管道继续正常路由。钩子被调用时 Request、Session 与 Response
+        /// 已完成初始化，但表单与 JSON 参数尚未合并，依赖参数的判定请改用过滤器。
+        /// </para>
+        /// <para>
+        /// 请求管道实际调用的是 <see cref="OnRequestExecutingAsync"/>，它默认转调本方法；
+        /// 判定里需要 I/O 时覆写异步版本即可，本方法不必再动。
+        /// </para>
+        /// <para>
+        /// 上下文实例会在同一连接的后续请求中复用：这里不得把请求级状态留在字段上，
+        /// 确有需要请在 <see cref="ResetForNextRequest"/> 中清理。
+        /// 钩子返回的结果按普通结果收尾，会经过缓存头与连接复用策略；钩子抛出的异常由管道统一转成 500。
+        /// </para>
+        /// </remarks>
+        /// <returns>接管结果；返回 null 时继续正常路由。</returns>
+        public virtual IHttpResult OnRequestExecuting()
+        {
+            return null;
+        }
+
+        /// <summary>
+        /// 路由前请求钩子的异步版本：返回非 null 表示由钩子接管本次请求，不再解析路由。
+        /// </summary>
+        /// <remarks>
+        /// 请求管道调用本方法；默认实现转调 <see cref="OnRequestExecuting"/>，未覆写异步版本的上下文行为不变。
+        /// 同时覆写两者时只有本方法会被调用，需要保留同步版本的逻辑请自行调用
+        /// <see cref="OnRequestExecuting"/> 或 <c>base.OnRequestExecutingAsync()</c>。
+        /// </remarks>
+        /// <returns>接管结果；返回 null 时继续正常路由。</returns>
+        public virtual Task<IHttpResult> OnRequestExecutingAsync()
+        {
+            return Task.FromResult(OnRequestExecuting());
+        }
     }
 }

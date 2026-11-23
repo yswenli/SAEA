@@ -70,7 +70,8 @@ namespace SAEA.MVC.Hosting
         /// </summary>
         /// <param name="mvcConfig"></param>
         public SAEAMvcApplication(SAEAMvcApplicationConfig mvcConfig) :
-            this(mvcConfig.Root,
+            this(mvcConfig.ContextType,
+                mvcConfig.Root,
                 mvcConfig.Port,
                 mvcConfig.IsStaticsCached,
                 mvcConfig.IsZiped,
@@ -115,8 +116,56 @@ namespace SAEA.MVC.Hosting
             string controllerNameSpace = "",
             double timeout = 180,
             double connectTimeout = 2,
+            bool isDebug = false) :
+            this(typeof(HttpContext),
+                root,
+                port,
+                isStaticsCached,
+                isZiped,
+                bufferSize,
+                maxCounnects,
+                controllerNameSpace,
+                timeout,
+                connectTimeout,
+                isDebug)
+        {
+        }
+
+        /// <summary>
+        /// 以自定义请求上下文类型构建mvc容器
+        /// </summary>
+        /// <param name="contextType">请求上下文类型，须派生自 <see cref="HttpContext"/>；为 null 时使用 <see cref="HttpContext"/></param>
+        /// <param name="root"></param>
+        /// <param name="port"></param>
+        /// <param name="isStaticsCached"></param>
+        /// <param name="isZiped"></param>
+        /// <param name="bufferSize"></param>
+        /// <param name="maxCounnects"></param>
+        /// <param name="controllerNameSpace"></param>
+        /// <param name="timeout"></param>
+        /// <param name="connectTimeout"></param>
+        /// <param name="isDebug"></param>
+        /// <exception cref="ArgumentException">传入了不派生自 <see cref="HttpContext"/> 的上下文类型</exception>
+        /// <exception cref="Exception"></exception>
+        public SAEAMvcApplication(Type contextType,
+            string root = "wwwroot",
+            int port = 28080,
+            bool isStaticsCached = true,
+            bool isZiped = false,
+            int bufferSize = 1024 * 64,
+            int maxCounnects = 1000,
+            string controllerNameSpace = "",
+            double timeout = 180,
+            double connectTimeout = 2,
             bool isDebug = false)
         {
+            // 上下文类型必须能路由：只有派生自 MVC 上下文才会把请求交给请求管道，
+            // 传错类型若交给底层回落，请求会变成「找不到任何内容」，排查成本远高于启动期直接报错
+            if (contextType != null && !typeof(HttpContext).IsAssignableFrom(contextType))
+            {
+                throw new ArgumentException("请求上下文类型必须派生自 " + typeof(HttpContext).FullName, nameof(contextType));
+            }
+
             try
             {
                 if (string.IsNullOrEmpty(controllerNameSpace))
@@ -132,7 +181,7 @@ namespace SAEA.MVC.Hosting
             // 冲突必须在启动期暴露，且不能落在上面那段异常包装里，否则异常类型与消息都会被覆盖
             AttributeRouteTable.Build(AreaCollection.RouteTable, AreaCollection.DiscoveredTypes);
 
-            _webHost = new WebHost(typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, maxCounnects, timeout, connectTimeout, isDebug);
+            _webHost = new WebHost(contextType ?? typeof(HttpContext), root, port, isStaticsCached, isZiped, bufferSize, maxCounnects, timeout, connectTimeout, isDebug);
 
             _webHost.RouteParam = AreaCollection.RouteTable;
 

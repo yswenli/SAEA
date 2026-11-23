@@ -29,6 +29,8 @@
 *描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
 *
 *****************************************************************************/
+using System;
+
 namespace SAEA.MVC.Hosting
 {
     /// <summary>
@@ -36,6 +38,19 @@ namespace SAEA.MVC.Hosting
     /// </summary>
     public class SAEAMvcApplicationConfig
     {
+        /// <summary>
+        /// 自定义请求上下文类型；为 null 时使用 <see cref="HttpContext"/>
+        /// </summary>
+        /// <remarks>
+        /// 类型须实现 <see cref="SAEA.Http.Model.IHttpContext"/> 并带 <c>(IWebHost)</c> 构造函数。
+        /// 需要路由前的统一鉴权或入口重定向时，派生 <see cref="HttpContext"/> 并覆盖
+        /// <see cref="HttpContext.OnRequestExecutingAsync"/>（或同步的 <see cref="HttpContext.OnRequestExecuting"/>），
+        /// 在这里换上该类型。
+        /// </remarks>
+        public Type ContextType
+        {
+            get; set;
+        }
         /// <summary>
         /// 网站根目录
         /// </summary>
