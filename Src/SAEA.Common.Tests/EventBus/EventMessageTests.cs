@@ -22,7 +22,7 @@ namespace SAEA.Common.Tests.EventBus
             var msg = new EventMessage("test.topic", data, context);
             
             Assert.AreEqual("test.topic", msg.Topic);
-            Assert.AreEqual(data, msg.Data);
+            Assert.AreSame(data, msg.Data);
             Assert.AreEqual(context, msg.Context);
             Assert.IsTrue(msg.Timestamp <= DateTime.UtcNow);
         }

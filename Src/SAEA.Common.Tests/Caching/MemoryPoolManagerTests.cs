@@ -354,9 +354,19 @@ namespace SAEA.Common.Tests.Caching
         [TestMethod]
         public void Constants_AreCorrect()
         {
-            Assert.AreEqual(4 * 1024, MemoryPoolManager.SmallThreshold);
-            Assert.AreEqual(64 * 1024, MemoryPoolManager.MediumThreshold);
-            Assert.AreEqual(1024 * 1024, MemoryPoolManager.LargeThreshold);
+            Assert.AreEqual(4 * 1024, GetThresholdConstant(nameof(MemoryPoolManager.SmallThreshold)));
+            Assert.AreEqual(64 * 1024, GetThresholdConstant(nameof(MemoryPoolManager.MediumThreshold)));
+            Assert.AreEqual(1024 * 1024, GetThresholdConstant(nameof(MemoryPoolManager.LargeThreshold)));
+        }
+
+        /// <summary>
+        /// 读取 <see cref="MemoryPoolManager"/> 上公开的阈值常量，避免与字面量直接比较被判定为恒真
+        /// </summary>
+        private static int GetThresholdConstant(string name)
+        {
+            var field = typeof(MemoryPoolManager).GetField(name, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            Assert.IsNotNull(field, $"未找到公开常量 {name}。");
+            return (int)field!.GetRawConstantValue();
         }
 
         #endregion
