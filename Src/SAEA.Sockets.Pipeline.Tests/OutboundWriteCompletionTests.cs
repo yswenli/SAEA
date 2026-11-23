@@ -79,7 +79,7 @@ namespace SAEA.Sockets.Pipeline.Tests
                 Assert.IsTrue(task.IsCompleted, "同步失败也必须在返回时就已完成。");
                 Assert.AreEqual(TaskStatus.Faulted, task.Status, "非取消类失败必须落成故障任务。");
 
-                var caught = await Assert.ThrowsExceptionAsync<TestWriteException>(() => task).ConfigureAwait(false);
+                var caught = await Assert.ThrowsExactlyAsync<TestWriteException>(() => task).ConfigureAwait(false);
                 Assert.AreSame(error, caught, "公共任务必须交付下游抛出的同一个异常实例。");
                 Assert.AreEqual(0, pipeline.PendingWriteCount, "失败完成后同样不能留下待写计数。");
             }

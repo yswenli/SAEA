@@ -69,7 +69,7 @@ namespace SAEA.Http.Tests
 
             long consumed;
             ReadOnlySequence<byte> frame;
-            var ex = Assert.ThrowsException<FrameProtocolException>(
+            var ex = Assert.ThrowsExactly<FrameProtocolException>(
                 () => splitter.TrySplit(new ReadOnlySequence<byte>(bytes), out consumed, out frame));
 
             Assert.AreEqual(HttpProtocolErrorCodes.RequestHeaderFieldsTooLarge, ex.Message, "应以 431 token 报告头上限。");
@@ -84,7 +84,7 @@ namespace SAEA.Http.Tests
 
             long consumed;
             ReadOnlySequence<byte> frame;
-            var ex = Assert.ThrowsException<FrameProtocolException>(
+            var ex = Assert.ThrowsExactly<FrameProtocolException>(
                 () => splitter.TrySplit(new ReadOnlySequence<byte>(bytes), out consumed, out frame));
 
             Assert.AreEqual(HttpProtocolErrorCodes.RequestEntityTooLarge, ex.Message, "应以 413 token 报告体积超限。");
@@ -99,7 +99,7 @@ namespace SAEA.Http.Tests
 
             long consumed;
             ReadOnlySequence<byte> frame;
-            var ex = Assert.ThrowsException<FrameProtocolException>(
+            var ex = Assert.ThrowsExactly<FrameProtocolException>(
                 () => splitter.TrySplit(new ReadOnlySequence<byte>(bytes), out consumed, out frame));
 
             Assert.AreEqual(HttpProtocolErrorCodes.ChunkedNotSupported, ex.Message, "应以 chunked token 报告不支持。");
@@ -114,7 +114,7 @@ namespace SAEA.Http.Tests
 
             long consumed;
             ReadOnlySequence<byte> frame;
-            var ex = Assert.ThrowsException<FrameProtocolException>(
+            var ex = Assert.ThrowsExactly<FrameProtocolException>(
                 () => splitter.TrySplit(new ReadOnlySequence<byte>(bytes), out consumed, out frame));
 
             Assert.AreEqual(HttpProtocolErrorCodes.BadRequest, ex.Message, "应以 400 token 报告畸形报文。");

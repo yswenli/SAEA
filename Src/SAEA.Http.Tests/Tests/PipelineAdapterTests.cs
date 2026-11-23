@@ -117,7 +117,7 @@ namespace SAEA.Http.Tests
 
         private static async Task ExpectChannelClosedAsync(Func<Task> action)
         {
-            var assertion = Assert.ThrowsExceptionAsync<ChannelClosedException>(action);
+            var assertion = Assert.ThrowsExactlyAsync<ChannelClosedException>(action);
             await WithTimeoutAsync(assertion).ConfigureAwait(false);
         }
 

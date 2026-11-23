@@ -60,7 +60,7 @@ namespace SAEA.P2P.Tests.Ice
             var transport = new FakeUdpTransport();
             var remote = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 6000);
 
-            Assert.ThrowsException<ArgumentOutOfRangeException>(() => new KeepAlive(TimeSpan.FromMilliseconds(14999), transport, remote));
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new KeepAlive(TimeSpan.FromMilliseconds(14999), transport, remote));
 
             // 边界值 15 秒正好合格，且间隔原样保存
             using (var keepAlive = new KeepAlive(TimeSpan.FromSeconds(15), transport, remote))

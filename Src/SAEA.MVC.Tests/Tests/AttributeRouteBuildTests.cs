@@ -69,7 +69,7 @@ namespace SAEA.MVC.Tests
         [TestMethod]
         public void Build_SameStaticPathSameVerb_ThrowsWithBothOwners()
         {
-            var exception = Assert.ThrowsException<InvalidOperationException>(
+            var exception = Assert.ThrowsExactly<InvalidOperationException>(
                 () => BuildAttributeRouteTable(typeof(DuplicateStaticRouteA), typeof(DuplicateStaticRouteB)));
 
             StringAssert.Contains(exception.Message, "DuplicateStaticRouteA/Index", "异常消息应包含第一个声明的 Controller/Action");
@@ -82,7 +82,7 @@ namespace SAEA.MVC.Tests
         [TestMethod]
         public void Build_ParameterNameDiffersButShapeSame_ThrowsWithBothOwners()
         {
-            var exception = Assert.ThrowsException<InvalidOperationException>(
+            var exception = Assert.ThrowsExactly<InvalidOperationException>(
                 () => BuildAttributeRouteTable(typeof(ShapeRouteA), typeof(ShapeRouteB)));
 
             StringAssert.Contains(exception.Message, "ShapeRouteA/Get", "异常消息应包含第一个声明的 Controller/Action");
@@ -96,7 +96,7 @@ namespace SAEA.MVC.Tests
         [TestMethod]
         public void Build_OptionalParameterTemplate_ThrowsArgumentException()
         {
-            var exception = Assert.ThrowsException<ArgumentException>(
+            var exception = Assert.ThrowsExactly<ArgumentException>(
                 () => BuildAttributeRouteTable(typeof(OptionalTemplateRoute)));
 
             StringAssert.Contains(exception.Message, "{id?}", "异常消息应指出非法模板 {id?}");
@@ -108,7 +108,7 @@ namespace SAEA.MVC.Tests
         [TestMethod]
         public void Build_CatchAllTemplate_ThrowsArgumentException()
         {
-            var exception = Assert.ThrowsException<ArgumentException>(
+            var exception = Assert.ThrowsExactly<ArgumentException>(
                 () => BuildAttributeRouteTable(typeof(CatchAllTemplateRoute)));
 
             StringAssert.Contains(exception.Message, "{*x}", "异常消息应指出非法模板 {*x}");
@@ -120,7 +120,7 @@ namespace SAEA.MVC.Tests
         [TestMethod]
         public void Build_TypeConstraintTemplate_ThrowsArgumentException()
         {
-            var exception = Assert.ThrowsException<ArgumentException>(
+            var exception = Assert.ThrowsExactly<ArgumentException>(
                 () => BuildAttributeRouteTable(typeof(ConstrainedTemplateRoute)));
 
             StringAssert.Contains(exception.Message, "{id:int}", "异常消息应指出非法模板 {id:int}");
@@ -132,7 +132,7 @@ namespace SAEA.MVC.Tests
         [TestMethod]
         public void Build_MultipleTemplateSources_ThrowsArgumentException()
         {
-            var exception = Assert.ThrowsException<ArgumentException>(
+            var exception = Assert.ThrowsExactly<ArgumentException>(
                 () => BuildAttributeRouteTable(typeof(MultiSourceRoute)));
 
             StringAssert.Contains(exception.Message, "MultiSourceRoute/Index", "异常消息应指出声明位置");

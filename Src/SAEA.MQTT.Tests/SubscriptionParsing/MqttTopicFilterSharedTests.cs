@@ -45,7 +45,7 @@ namespace SAEA.MQTT.Tests.SubscriptionParsing
         /// 验证组名或内层过滤器为空、以及缺少 $share 前缀分隔符时解析失败且两个输出参数为 null
         /// </summary>
         /// <param name="topic">待解析的主题过滤器</param>
-        [DataTestMethod]
+        [TestMethod]
         [DataRow("$share//sport/tennis")]
         [DataRow("$share/group")]
         [DataRow("$share/group/")]
@@ -65,7 +65,7 @@ namespace SAEA.MQTT.Tests.SubscriptionParsing
         /// 验证组名中包含 + 或 # 通配符时解析失败
         /// </summary>
         /// <param name="topic">待解析的主题过滤器</param>
-        [DataTestMethod]
+        [TestMethod]
         [DataRow("$share/gr+oup/sport")]
         [DataRow("$share/gr#oup/sport")]
         public void TryParseShared_WildcardInShareName_ReturnsFalse(string topic)
@@ -80,7 +80,7 @@ namespace SAEA.MQTT.Tests.SubscriptionParsing
         /// 验证内层过滤器本身非法（# 不在末级、+ 不独占层级、# 与字符相连）时解析失败
         /// </summary>
         /// <param name="topic">待解析的主题过滤器</param>
-        [DataTestMethod]
+        [TestMethod]
         [DataRow("$share/group/sport/#/ranking")]
         [DataRow("$share/group/sp+ort")]
         [DataRow("$share/group/sport/tennis#")]
@@ -96,7 +96,7 @@ namespace SAEA.MQTT.Tests.SubscriptionParsing
         /// 验证普通过滤器、大小写不符的 $SHARE、相似前缀、空串与 null 均解析失败且输出参数为 null
         /// </summary>
         /// <param name="topic">待解析的主题过滤器</param>
-        [DataTestMethod]
+        [TestMethod]
         [DataRow("sport/tennis")]
         [DataRow("$sharing/group/sport")]
         [DataRow("$SHARE/group/sport")]

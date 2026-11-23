@@ -56,7 +56,7 @@ namespace SAEA.WebSocket.Tests
 
             try
             {
-                Assert.ThrowsException<InvalidOperationException>(
+                Assert.ThrowsExactly<InvalidOperationException>(
                     () => server.ConfigurePipeline = (id, pipeline) => { });
             }
             finally
@@ -83,7 +83,7 @@ namespace SAEA.WebSocket.Tests
             {
                 Assert.IsTrue(client.Connect(15000), "明文 WebSocket 握手应在超时前完成。");
 
-                Assert.ThrowsException<InvalidOperationException>(
+                Assert.ThrowsExactly<InvalidOperationException>(
                     () => client.ConfigurePipeline = (id, pipeline) => { });
             }
             finally

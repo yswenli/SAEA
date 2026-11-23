@@ -117,7 +117,7 @@ namespace SAEA.Http.Tests
 
             long consumed;
             ReadOnlySequence<byte> frame;
-            var ex = Assert.ThrowsException<FrameProtocolException>(
+            var ex = Assert.ThrowsExactly<FrameProtocolException>(
                 () => splitter.TrySplit(new ReadOnlySequence<byte>(bytes), out consumed, out frame));
 
             Assert.AreEqual(HttpProtocolErrorCodes.ChunkedNotSupported, ex.Message, "值里含 chunked 时必须以固定 token 拒绝。");
@@ -132,7 +132,7 @@ namespace SAEA.Http.Tests
 
             long consumed;
             ReadOnlySequence<byte> frame;
-            var ex = Assert.ThrowsException<FrameProtocolException>(
+            var ex = Assert.ThrowsExactly<FrameProtocolException>(
                 () => splitter.TrySplit(new ReadOnlySequence<byte>(bytes), out consumed, out frame));
 
             Assert.AreEqual(HttpProtocolErrorCodes.BadRequest, ex.Message, "非整数 Content-Length 应回 400。");
@@ -149,7 +149,7 @@ namespace SAEA.Http.Tests
 
             long consumed;
             ReadOnlySequence<byte> frame;
-            var ex = Assert.ThrowsException<FrameProtocolException>(
+            var ex = Assert.ThrowsExactly<FrameProtocolException>(
                 () => splitter.TrySplit(new ReadOnlySequence<byte>(negative), out consumed, out frame));
 
             Assert.AreEqual(HttpProtocolErrorCodes.BadRequest, ex.Message, "负的 Content-Length 应回 400。");

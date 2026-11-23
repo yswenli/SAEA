@@ -169,7 +169,7 @@ namespace SAEA.MessageSocket.Tests
         [TestMethod]
         public void MessageEncoder_NullMessage_Throws()
         {
-            Assert.ThrowsException<ArgumentNullException>(() => MessageEncoder.Encode(null));
+            Assert.ThrowsExactly<ArgumentNullException>(() => MessageEncoder.Encode(null));
         }
     }
 }

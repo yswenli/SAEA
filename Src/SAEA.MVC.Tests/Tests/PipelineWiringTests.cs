@@ -59,7 +59,7 @@ namespace SAEA.MVC.Tests
             {
                 app.Start();
 
-                Assert.ThrowsException<InvalidOperationException>(
+                Assert.ThrowsExactly<InvalidOperationException>(
                     () => app.ConfigurePipeline = (id, pipeline) => { },
                     "启动后再赋值处理器链装配回调应抛 InvalidOperationException");
             }
@@ -116,7 +116,7 @@ namespace SAEA.MVC.Tests
 
             try
             {
-                Assert.ThrowsException<ArgumentNullException>(
+                Assert.ThrowsExactly<ArgumentNullException>(
                     () => app.UseSsl(null),
                     "TLS 配置回调为 null 时应抛 ArgumentNullException");
             }
@@ -141,7 +141,7 @@ namespace SAEA.MVC.Tests
             {
                 app.Start();
 
-                Assert.ThrowsException<InvalidOperationException>(
+                Assert.ThrowsExactly<InvalidOperationException>(
                     () => app.UseSsl(options => options.Protocols = SslProtocols.Tls12),
                     "启动后再配置 TLS 应抛 InvalidOperationException");
             }

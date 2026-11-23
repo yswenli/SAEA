@@ -56,7 +56,7 @@ namespace SAEA.MessageSocket.Tests
 
             try
             {
-                Assert.ThrowsException<InvalidOperationException>(
+                Assert.ThrowsExactly<InvalidOperationException>(
                     () => server.ConfigurePipeline = (id, pipeline) => { });
             }
             finally
@@ -83,7 +83,7 @@ namespace SAEA.MessageSocket.Tests
             {
                 client.Connect();
 
-                Assert.ThrowsException<InvalidOperationException>(
+                Assert.ThrowsExactly<InvalidOperationException>(
                     () => client.ConfigurePipeline = (id, pipeline) => { });
             }
             finally

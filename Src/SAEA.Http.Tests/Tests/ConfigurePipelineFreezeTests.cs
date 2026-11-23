@@ -57,7 +57,7 @@ namespace SAEA.Http.Tests
 
             try
             {
-                Assert.ThrowsException<InvalidOperationException>(
+                Assert.ThrowsExactly<InvalidOperationException>(
                     () => host.WebConfig.ConfigurePipeline = (id, pipeline) => { });
             }
             finally

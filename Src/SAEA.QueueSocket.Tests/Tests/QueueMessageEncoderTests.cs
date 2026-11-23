@@ -123,7 +123,7 @@ namespace SAEA.QueueSocket.Tests
         [TestMethod]
         public void QueueMessageEncoder_NullMessage_Throws()
         {
-            Assert.ThrowsException<ArgumentNullException>(() => QueueMessageEncoder.Encode(null));
+            Assert.ThrowsExactly<ArgumentNullException>(() => QueueMessageEncoder.Encode(null));
         }
 
         /// <summary>

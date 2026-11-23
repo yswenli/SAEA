@@ -299,7 +299,7 @@ namespace SAEA.FTP.Tests
             using (var server = new FakeFtpServer("abc\r\n", FakeLoginReply))
             using (var client = CreateClient(server.Port))
             {
-                Assert.ThrowsException<IOException>(() => client.Connect());
+                Assert.ThrowsExactly<IOException>(() => client.Connect());
             }
         }
 
@@ -314,7 +314,7 @@ namespace SAEA.FTP.Tests
             {
                 var watch = Stopwatch.StartNew();
 
-                Assert.ThrowsException<IOException>(() => client.Connect());
+                Assert.ThrowsExactly<IOException>(() => client.Connect());
 
                 watch.Stop();
 
@@ -437,11 +437,11 @@ namespace SAEA.FTP.Tests
             {
                 control.Connect();
 
-                var error = Assert.ThrowsException<IOException>(() => control.Send("NOOP"));
+                var error = Assert.ThrowsExactly<IOException>(() => control.Send("NOOP"));
 
                 Assert.IsTrue(error.Message.Contains("out of sync"), "unexpected message: " + error.Message);
 
-                Assert.ThrowsException<IOException>(() => control.Send("NOOP"));
+                Assert.ThrowsExactly<IOException>(() => control.Send("NOOP"));
             }
         }
 
@@ -514,7 +514,7 @@ namespace SAEA.FTP.Tests
             {
                 control.Connect();
 
-                Assert.ThrowsException<IOException>(() => control.Send("PWD"));
+                Assert.ThrowsExactly<IOException>(() => control.Send("PWD"));
 
                 var mkd = control.Send("MKD /tmp/x");
 
@@ -553,7 +553,7 @@ namespace SAEA.FTP.Tests
             {
                 control.Connect();
 
-                Assert.ThrowsException<IOException>(() => control.Send("PWD"));
+                Assert.ThrowsExactly<IOException>(() => control.Send("PWD"));
 
                 Assert.AreEqual(200, control.Send("NOOP").Code, "200 不在 PWD 码表里，不能被当成迟到应答丢掉");
                 Assert.AreEqual(0, control.StaleReplyCount, "无关应答不应计入丢弃次数");

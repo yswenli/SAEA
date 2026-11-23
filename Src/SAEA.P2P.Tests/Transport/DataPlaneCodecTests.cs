@@ -110,7 +110,7 @@ namespace SAEA.P2P.Tests.Transport
             var frame = DataPlaneCodec.Wrap(new byte[DataPlaneCodec.MaxPayloadLength]);
             Assert.AreEqual(DataPlaneCodec.MaxUdpDatagramLength, frame.Length);
 
-            var ex = Assert.ThrowsException<P2PException>(
+            var ex = Assert.ThrowsExactly<P2PException>(
                 () => DataPlaneCodec.Wrap(new byte[DataPlaneCodec.MaxPayloadLength + 1]));
             Assert.AreEqual(ErrorCode.PayloadTooLarge, ex.ErrorCode);
         }

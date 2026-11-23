@@ -146,7 +146,7 @@ namespace SAEA.P2P.Tests.Turn
                 {
                     using (var client = new TurnClientHost(options))
                     {
-                        var error = await Assert.ThrowsExceptionAsync<TurnClientException>(
+                        var error = await Assert.ThrowsExactlyAsync<TurnClientException>(
                             () => client.AllocateAsync(null, CancellationToken.None));
 
                         Assert.IsTrue(

@@ -69,7 +69,7 @@ namespace SAEA.P2P.Tests.Core
         [TestMethod]
         public void P2PClientBuilder_未设置节点标识_抛RegisterPeerIdMissing()
         {
-            var ex = Assert.ThrowsException<P2PException>(() => new P2PClientBuilder()
+            var ex = Assert.ThrowsExactly<P2PException>(() => new P2PClientBuilder()
                 .SetServer("127.0.0.1", 39654)
                 .BuildClient());
 
@@ -92,7 +92,7 @@ namespace SAEA.P2P.Tests.Core
             ice.Ice = new IceOptions();
             ice.Ice.EnableTcpSimultaneousOpen = true;
 
-            var ex = Assert.ThrowsException<P2PException>(() => new P2PClientBuilder()
+            var ex = Assert.ThrowsExactly<P2PException>(() => new P2PClientBuilder()
                 .SetServer("127.0.0.1", 39654)
                 .SetNodeId("builder-so")
                 .UseIce(ice)

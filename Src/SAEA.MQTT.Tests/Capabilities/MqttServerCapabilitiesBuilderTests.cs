@@ -67,7 +67,7 @@ namespace SAEA.MQTT.Tests.Capabilities
 
             try
             {
-                await Assert.ThrowsExceptionAsync<MqttConfigurationException>(
+                await Assert.ThrowsExactlyAsync<MqttConfigurationException>(
                     () => server.StartAsync(options));
             }
             finally

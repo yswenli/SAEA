@@ -312,7 +312,7 @@ namespace SAEA.P2P.Tests.Ice
             {
                 var payload = Encoding.UTF8.GetBytes("not-connected 未连接发送");
 
-                var sendError = Assert.ThrowsException<P2PException>(() => session.Send(payload));
+                var sendError = Assert.ThrowsExactly<P2PException>(() => session.Send(payload));
                 Assert.AreEqual(ErrorCode.NotConnected, sendError.ErrorCode, "未选出通道时发送应返回 EI03 错误码");
                 Assert.IsFalse(string.IsNullOrEmpty(sendError.Message), "未选出通道时发送的异常消息不应为空");
 
@@ -326,7 +326,7 @@ namespace SAEA.P2P.Tests.Ice
                 {
                 }
 
-                await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+                await Assert.ThrowsExactlyAsync<InvalidOperationException>(
                     () => session.StartAsync(CancellationToken.None)).ConfigureAwait(false);
             }
             finally

@@ -149,7 +149,7 @@ namespace SAEA.Http.Tests
 
                 try
                 {
-                    await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+                    await Assert.ThrowsExactlyAsync<InvalidOperationException>(
                         () => pipeline.WriteAsync(new object()).WaitAsync(WaitTimeout));
                 }
                 finally

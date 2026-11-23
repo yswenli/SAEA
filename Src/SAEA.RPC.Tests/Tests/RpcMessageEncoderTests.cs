@@ -123,7 +123,7 @@ namespace SAEA.RPC.Tests
         [TestMethod]
         public void RpcMessageEncoder_NullMessage_Throws()
         {
-            Assert.ThrowsException<ArgumentNullException>(() => RpcMessageEncoder.Encode(null));
+            Assert.ThrowsExactly<ArgumentNullException>(() => RpcMessageEncoder.Encode(null));
         }
 
         /// <summary>

@@ -57,7 +57,7 @@ namespace SAEA.FileSocket.Tests
 
             try
             {
-                Assert.ThrowsException<InvalidOperationException>(
+                Assert.ThrowsExactly<InvalidOperationException>(
                     () => server.ConfigurePipeline = (id, pipeline) => { });
             }
             finally

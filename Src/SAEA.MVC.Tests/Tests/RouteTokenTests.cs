@@ -254,7 +254,7 @@ namespace SAEA.MVC.Tests
         [TestMethod]
         public void Build_UnknownToken_ThrowsArgumentException()
         {
-            var exception = Assert.ThrowsException<ArgumentException>(
+            var exception = Assert.ThrowsExactly<ArgumentException>(
                 () => BuildAttributeRouteTable(typeof(UnknownTokenRoute)));
 
             StringAssert.Contains(exception.Message, "[foo]", "异常消息应指出未知令牌 [foo]");
@@ -268,7 +268,7 @@ namespace SAEA.MVC.Tests
         [TestMethod]
         public void Build_TokenMixedWithLiteral_ThrowsArgumentException()
         {
-            var exception = Assert.ThrowsException<ArgumentException>(
+            var exception = Assert.ThrowsExactly<ArgumentException>(
                 () => BuildAttributeRouteTable(typeof(MixedTokenRoute)));
 
             StringAssert.Contains(exception.Message, "v1-[action]", "异常消息应指出混写段 v1-[action]");
@@ -281,7 +281,7 @@ namespace SAEA.MVC.Tests
         [TestMethod]
         public void Build_UnclosedToken_ThrowsArgumentException()
         {
-            var exception = Assert.ThrowsException<ArgumentException>(
+            var exception = Assert.ThrowsExactly<ArgumentException>(
                 () => BuildAttributeRouteTable(typeof(UnclosedTokenRoute)));
 
             StringAssert.Contains(exception.Message, "[controller", "异常消息应指出未闭合段 [controller");
@@ -294,7 +294,7 @@ namespace SAEA.MVC.Tests
         [TestMethod]
         public void Build_ActionNameIsOnlyAsync_ThrowsArgumentException()
         {
-            var exception = Assert.ThrowsException<ArgumentException>(
+            var exception = Assert.ThrowsExactly<ArgumentException>(
                 () => BuildAttributeRouteTable(typeof(AsyncOnlyActionRoute)));
 
             StringAssert.Contains(exception.Message, "[action]", "异常消息应指出令牌 [action]");
@@ -308,7 +308,7 @@ namespace SAEA.MVC.Tests
         [TestMethod]
         public void Build_FooAndFooAsyncWithActionToken_ThrowsConflictWithBothOwners()
         {
-            var exception = Assert.ThrowsException<InvalidOperationException>(
+            var exception = Assert.ThrowsExactly<InvalidOperationException>(
                 () => BuildAttributeRouteTable(typeof(TokenConflictRoute)));
 
             StringAssert.Contains(exception.Message, "属性路由冲突", "异常消息应说明是属性路由冲突");

@@ -134,7 +134,7 @@ namespace SAEA.P2P.Tests.Turn
                 var connectionId = await client.ConnectAsync(peerEndPoint, CancellationToken.None);
                 Assert.IsTrue(connectionId > 0, "第一次 Connect 应返回大于 0 的连接号");
 
-                var error = await Assert.ThrowsExceptionAsync<TurnClientException>(
+                var error = await Assert.ThrowsExactlyAsync<TurnClientException>(
                     () => client.ConnectAsync(peerEndPoint, CancellationToken.None));
                 Assert.AreEqual(
                     TurnErrorCode.ConnectionAlreadyExists,
@@ -162,7 +162,7 @@ namespace SAEA.P2P.Tests.Turn
                 RefreshTimeout = TimeSpan.FromSeconds(10)
             }))
             {
-                var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+                var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
                     () => client.AllocateAsync(null, CancellationToken.None));
                 StringAssert.Contains(error.Message, "TCP 中继", "拒绝原因应说明 TCP 中继需要可靠控制连接");
             }
@@ -377,7 +377,7 @@ namespace SAEA.P2P.Tests.Turn
                 RtoMilliseconds = 100
             }))
             {
-                var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+                var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
                     () => client.ConnectionBindAsync(1, CancellationToken.None));
                 StringAssert.Contains(error.Message, "ConnectionBind", "拒绝原因应说明只有 TCP 中继分配才能绑定数据连接");
             }

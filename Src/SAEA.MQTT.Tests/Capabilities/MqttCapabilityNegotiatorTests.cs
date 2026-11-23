@@ -219,7 +219,7 @@ namespace SAEA.MQTT.Tests.Capabilities
                 }
             };
 
-            Assert.ThrowsException<MqttProtocolViolationException>(() =>
+            Assert.ThrowsExactly<MqttProtocolViolationException>(() =>
                 MqttCapabilityNegotiator.Negotiate(
                     new MqttServerCapabilities(),
                     connectPacket,
@@ -242,7 +242,7 @@ namespace SAEA.MQTT.Tests.Capabilities
                 }
             };
 
-            Assert.ThrowsException<MqttProtocolViolationException>(() =>
+            Assert.ThrowsExactly<MqttProtocolViolationException>(() =>
                 MqttCapabilityNegotiator.Negotiate(
                     new MqttServerCapabilities(),
                     connectPacket,

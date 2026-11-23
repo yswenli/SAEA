@@ -102,7 +102,7 @@ namespace SAEA.FTP.Tests
 
             _server.Start();
 
-            Assert.ThrowsException<InvalidOperationException>(
+            Assert.ThrowsExactly<InvalidOperationException>(
                 () => _server.ConfigurePipeline = (id, pipeline) => { });
         }
 
@@ -130,7 +130,7 @@ namespace SAEA.FTP.Tests
 
                 client.Connect();
 
-                Assert.ThrowsException<InvalidOperationException>(
+                Assert.ThrowsExactly<InvalidOperationException>(
                     () => client.ConfigurePipeline = (id, pipeline) => { });
             }
         }

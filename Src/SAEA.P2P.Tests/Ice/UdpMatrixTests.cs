@@ -205,7 +205,7 @@ namespace SAEA.P2P.Tests.Ice
         /// <param name="local">本端 NAT 预设</param>
         /// <param name="remote">对端 NAT 预设</param>
         /// <param name="expected">期望形态</param>
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(MatrixProfile.FullCone, MatrixProfile.FullCone, MatrixOutcome.Direct)]
         [DataRow(MatrixProfile.FullCone, MatrixProfile.Restricted, MatrixOutcome.Direct)]
         [DataRow(MatrixProfile.FullCone, MatrixProfile.PortRestricted, MatrixOutcome.Direct)]

@@ -91,7 +91,7 @@ namespace SAEA.Sockets.Pipeline.Tests
                 var stale = capturing.Context;
                 Assert.IsNotNull(stale, "处理器回调内必须拿到视图。");
 
-                var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+                var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
                     () => stale.WriteAsync("m2")).ConfigureAwait(false);
                 StringAssert.Contains(error.Message, "已失效", "失效视图必须按已失效报错。");
             }
@@ -114,7 +114,7 @@ namespace SAEA.Sockets.Pipeline.Tests
                 var stale = capturing.Context;
                 Assert.IsNotNull(stale, "处理器回调内必须拿到视图。");
 
-                var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+                var error = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
                     () => stale.FireChannelReadAsync("m2")).ConfigureAwait(false);
                 StringAssert.Contains(error.Message, "已失效", "失效视图必须按已失效报错。");
             }

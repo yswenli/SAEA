@@ -274,7 +274,7 @@ namespace SAEA.P2P.Tests.Transport
                 }
 
                 // 失败的那次调用根本没有建链，监听侧不存在第二条连接
-                await Assert.ThrowsExceptionAsync<TimeoutException>(
+                await Assert.ThrowsExactlyAsync<TimeoutException>(
                     () => listener.AcceptAsync(CancellationToken.None).WaitAsync(WaitTimeout));
             }
         }
@@ -407,7 +407,7 @@ namespace SAEA.P2P.Tests.Transport
         {
             using (var listener = new SaeaTcpTransport(new IPEndPoint(IPAddress.Loopback, 0)))
             {
-                await Assert.ThrowsExceptionAsync<NotSupportedException>(
+                await Assert.ThrowsExactlyAsync<NotSupportedException>(
                     () => listener.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 1), CancellationToken.None));
             }
         }
@@ -420,7 +420,7 @@ namespace SAEA.P2P.Tests.Transport
         {
             using (var client = new SaeaTcpTransport())
             {
-                Assert.ThrowsException<NotSupportedException>(
+                Assert.ThrowsExactly<NotSupportedException>(
                     () => client.AcceptAsync(CancellationToken.None));
             }
         }
@@ -437,7 +437,7 @@ namespace SAEA.P2P.Tests.Transport
 
             listener.Dispose();
 
-            await Assert.ThrowsExceptionAsync<TaskCanceledException>(() => pending);
+            await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => pending);
         }
 
         /// <summary>

@@ -127,7 +127,7 @@ namespace SAEA.Sockets.Pipeline.Tests
                 var owner = new CountingOwner();
                 var rejected = pipeline.WriteAsync(new RawFrame(new byte[] { 1, 2, 3 }, owner));
 
-                await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => rejected);
+                await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => rejected);
                 Assert.AreEqual(1, owner.Count, "被拒绝的原始帧必须补偿释放，且只释放一次。");
 
                 sink.Release();
@@ -167,7 +167,7 @@ namespace SAEA.Sockets.Pipeline.Tests
                 pipeline.Remove(serializer);
 
                 for (var i = 0; i < queued.Count; i++)
-                    await Assert.ThrowsExceptionAsync<ChannelClosedException>(() => queued[i]);
+                    await Assert.ThrowsExactlyAsync<ChannelClosedException>(() => queued[i]);
 
                 for (var i = 0; i < owners.Count; i++)
                     Assert.AreEqual(1, owners[i].Count, "排队项未移交，原始帧必须补偿释放且只释放一次。");
@@ -177,7 +177,7 @@ namespace SAEA.Sockets.Pipeline.Tests
                 sink.Release();
 
                 // 已移交项只让公共任务失败，消息仍在下游手里，不会重放也不再回调上游。
-                await Assert.ThrowsExceptionAsync<ChannelClosedException>(() => active);
+                await Assert.ThrowsExactlyAsync<ChannelClosedException>(() => active);
                 Assert.AreEqual(1, sink.ReceivedCount, "已移交项的消息由下游收尾，不会被重放。");
             }
         }
@@ -195,7 +195,7 @@ namespace SAEA.Sockets.Pipeline.Tests
                 pipeline.AddLast(sink);
                 pipeline.AddLast(new DoubleForwardOutboundHandler());
 
-                await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => pipeline.WriteAsync("dup"));
+                await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => pipeline.WriteAsync("dup"));
 
                 Assert.AreEqual(1, sink.ReceivedCount, "重复转发必须被拒绝，下游只应收到一条。");
             }

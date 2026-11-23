@@ -155,7 +155,7 @@ namespace SAEA.P2P.Tests.Ice
             using (var nominator = new Nominator(IceRole.Controlling, 1000UL, "local", "localpwd", "remote", "remotepwd", new CheckList(true)))
             {
                 Assert.IsNull(nominator.SelectedPair);
-                Assert.ThrowsException<InvalidOperationException>(() => nominator.EnsureCanSend());
+                Assert.ThrowsExactly<InvalidOperationException>(() => nominator.EnsureCanSend());
             }
         }
 

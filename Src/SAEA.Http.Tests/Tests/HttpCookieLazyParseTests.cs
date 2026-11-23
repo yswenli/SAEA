@@ -56,7 +56,10 @@ namespace SAEA.Http.Tests
 
             Assert.IsNotNull(message.Cookies, "没有 Cookie 报头时应返回非 null 的空集合。");
             Assert.AreEqual(0, message.Cookies.Count, "没有 Cookie 报头时集合应为空。");
-            Assert.AreSame(message.Cookies, message.Cookies, "重复读取应返回同一个集合实例。");
+            var firstRead = message.Cookies;
+            var secondRead = message.Cookies;
+
+            Assert.AreSame(firstRead, secondRead, "重复读取应返回同一个集合实例。");
         }
 
         /// <summary>

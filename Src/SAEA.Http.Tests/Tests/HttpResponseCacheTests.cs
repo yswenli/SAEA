@@ -96,7 +96,7 @@ namespace SAEA.Http.Tests
         {
             var response = CreateResponse();
 
-            Assert.ThrowsException<FormatException>(() => response.SetCached(new HttpContentResult("x"), "abc,60"));
+            Assert.ThrowsExactly<FormatException>(() => response.SetCached(new HttpContentResult("x"), "abc,60"));
         }
 
         /// <summary>
@@ -107,7 +107,7 @@ namespace SAEA.Http.Tests
         {
             var response = CreateResponse();
 
-            Assert.ThrowsException<FormatException>(() => response.SetCached(new HttpContentResult("x"), string.Empty));
+            Assert.ThrowsExactly<FormatException>(() => response.SetCached(new HttpContentResult("x"), string.Empty));
         }
 
         /// <summary>
@@ -193,7 +193,7 @@ namespace SAEA.Http.Tests
         {
             var response = CreateResponse();
 
-            Assert.ThrowsException<OverflowException>(() => response.SetCached(new HttpContentResult("x"), "99999999999,60"));
+            Assert.ThrowsExactly<OverflowException>(() => response.SetCached(new HttpContentResult("x"), "99999999999,60"));
         }
 
         /// <summary>

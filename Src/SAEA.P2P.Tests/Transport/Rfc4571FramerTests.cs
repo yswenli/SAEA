@@ -130,7 +130,7 @@ namespace SAEA.P2P.Tests.Transport
         {
             var framer = new Rfc4571Framer(16);
 
-            Assert.ThrowsException<InvalidDataException>(
+            Assert.ThrowsExactly<InvalidDataException>(
                 () => framer.Append(new byte[] { 0x07, 0xD0 }));
             Assert.AreEqual(0, framer.BufferedLength);
 
@@ -157,9 +157,9 @@ namespace SAEA.P2P.Tests.Transport
             Assert.AreEqual(0x00, destination[0]);
             Assert.AreEqual(0x08, destination[1]);
 
-            Assert.ThrowsException<ArgumentException>(
+            Assert.ThrowsExactly<ArgumentException>(
                 () => Rfc4571Framer.WriteFrame(payload, new byte[9]));
-            Assert.ThrowsException<ArgumentException>(
+            Assert.ThrowsExactly<ArgumentException>(
                 () => Rfc4571Framer.WriteFrame(new byte[65536], new byte[65538]));
         }
     }

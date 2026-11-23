@@ -670,7 +670,7 @@ namespace SAEA.MVC.Tests
         [TestMethod]
         public void Restful_Build_SamePathSamePut_ThrowsWithBothOwners()
         {
-            var exception = Assert.ThrowsException<InvalidOperationException>(
+            var exception = Assert.ThrowsExactly<InvalidOperationException>(
                 () => AttributeRouteTable.Build(new RouteTable(), new List<Type> { typeof(NegativePutRouteA), typeof(NegativePutRouteB) }));
 
             StringAssert.Contains(exception.Message, "NegativePutRouteA/Index", "异常消息应包含第一个声明的 Controller/Action");

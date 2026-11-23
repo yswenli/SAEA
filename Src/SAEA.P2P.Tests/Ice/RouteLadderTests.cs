@@ -185,7 +185,7 @@ namespace SAEA.P2P.Tests.Ice
                 TimeSpan.FromMilliseconds(200));
             var ladder = new RouteLadder(options);
 
-            var ex = await Assert.ThrowsExceptionAsync<P2PException>(() => ladder.RunAsync(
+            var ex = await Assert.ThrowsExactlyAsync<P2PException>(() => ladder.RunAsync(
                 (stage, budget, token) => new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously).Task,
                 null,
                 CancellationToken.None));

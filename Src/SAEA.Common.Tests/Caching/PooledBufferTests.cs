@@ -33,22 +33,28 @@ namespace SAEA.Common.Tests.Caching
         /// 验证传入 null 数组时构造函数抛出 ArgumentNullException
         /// </summary>
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void PooledBuffer_Constructor_ThrowsOnNullBuffer()
         {
             var pool = ArrayPool<byte>.Shared;
-            new PooledBuffer(null, 100, BufferSizeTier.Small, pool);
+
+            Assert.ThrowsExactly<ArgumentNullException>(() =>
+            {
+                new PooledBuffer(null, 100, BufferSizeTier.Small, pool);
+            });
         }
 
         /// <summary>
         /// 验证传入 null 池时构造函数抛出 ArgumentNullException
         /// </summary>
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void PooledBuffer_Constructor_ThrowsOnNullPool()
         {
             var buffer = new byte[1024];
-            new PooledBuffer(buffer, 100, BufferSizeTier.Small, null);
+
+            Assert.ThrowsExactly<ArgumentNullException>(() =>
+            {
+                new PooledBuffer(buffer, 100, BufferSizeTier.Small, null);
+            });
         }
 
         /// <summary>

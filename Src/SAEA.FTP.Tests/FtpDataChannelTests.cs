@@ -76,7 +76,7 @@ namespace SAEA.FTP.Tests
             {
                 adapter.ReadTimeout = 100;
 
-                Assert.ThrowsException<IOException>(() => adapter.Read(new byte[1], 0, 1));
+                Assert.ThrowsExactly<IOException>(() => adapter.Read(new byte[1], 0, 1));
             }
         }
 
@@ -134,7 +134,7 @@ namespace SAEA.FTP.Tests
                 var failure = new InvalidOperationException("decode-broken");
                 Fail(adapter, failure);
 
-                var ex = Assert.ThrowsException<IOException>(() => adapter.Read(new byte[1], 0, 1));
+                var ex = Assert.ThrowsExactly<IOException>(() => adapter.Read(new byte[1], 0, 1));
                 Assert.AreSame(failure, ex.InnerException, "链上原始异常应作为内层异常保留");
             }
         }
@@ -170,7 +170,7 @@ namespace SAEA.FTP.Tests
 
             Assert.IsTrue(chunk.IsDisposed, "释放适配器必须归还未消费的数据块");
             Assert.AreEqual(0, adapter.Read(new byte[1], 0, 1), "释放后读应按 EOF 返回 0");
-            Assert.ThrowsException<ObjectDisposedException>(() => adapter.Write(new byte[1], 0, 1));
+            Assert.ThrowsExactly<ObjectDisposedException>(() => adapter.Write(new byte[1], 0, 1));
         }
 
         /// <summary>
@@ -208,7 +208,7 @@ namespace SAEA.FTP.Tests
         {
             using (var adapter = new ChannelStreamAdapter())
             {
-                Assert.ThrowsException<InvalidOperationException>(() => adapter.Write(new byte[] { 1 }, 0, 1));
+                Assert.ThrowsExactly<InvalidOperationException>(() => adapter.Write(new byte[] { 1 }, 0, 1));
             }
         }
 
@@ -246,7 +246,7 @@ namespace SAEA.FTP.Tests
                 pipeline.SyncFailure = new InvalidOperationException("chain-rejected");
                 adapter.AttachPipeline(pipeline);
 
-                var ex = Assert.ThrowsException<InvalidOperationException>(
+                var ex = Assert.ThrowsExactly<InvalidOperationException>(
                     () => adapter.Write(new byte[] { 1, 2 }, 0, 2));
                 Assert.AreEqual("chain-rejected", ex.Message);
 
@@ -268,7 +268,7 @@ namespace SAEA.FTP.Tests
                 adapter.AttachPipeline(pipeline);
                 adapter.WriteTimeout = 100;
 
-                Assert.ThrowsException<IOException>(() => adapter.Write(new byte[] { 1 }, 0, 1));
+                Assert.ThrowsExactly<IOException>(() => adapter.Write(new byte[] { 1 }, 0, 1));
 
                 var written = (FtpDataChunk)pipeline.Writes.Single();
                 Assert.IsFalse(written.IsDisposed, "超时后数据块可能仍被链持有，适配器不得释放");
@@ -290,7 +290,7 @@ namespace SAEA.FTP.Tests
             {
                 adapter.AttachPipeline(first);
 
-                Assert.ThrowsException<InvalidOperationException>(() => adapter.AttachPipeline(second));
+                Assert.ThrowsExactly<InvalidOperationException>(() => adapter.AttachPipeline(second));
             }
         }
 

@@ -58,7 +58,7 @@ namespace SAEA.RPC.Tests
 
             try
             {
-                Assert.ThrowsException<InvalidOperationException>(
+                Assert.ThrowsExactly<InvalidOperationException>(
                     () => provider.ConfigurePipeline = (id, pipeline) => { });
             }
             finally
@@ -85,7 +85,7 @@ namespace SAEA.RPC.Tests
 
                 try
                 {
-                    Assert.ThrowsException<InvalidOperationException>(
+                    Assert.ThrowsExactly<InvalidOperationException>(
                         () => consumer.ConfigurePipeline = (id, pipeline) => { });
                 }
                 finally

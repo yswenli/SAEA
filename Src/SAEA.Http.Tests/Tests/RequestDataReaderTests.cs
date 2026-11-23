@@ -251,7 +251,7 @@ namespace SAEA.Http.Tests
         {
             var bytes = Bytes("GET /x\r\nHost: h\r\n\r\n");
 
-            Assert.ThrowsException<IndexOutOfRangeException>(
+            Assert.ThrowsExactly<IndexOutOfRangeException>(
                 () => RequestDataReader.Analysis(bytes.AsSpan(), out _),
                 "请求行缺少协议段时应抛索引越界异常。");
         }
@@ -264,7 +264,7 @@ namespace SAEA.Http.Tests
         {
             var bytes = Bytes("GET /search?id=1&flag HTTP/1.1\r\nHost: h\r\n\r\n");
 
-            Assert.ThrowsException<ArgumentOutOfRangeException>(
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(
                 () => RequestDataReader.Analysis(bytes.AsSpan(), out _),
                 "查询参数没有等号时应抛范围越界异常。");
         }

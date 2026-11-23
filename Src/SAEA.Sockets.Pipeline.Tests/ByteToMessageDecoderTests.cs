@@ -107,7 +107,7 @@ namespace SAEA.Sockets.Pipeline.Tests
             var boom = new InvalidOperationException("downstream-sync-failure");
             var ctx = new StubContext(msg => { throw boom; });
 
-            var caught = Assert.ThrowsException<InvalidOperationException>(() =>
+            var caught = Assert.ThrowsExactly<InvalidOperationException>(() =>
             {
                 decoder.ChannelReadAsync(ctx, NewFrame());
             });
@@ -131,7 +131,7 @@ namespace SAEA.Sockets.Pipeline.Tests
 
             var returned = decoder.ChannelReadAsync(ctx, NewFrame());
 
-            var caught = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+            var caught = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
                 () => returned).ConfigureAwait(false);
 
             Assert.AreSame(boom, caught, "下游任务的异常必须原样交给调用方，不能被包装。");
@@ -163,7 +163,7 @@ namespace SAEA.Sockets.Pipeline.Tests
                 return ReferenceEquals(msg, second) ? Task.FromException(boom) : Task.CompletedTask;
             });
 
-            var caught = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+            var caught = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
                 () => decoder.ChannelReadAsync(ctx, NewFrame())).ConfigureAwait(false);
 
             Assert.AreSame(boom, caught, "派发失败必须原样冒泡。");
@@ -205,7 +205,7 @@ namespace SAEA.Sockets.Pipeline.Tests
 
             var ctx = new StubContext(msg => Task.CompletedTask);
 
-            var caught = await Assert.ThrowsExceptionAsync<InvalidOperationException>(
+            var caught = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
                 () => decoder.ChannelReadAsync(ctx, NewFrame())).ConfigureAwait(false);
 
             Assert.AreSame(boom, caught, "解码异常必须原样冒泡，不能被通知结果替换。");
@@ -225,7 +225,7 @@ namespace SAEA.Sockets.Pipeline.Tests
             var decoder = new ScriptedDecoder { DecodeFailure = boom };
             var ctx = new StubContext(msg => Task.CompletedTask);
 
-            var caught = await Assert.ThrowsExceptionAsync<OperationCanceledException>(
+            var caught = await Assert.ThrowsExactlyAsync<OperationCanceledException>(
                 () => decoder.ChannelReadAsync(ctx, NewFrame())).ConfigureAwait(false);
 
             Assert.AreSame(boom, caught, "取消除原样冒泡外不做其他处理。");

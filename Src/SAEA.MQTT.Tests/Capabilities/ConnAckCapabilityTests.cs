@@ -135,7 +135,7 @@ namespace SAEA.MQTT.Tests.Capabilities
                     context.ReasonString = "not allowed";
                 }));
 
-            var exception = await Assert.ThrowsExceptionAsync<MqttConnectingFailedException>(async () =>
+            var exception = await Assert.ThrowsExactlyAsync<MqttConnectingFailedException>(async () =>
             {
                 await using var client = await MqttTestClient.ConnectAsync(
                     server.Port,
