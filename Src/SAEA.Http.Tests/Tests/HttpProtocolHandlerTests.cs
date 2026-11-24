@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/12 10:00:00
+ *修改时间：2026/11/24 18:12:35
  *修改人： yswenli
- *版本号： net10.0
- *描述：补协议升级后单次到达超过分帧上限的切块透传用例
+ *版本号： 
+ *描述：net10.0
  *
  *****************************************************************************/
 using System;
@@ -234,6 +234,208 @@ namespace SAEA.Http.Tests
                     StringAssert.Contains(text, "HTTP/1.1 413  RequestEntityTooLarge", "应回写 413 状态行。");
                     StringAssert.Contains(text, "413 RequestEntityTooLarge", "应回写 413 响应体。");
                     Assert.AreEqual(0, capturing.Count, "协议异常不应再派发到链尾。");
+                }
+                finally
+                {
+                    await PipelineTestKit.StopAsync(executor);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 定长请求 413 时按「Content-Length 减去已到达字节」声明排空规格，且不按请求体上限截断。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task HttpProtocolHandler_FrameProtocolError413_SetsDrainSpecForWholeUnreadBody()
+        {
+            var options = PipelineTestKit.CreateOptions(new HttpRequestSplitter(maxRequestSize: 8));
+            var stream = new TestRawByteStream("http-protocol-413-drain-spec");
+            var channel = new TestChannel("http-protocol-413-drain-spec");
+            var capturing = new CapturingInboundHandler();
+
+            using (var pipeline = ChannelPipeline.Create(options))
+            {
+                pipeline.AddLast(new HttpResponseEncoder());
+                pipeline.AddLast(new OutboundSerializingHandler());
+                pipeline.AddLast(new HttpRequestDecoder());
+                pipeline.AddLast(new HttpProtocolHandler(null, null, null, 8, 500));
+                pipeline.AddLast(capturing);
+
+                var executor = new ChannelPipelineExecutor(stream, channel, options, CancellationToken.None);
+                executor.Attach(pipeline);
+
+                try
+                {
+                    executor.Start();
+
+                    await PipelineTestKit.WriteAsync(stream, Encoding.ASCII.GetBytes(
+                        "POST /big HTTP/1.1\r\n"
+                        + "Host: a\r\n"
+                        + "Content-Length: 40\r\n"
+                        + "\r\n"));
+
+                    var reason = await stream.Closed.Task.WaitAsync(WaitTimeout);
+                    Assert.AreEqual("http-protocol-error", reason, "协议错误应按协议错误收口。");
+
+                    long drainBytes;
+                    int drainTimeoutMs;
+                    Assert.IsTrue(
+                        channel.TryTakeDrainSpec(out drainBytes, out drainTimeoutMs),
+                        "413 后应声明有界排空规格。");
+                    Assert.AreEqual(40L, drainBytes, "定长请求应排空全部剩余 40 字节，不能只按请求体上限 8 截断。");
+                    Assert.AreEqual(500, drainTimeoutMs, "排空超时应取配置值。");
+                }
+                finally
+                {
+                    await PipelineTestKit.StopAsync(executor);
+                }
+            }
+        }
+
+        /// <summary>
+        /// chunked 请求无法推断剩余长度时，排空字节数按请求体上限兜底。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task HttpProtocolHandler_FrameProtocolError413_ChunkedFallsBackToBodyLimit()
+        {
+            var options = PipelineTestKit.CreateOptions(new HttpRequestSplitter(maxRequestSize: 8));
+            var stream = new TestRawByteStream("http-protocol-413-chunked");
+            var channel = new TestChannel("http-protocol-413-chunked");
+            var capturing = new CapturingInboundHandler();
+
+            using (var pipeline = ChannelPipeline.Create(options))
+            {
+                pipeline.AddLast(new HttpResponseEncoder());
+                pipeline.AddLast(new OutboundSerializingHandler());
+                pipeline.AddLast(new HttpRequestDecoder());
+                pipeline.AddLast(new HttpProtocolHandler(null, null, null, 8, 300));
+                pipeline.AddLast(capturing);
+
+                var executor = new ChannelPipelineExecutor(stream, channel, options, CancellationToken.None);
+                executor.Attach(pipeline);
+
+                try
+                {
+                    executor.Start();
+
+                    await PipelineTestKit.WriteAsync(stream, Encoding.ASCII.GetBytes(
+                        "POST /big HTTP/1.1\r\n"
+                        + "Host: a\r\n"
+                        + "Transfer-Encoding: chunked\r\n"
+                        + "\r\n"
+                        + "10\r\n"
+                        + "0123456789abcdef\r\n"
+                        + "0\r\n"
+                        + "\r\n"));
+
+                    var reason = await stream.Closed.Task.WaitAsync(WaitTimeout);
+                    Assert.AreEqual("http-protocol-error", reason, "协议错误应按协议错误收口。");
+
+                    long drainBytes;
+                    int drainTimeoutMs;
+                    Assert.IsTrue(
+                        channel.TryTakeDrainSpec(out drainBytes, out drainTimeoutMs),
+                        "chunked 413 后应按请求体上限兜底声明排空规格。");
+                    Assert.AreEqual(8L, drainBytes, "剩余长度未知时排空字节数应取请求体上限。");
+                    Assert.AreEqual(300, drainTimeoutMs, "排空超时应取配置值。");
+                }
+                finally
+                {
+                    await PipelineTestKit.StopAsync(executor);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 排空超时配置为 0 时不声明排空规格，413 后直接关闭。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task HttpProtocolHandler_FrameProtocolError413_DrainDisabled_NoDrainSpec()
+        {
+            var options = PipelineTestKit.CreateOptions(new HttpRequestSplitter(maxRequestSize: 8));
+            var stream = new TestRawByteStream("http-protocol-413-nodrain");
+            var channel = new TestChannel("http-protocol-413-nodrain");
+            var capturing = new CapturingInboundHandler();
+
+            using (var pipeline = ChannelPipeline.Create(options))
+            {
+                pipeline.AddLast(new HttpResponseEncoder());
+                pipeline.AddLast(new OutboundSerializingHandler());
+                pipeline.AddLast(new HttpRequestDecoder());
+                pipeline.AddLast(new HttpProtocolHandler(null, null, null, 8, 0));
+                pipeline.AddLast(capturing);
+
+                var executor = new ChannelPipelineExecutor(stream, channel, options, CancellationToken.None);
+                executor.Attach(pipeline);
+
+                try
+                {
+                    executor.Start();
+
+                    await PipelineTestKit.WriteAsync(stream, Encoding.ASCII.GetBytes(
+                        "POST /big HTTP/1.1\r\n"
+                        + "Host: a\r\n"
+                        + "Content-Length: 40\r\n"
+                        + "\r\n"));
+
+                    var reason = await stream.Closed.Task.WaitAsync(WaitTimeout);
+                    Assert.AreEqual("http-protocol-error", reason, "协议错误应按协议错误收口。");
+
+                    long drainBytes;
+                    int drainTimeoutMs;
+                    Assert.IsFalse(
+                        channel.TryTakeDrainSpec(out drainBytes, out drainTimeoutMs),
+                        "排空超时为 0 时不应声明排空规格。");
+                }
+                finally
+                {
+                    await PipelineTestKit.StopAsync(executor);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 收口末端识别到排空规格且字节流支持半关排空时，走排空关闭而不是普通关闭。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task HttpProtocolHandler_FrameProtocolError413_DrainsBeforeClose()
+        {
+            var options = PipelineTestKit.CreateOptions(new HttpRequestSplitter(maxRequestSize: 8));
+            var stream = new RecordingDrainedByteStream("http-protocol-413-drained");
+            var capturing = new CapturingInboundHandler();
+
+            using (var pipeline = ChannelPipeline.Create(options))
+            {
+                pipeline.AddLast(new HttpResponseEncoder());
+                pipeline.AddLast(new OutboundSerializingHandler());
+                pipeline.AddLast(new HttpRequestDecoder());
+                pipeline.AddLast(new HttpProtocolHandler(null, null, null, 8, 500));
+                pipeline.AddLast(capturing);
+
+                var executor = new ChannelPipelineExecutor(
+                    stream, new TestChannel("http-protocol-413-drained"), options, CancellationToken.None);
+                executor.Attach(pipeline);
+
+                try
+                {
+                    executor.Start();
+
+                    await stream.Inner.WriteAsync(Encoding.ASCII.GetBytes(
+                        "POST /big HTTP/1.1\r\n"
+                        + "Host: a\r\n"
+                        + "Content-Length: 40\r\n"
+                        + "\r\n")).WaitAsync(WaitTimeout);
+
+                    var reason = await stream.Inner.Closed.Task.WaitAsync(WaitTimeout);
+                    Assert.AreEqual("http-protocol-error", reason, "排空完成后仍应按协议错误收口。");
+                    Assert.AreEqual(1, stream.DrainCount, "收口末端应只调用一次排空关闭。");
+                    Assert.AreEqual("http-protocol-error", stream.DrainReason, "排空关闭应带上收口原因。");
+                    Assert.AreEqual(40L, stream.DrainBytes, "排空字节数应覆盖全部剩余请求体。");
+                    Assert.AreEqual(500, stream.DrainTimeoutMs, "排空超时应与声明规格一致。");
                 }
                 finally
                 {
@@ -552,11 +754,11 @@ namespace SAEA.Http.Tests
         }
 
         /// <summary>
-        /// chunked 请求不支持，链上回写 400 并按协议错误收口。
+        /// 畸形 chunk-size 行应按协议错误回写 400 并收口。
         /// </summary>
         /// <returns>该用例的异步执行任务。</returns>
         [TestMethod]
-        public async Task HttpProtocolHandler_ChunkedRequest_Writes400AndCloses()
+        public async Task HttpProtocolHandler_MalformedChunkedRequest_Writes400AndCloses()
         {
             var options = PipelineTestKit.CreateOptions(new HttpRequestSplitter());
             var stream = new TestRawByteStream("http-chunked");
@@ -583,10 +785,10 @@ namespace SAEA.Http.Tests
                         + "Host: a\r\n"
                         + "Transfer-Encoding: chunked\r\n"
                         + "\r\n"
-                        + "0\r\n\r\n"));
+                        + "zz\r\n"));
 
                     var reason = await stream.Closed.Task.WaitAsync(WaitTimeout);
-                    Assert.AreEqual("http-protocol-error", reason, "chunked 应按协议错误收口。");
+                    Assert.AreEqual("http-protocol-error", reason, "畸形 chunk-size 应按协议错误收口。");
 
                     var text = SentText(stream);
                     StringAssert.Contains(text, "HTTP/1.1 400  BadRequest", "应回写 400 状态行。");
@@ -759,6 +961,71 @@ namespace SAEA.Http.Tests
             {
                 Interlocked.Increment(ref _calls);
                 return Task.FromResult(_response);
+            }
+        }
+
+        /// <summary>
+        /// 支持排空关闭的内存字节流：记录排空规格后按普通关闭结束，模拟读完剩余字节再关闭连接。
+        /// </summary>
+        private sealed class RecordingDrainedByteStream : IRawByteStream, IDrainedCloseStream
+        {
+            private readonly TestRawByteStream _inner;
+
+            public RecordingDrainedByteStream(string id)
+            {
+                _inner = new TestRawByteStream(id);
+            }
+
+            public TestRawByteStream Inner
+            {
+                get { return _inner; }
+            }
+
+            public int DrainCount { get; private set; }
+
+            public string DrainReason { get; private set; }
+
+            public long DrainBytes { get; private set; }
+
+            public int DrainTimeoutMs { get; private set; }
+
+            public string ChannelId
+            {
+                get { return _inner.ChannelId; }
+            }
+
+            public PipeReader Input
+            {
+                get { return _inner.Input; }
+            }
+
+            public Task SendAsync(ReadOnlyMemory<byte> data, IDisposable owner)
+            {
+                return _inner.SendAsync(data, owner);
+            }
+
+            public void Pause()
+            {
+                _inner.Pause();
+            }
+
+            public void Resume()
+            {
+                _inner.Resume();
+            }
+
+            public Task CloseAsync(string reason)
+            {
+                return _inner.CloseAsync(reason);
+            }
+
+            public Task DrainAndCloseAsync(string reason, long drainBytes, int timeoutMs)
+            {
+                DrainCount++;
+                DrainReason = reason;
+                DrainBytes = drainBytes;
+                DrainTimeoutMs = timeoutMs;
+                return _inner.CloseAsync(reason);
             }
         }
 

@@ -143,6 +143,8 @@ HTTP 响应、FTP 应答这类「请求-响应」模型，由包内 handler 把�
 - HTTP：新增 `MaxRequestSize` 配置项，默认 64MB，**只限制请求 body，不含请求行与头部**（现状是无上限，这里是有意的行为变更）；`Content-Length` 超限返回 413 并关闭连接。请求行与头部另受 64KB 上限约束，整帧分帧上限才是 `MaxRequestSize + 头部上限`。**body 上限必须在头部解析后立刻判定**，不能等 body 收完——否则 64MB 已经进内存，413 只是事后通知。明细见 §八. F。
 - 其余包：`MaxFrameLength` 取现有 `ICoder` 的 `maxFrameLength` 语义，不放大。
 
+2026-11-24 调整：运行时默认值改为 20MB，并通过 WebConfig.MaxRequestBodySize / SAEAMvcApplicationConfig.MaxRequestBodySize 暴露配置；早判时机与 413 行为不变。
+
 **内存账要分项写，`MaxConnects × N` 不是总上界。** `MaxBufferedBytes = N` 只约束**单连接未成帧输入残余**。除此以外每条连接还可能有：`Pipe` 的瞬态段、已切出并排队的帧与在途帧、解码后的业务消息、出站排队项（由 §5.9 的 `MaxPendingWrites` 约束项数，单项大小由协议上限约束）、TLS 加密复制与 socket 发送缓冲、池化保留。只有每一项都有容量约束时才谈得上总最坏值；本设计只承诺「输入残余字节」与「出站待写项数」两项有界，其余在 README 单列，**不宣称存在固定总上界**。HTTP 的 64MB 只适合低并发场景，高并发下必须由使用方调低 `MaxRequestSize`。
 
 ---

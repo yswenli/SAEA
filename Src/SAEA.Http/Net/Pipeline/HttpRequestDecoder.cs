@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 23:31:33
+*修改时间：2026/11/24 16:15:30
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：连接内复用一份 HttpMessage，每帧解析前复位，解码失败时归还其池化缓冲
+*版本号： v26.11.24.1
+*描述：chunked 请求体交给 ChunkedBodyDecoder 解码，ContentLength 改写为解码后长度
 *
 *****************************************************************************/
 using System;
@@ -41,8 +41,9 @@ namespace SAEA.Http
     /// <summary>
     /// HTTP 入站解码器：把泵切好的整帧解析成 <see cref="HttpMessage"/>。
     /// <para>
-    /// 分帧器已保证整帧完整（报头与按 Content-Length 声明的请求体都在帧内），这里只做一次报头解析
-    /// 与一次请求体复制：请求体复制成独立数组交给消息对象，派发时不再引用池化帧内存。
+    /// 分帧器已保证整帧完整（报头与按 Content-Length 声明的请求体都在帧内），这里只做一次报头解析。
+    /// 请求体不超过落盘阈值时保留整帧、请求体流直接读帧内切片，不复制字节；超过阈值时写入临时文件，
+    /// 请求体流读文件，避免解码期再复制一份大数组。
     /// </para>
     /// <para>
     /// 报头解析失败按 <see cref="HttpProtocolErrorCodes.BadRequest"/> 抛 <see cref="FrameProtocolException"/>，
@@ -54,6 +55,25 @@ namespace SAEA.Http
         // HTTP 连接按 MaxConcurrentMessages = 1 串行处理，同一连接上一条请求处理完才会解下一帧，
         // 因此可以复用一份消息实例；池化缓冲在每请求释放时归还
         HttpMessage _message;
+
+        readonly int _largeBodyThreshold;
+
+        readonly string _tempDirectory;
+
+        readonly string _channelId;
+
+        /// <summary>
+        /// 创建解码器。
+        /// </summary>
+        /// <param name="largeBodyThreshold">请求体落盘阈值，单位字节；0 表示始终留在内存</param>
+        /// <param name="tempDirectory">临时文件目录，null 或空白时用系统临时目录下的 saea-http</param>
+        /// <param name="channelId">连接标识，用于临时文件命名</param>
+        public HttpRequestDecoder(int largeBodyThreshold = 0, string tempDirectory = null, string channelId = null)
+        {
+            _largeBodyThreshold = largeBodyThreshold;
+            _tempDirectory = tempDirectory;
+            _channelId = channelId;
+        }
 
         /// <inheritdoc />
         protected override void Decode(IChannelHandlerContext ctx, PooledMessage frame, List<object> output)
@@ -107,18 +127,97 @@ namespace SAEA.Http
                 throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
             }
 
-            // 只复制请求体；报头原文已另存到消息的池化缓冲，帧内字节随帧释放。
+            message.ID = ctx.ChannelId;
+
+            // 文件分段落盘按连接配置执行：阈值与临时目录在解析前写入复用消息实例
+            message.LargeBodyThreshold = _largeBodyThreshold;
+            message.TempDirectory = _tempDirectory;
+
+            // 请求体按阈值选择载体：小体量保留整帧、流直接读帧内切片，零复制；
+            // 大体量写入临时文件，避免把整帧再复制成等长数组
+            if (IsChunked(message))
+            {
+                // 原始 chunked 字节可能被解码结果继续引用，先给下游留一份引用；
+                // 落盘或精确分配时解码器会立即释放这份引用
+                frame.Retain();
+
+                try
+                {
+                    message.Body = ChunkedBodyDecoder.Decode(
+                        data.Slice(message.Position),
+                        _largeBodyThreshold,
+                        _tempDirectory,
+                        _channelId ?? ctx.ChannelId,
+                        frame,
+                        out var decodedLength);
+
+                    // 对业务与上层限流而言，请求体长度是解码后的负载长度
+                    message.ContentLength = decodedLength;
+                }
+                catch (Exception ex)
+                {
+                    frame.Release();
+
+                    _message.ResetForNextRequest();
+
+                    throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest, ex);
+                }
+
+                // chunked 负载解码后与普通请求体一样派生表单、文件与 JSON
+                RequestDataReader.ParseBody(message);
+
+                output.Add(message);
+
+                return;
+            }
+
             if (message.ContentLength > 0)
             {
-                message.Body = data.Slice(message.Position, message.ContentLength).ToArray();
+                var bodyMemory = data.Slice(message.Position, message.ContentLength);
 
-                // 表单、文件与 JSON 都从这份 body 派生，不读原始帧，避免多复制一次整帧。
+                if (_largeBodyThreshold > 0 && bodyMemory.Length > _largeBodyThreshold)
+                {
+                    message.Body = HttpBodyStorage.CreateFileBacked(bodyMemory, _tempDirectory, _channelId ?? ctx.ChannelId);
+                }
+                else
+                {
+                    // 请求体流要活得比本帧处理更久，先 Retain 一份，流释放时归还整帧
+                    frame.Retain();
+
+                    try
+                    {
+                        message.Body = HttpRequestBodyStream.FromMemory(bodyMemory, frame);
+                    }
+                    catch
+                    {
+                        frame.Release();
+
+                        throw;
+                    }
+                }
+
+                // 表单、文件与 JSON 都从请求体流派生，不再单独复制整帧
                 RequestDataReader.ParseBody(message);
             }
 
-            message.ID = ctx.ChannelId;
-
             output.Add(message);
+        }
+
+        /// <summary>
+        /// 判断请求是否使用 chunked 传输编码。
+        /// </summary>
+        /// <param name="message">已解析报头的消息</param>
+        /// <returns>Transfer-Encoding 的值里含 chunked 返回 true</returns>
+        static bool IsChunked(HttpMessage message)
+        {
+            var headers = message.Headers;
+
+            if (headers == null) return false;
+
+            if (!headers.TryGetValue("transfer-encoding", out var value) || string.IsNullOrEmpty(value))
+                return false;
+
+            return value.IndexOf("chunked", StringComparison.OrdinalIgnoreCase) >= 0;
         }
     }
 }

@@ -23,16 +23,17 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 23:51:01
+*修改时间：2026/11/24 18:12:35
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：定帧改为按需扫描 Transfer-Encoding、Content-Length、Upgrade 三个报头字段，不再为每个请求建消息对象与报头字典；超限请求做完整解析后归还消息占用的池化报头缓冲
+*版本号： 
+*描述：v26.11.24.2
 *
 *****************************************************************************/
 using System;
 using System.Buffers;
 using System.Runtime.InteropServices;
 using System.Text;
+using SAEA.Common;
 using SAEA.Common.Caching;
 using SAEA.Http.Base;
 using SAEA.Sockets.Pipeline;
@@ -40,10 +41,17 @@ using SAEA.Sockets.Pipeline;
 namespace SAEA.Http
 {
     /// <summary>
-    /// HTTP 请求分帧器：先从缓冲里找报头结束符 <c>\r\n\r\n</c> 并只扫出定帧需要的报头字段，再按 <c>Content-Length</c> 等齐请求体，
-    /// 只有整帧到齐才产出。报头与请求体各有独立上限，<c>Content-Length</c> 超限在报头扫描后立即判定，不等请求体。
+    /// HTTP 请求分帧器：先从缓冲里找报头结束符 <c>\r\n\r\n</c> 并只扫出定帧需要的报头字段，再按 <c>Content-Length</c>
+    /// 或 chunked 语法等齐请求体，只有整帧到齐才产出。报头与请求体各有独立上限，<c>Content-Length</c> 超限在报头扫描后立即判定，不等请求体。
     /// <para>
-    /// 只切 HTTP 请求，不生成任何响应，也不做 chunked 解码：协议错误统一用
+    /// chunked 只做定界扫描、不解码：整帧（报头 + 原始 chunk 字节，含 chunk 头与 trailer）原样下发，由解码器还原负载。
+    /// 扫描状态保存在实例上并按偏移续扫，跨多次 <see cref="TrySplit"/> 不重扫已消费字节。
+    /// </para>
+    /// <para>
+    /// 识别 <c>Expect: 100-continue</c> 时通过回调让调用方先回 100 中间响应，每个请求最多一次。
+    /// </para>
+    /// <para>
+    /// 只切 HTTP 请求，不生成任何响应：协议错误统一用
     /// <see cref="HttpProtocolErrorCodes"/> 的固定 token 抛 <see cref="FrameProtocolException"/>，
     /// 由链上的处理器转成 413 / 431 / 400 响应。
     /// </para>
@@ -56,20 +64,52 @@ namespace SAEA.Http
     {
         private static readonly byte[] _headerEndMarker = new byte[] { 13, 10, 13, 10 };
 
-        // 定帧只关心的三个头名与两个值子串，一律按小写 ASCII 逐字节比较，避免为目标名分配字符串。
+        // 定帧只关心的四个头名与三个值子串，一律按小写 ASCII 逐字节比较，避免为目标名分配字符串。
         private static readonly byte[] _transferEncodingName = Encoding.ASCII.GetBytes("transfer-encoding");
         private static readonly byte[] _contentLengthName = Encoding.ASCII.GetBytes("content-length");
         private static readonly byte[] _upgradeName = Encoding.ASCII.GetBytes("upgrade");
+        private static readonly byte[] _expectName = Encoding.ASCII.GetBytes("expect");
         private static readonly byte[] _chunkedToken = Encoding.ASCII.GetBytes("chunked");
         private static readonly byte[] _webSocketToken = Encoding.ASCII.GetBytes("websocket");
+        private static readonly byte[] _expectContinueToken = Encoding.ASCII.GetBytes("100-continue");
 
         // KMP 回退表与目标子串一起静态构造，热路径上只做整数比较。
         private static readonly int[] _chunkedFallback = BuildTokenFallback(_chunkedToken);
         private static readonly int[] _webSocketFallback = BuildTokenFallback(_webSocketToken);
+        private static readonly int[] _expectContinueFallback = BuildTokenFallback(_expectContinueToken);
+
+        // chunk-size 的十六进制位数上限：8 位足以覆盖 int 范围，多出的位数只可能是畸形或恶意输入。
+        private const int MaxChunkSizeDigits = 8;
+
+        // trailer 累计上限：trailer 会被整段丢弃，不能让畸形请求用它把分帧缓冲撑大。
+        private const int MaxChunkTrailerBytes = 8 * 1024;
+
+        private const int ChunkPhaseSize = 0;
+        private const int ChunkPhaseSizeExtension = 1;
+        private const int ChunkPhaseSizeLineFeed = 2;
+        private const int ChunkPhaseData = 3;
+        private const int ChunkPhaseDataCarriageReturn = 4;
+        private const int ChunkPhaseDataLineFeed = 5;
+        private const int ChunkPhaseTrailerLineStart = 6;
+        private const int ChunkPhaseTrailerLine = 7;
+        private const int ChunkPhaseTrailerLineFeed = 8;
+        private const int ChunkPhaseTrailerEmptyLineFeed = 9;
 
         private readonly int _maxRequestSize;
         private readonly int _maxHeaderSize;
         private readonly int _maxFrameLength;
+
+        // chunk 扫描进度：偏移相对当前请求起点，跨调用增量推进；帧完成后全部复位
+        private long _chunkScanOffset;
+        private long _chunkDecodedLength;
+        private long _chunkRemaining;
+        private long _chunkTrailerBytes;
+        private int _chunkPhase;
+        private int _chunkSizeDigits;
+        private bool _chunkScanning;
+
+        // 100 Continue 每个请求只发一次：回调触发前先置位，回调抛异常也不会重复发送
+        private bool _continueSent;
 
         /// <summary>
         /// 创建 HTTP 请求分帧器。
@@ -107,6 +147,12 @@ namespace SAEA.Http
         /// </summary>
         public SwitchableSplitter Barrier { get; set; }
 
+        /// <summary>
+        /// 请求带 <c>Expect: 100-continue</c> 且请求体尚未到齐时的回调，由调用方写出 100 中间响应。
+        /// 每个请求最多触发一次；只用于让客户端尽快发请求体，不等待客户端确认后再继续读取。
+        /// </summary>
+        internal Action ExpectContinueHandler { get; set; }
+
         /// <inheritdoc />
         public bool TrySplit(ReadOnlySequence<byte> buffer, out long consumed, out ReadOnlySequence<byte> frame)
         {
@@ -128,7 +174,7 @@ namespace SAEA.Http
             if (headerLength > _maxHeaderSize)
                 throw new FrameProtocolException(HttpProtocolErrorCodes.RequestHeaderFieldsTooLarge);
 
-            // 定帧只认 Transfer-Encoding、Content-Length、Upgrade 三个字段，直接扫字节即可；
+            // 定帧只认 Transfer-Encoding、Content-Length、Upgrade、Expect 四个字段，直接扫字节即可；
             // 完整的 HttpMessage 与报头字典会在解码阶段再建一次，这里重复解析等于每请求白分配约 1.1 KB。
             var header = ScanHeaderFields(buffer, headerEnd, headerLength);
 
@@ -136,40 +182,82 @@ namespace SAEA.Http
             if (header.Malformed)
                 throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
 
+            // 两种定界方式同时出现时取值有歧义，按协议拒绝，避免后续把 body 切成两条请求。
+            if (header.Chunked && header.ContentLengthSeen)
+                throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
+
             if (header.Chunked)
             {
-                // 不做 chunked 解码：继续按 Content-Length 切会把 chunk 字节误当后续请求。
-                throw new FrameProtocolException(HttpProtocolErrorCodes.ChunkedNotSupported);
+                long chunkedLength;
+                if (!TryScanChunkedBody(buffer, headerLength, out chunkedLength))
+                {
+                    // 已通过畸形与超限判定，才允许在等请求体时回 100 Continue
+                    FireExpectContinue(header);
+                    return false;
+                }
+
+                frame = buffer.Slice(0, chunkedLength);
+                consumed = chunkedLength;
+
+                ApplyUpgradeBarrier(header);
+
+                // 帧已切出，下一条请求重新获得一次 100 Continue 机会
+                ResetContinueState();
+
+                return true;
             }
+
+            // 非 chunked 请求不需要 chunk 状态；显式复位，避免上一个请求的半截状态残留
+            ResetChunkState();
 
             if (header.ContentLengthInvalid)
                 throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
 
             // 必须在这里判超限：等请求体到齐再判，超限字节早已进入内存。
-            if (header.ContentLength > _maxRequestSize)
+            if (header.ContentLengthOverflow || header.ContentLength > _maxRequestSize)
             {
                 // 413 比 400 更具体，而旧实现是先完整解析报头、解析失败即回 400，超限判定在其后。
                 // 超限请求不是热路径，这里仍走一次完整解析，保证「畸形报文优先按 400 拒绝」的顺序不变。
                 if (ParseHeader(buffer, headerLength) == null)
                     throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
 
-                throw new FrameProtocolException(HttpProtocolErrorCodes.RequestEntityTooLarge);
+                // 数值超出 long 上限时无法算出剩余量，与 chunked 一样交回处理器按请求体上限兜底。
+                if (header.ContentLengthOverflow)
+                {
+                    throw new FrameProtocolException(HttpProtocolErrorCodes.RequestEntityTooLarge)
+                    {
+                        UnreadBodyBytes = -1
+                    };
+                }
+
+                // 已到达的请求体字节留在这个缓冲里，收口只需等待 Content-Length 之外的剩余部分；
+                // 剩余量只在定长请求可知，chunked 保持 -1 由处理器按请求体上限兜底。
+                var received = buffer.Length - headerLength;
+                var unread = header.ContentLength - (received > 0 ? received : 0);
+                if (unread < 0) unread = 0;
+
+                throw new FrameProtocolException(HttpProtocolErrorCodes.RequestEntityTooLarge)
+                {
+                    UnreadBodyBytes = unread
+                };
             }
 
             var contentLength = header.ContentLength;
             var frameLength = (long)headerLength + contentLength;
-            if (buffer.Length < frameLength) return false;
+            if (buffer.Length < frameLength)
+            {
+                // 超限与非法 Content-Length 已在上面判定，这里只可能是请求体还没到齐
+                FireExpectContinue(header);
+                return false;
+            }
 
             frame = buffer.Slice(0, frameLength);
             consumed = frameLength;
 
-            if (header.UpgradeWebSocket)
-            {
-                // 分帧器无法预知业务是否接受升级，一律停切，避免紧跟其后的 WS 首帧被当成 HTTP 请求。
-                var barrier = Barrier;
-                if (barrier != null)
-                    barrier.StopAfterCurrent = true;
-            }
+            ApplyUpgradeBarrier(header);
+
+            // 帧已切出，下一条请求重新获得一次 100 Continue 机会
+            ResetContinueState();
 
             return true;
         }
@@ -177,7 +265,281 @@ namespace SAEA.Http
         /// <inheritdoc />
         public void Reset()
         {
-            // 本实现不在实例上保存半帧状态（半帧留在接收泵的 Pipe 里），空实现且可重复调用。
+            // 半帧数据留在接收泵的 Pipe 里，这里只需清掉跨调用保存的 chunk 扫描与 100 Continue 状态
+            ResetChunkState();
+            ResetContinueState();
+        }
+
+        /// <summary>升级请求产出后停切，等待业务决定是否切换协议。</summary>
+        /// <param name="header">报头扫描结果</param>
+        private void ApplyUpgradeBarrier(HeaderFields header)
+        {
+            if (!header.UpgradeWebSocket) return;
+
+            // 分帧器无法预知业务是否接受升级，一律停切，避免紧跟其后的 WS 首帧被当成 HTTP 请求。
+            var barrier = Barrier;
+            if (barrier != null)
+                barrier.StopAfterCurrent = true;
+        }
+
+        /// <summary>清空 chunk 扫描状态，使下一个请求从 chunk-size 行重新开始。</summary>
+        private void ResetChunkState()
+        {
+            _chunkScanning = false;
+            _chunkScanOffset = 0;
+            _chunkDecodedLength = 0;
+            _chunkRemaining = 0;
+            _chunkTrailerBytes = 0;
+            _chunkPhase = ChunkPhaseSize;
+            _chunkSizeDigits = 0;
+        }
+
+        /// <summary>允许下一条请求再触发一次 100 Continue。</summary>
+        private void ResetContinueState()
+        {
+            _continueSent = false;
+        }
+
+        /// <summary>
+        /// 在请求体尚未到齐时触发一次 100 Continue 回调。
+        /// <para>
+        /// 每个请求最多一次；只用于让客户端尽快发请求体，不等待客户端确认。回调异常只记日志，不能影响切帧。
+        /// </para>
+        /// </summary>
+        /// <param name="header">报头扫描结果</param>
+        private void FireExpectContinue(HeaderFields header)
+        {
+            if (!header.ExpectContinue || _continueSent) return;
+
+            // 没有请求体时（无 chunked 且 Content-Length 为 0）不需要 100 Continue
+            if (!header.Chunked && header.ContentLength <= 0) return;
+
+            var handler = ExpectContinueHandler;
+            if (handler == null) return;
+
+            // 先置位再调用：回调抛异常后下次也不重复发送
+            _continueSent = true;
+
+            try
+            {
+                handler();
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Error("HttpRequestSplitter.ExpectContinue", ex);
+            }
+        }
+
+        /// <summary>
+        /// 增量扫描 chunked 请求体：只按语法定界，不解码负载，跨调用从 <see cref="_chunkScanOffset"/> 续扫。
+        /// <para>
+        /// 整帧包含报头与原始 chunk 字节（chunk 头、chunk-ext、数据、trailer），由解码器负责还原负载。
+        /// 数据不足时保留全部状态返回 false，下次调用接着推进，不重扫已消费字节。
+        /// </para>
+        /// </summary>
+        /// <param name="buffer">自上次消费位置起的未消费缓冲，含完整报头</param>
+        /// <param name="bodyStart">请求体首字节偏移，即报头长度</param>
+        /// <param name="frameLength">整帧长度，含报头与原始 chunk 字节</param>
+        /// <returns>终止块与 trailer 都已到齐返回 true；数据不足返回 false</returns>
+        private bool TryScanChunkedBody(ReadOnlySequence<byte> buffer, int bodyStart, out long frameLength)
+        {
+            frameLength = 0;
+
+            if (!_chunkScanning)
+            {
+                // 新请求：从报头之后的第一行 chunk-size 开始
+                _chunkScanning = true;
+                _chunkScanOffset = bodyStart;
+                _chunkDecodedLength = 0;
+                _chunkRemaining = 0;
+                _chunkTrailerBytes = 0;
+                _chunkPhase = ChunkPhaseSize;
+                _chunkSizeDigits = 0;
+            }
+
+            while (_chunkScanOffset < buffer.Length)
+            {
+                // 原始字节同样计入帧预算：超限不等到数据到齐，直接按 413 拒绝
+                if (_chunkScanOffset > (long)_maxFrameLength)
+                    throw new FrameProtocolException(HttpProtocolErrorCodes.RequestEntityTooLarge);
+
+                var value = ByteAt(buffer, _chunkScanOffset);
+
+                switch (_chunkPhase)
+                {
+                    case ChunkPhaseSize:
+                        {
+                            var digit = ToHexValue(value);
+
+                            if (digit >= 0)
+                            {
+                                if (++_chunkSizeDigits > MaxChunkSizeDigits)
+                                    throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
+
+                                _chunkRemaining = _chunkRemaining * 16 + digit;
+
+                                // 已解码长度只会让总长更大，单个 size 超限即可提前拒绝；
+                                // 与 int 上限显式比较，避免 8 位十六进制累加后的取值被误读成 int 语义
+                                if (_chunkRemaining > (long)_maxRequestSize)
+                                    throw new FrameProtocolException(HttpProtocolErrorCodes.RequestEntityTooLarge);
+
+                                _chunkScanOffset++;
+                                continue;
+                            }
+
+                            // size 行至少要有一位十六进制数字
+                            if (_chunkSizeDigits == 0)
+                                throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
+
+                            if (value == 59)
+                            {
+                                // chunk-ext 内容忽略，但同样只接受 CRLF 收尾
+                                _chunkPhase = ChunkPhaseSizeExtension;
+                                _chunkScanOffset++;
+                                continue;
+                            }
+
+                            if (value == 13)
+                            {
+                                _chunkPhase = ChunkPhaseSizeLineFeed;
+                                _chunkScanOffset++;
+                                continue;
+                            }
+
+                            throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
+                        }
+
+                    case ChunkPhaseSizeExtension:
+                        if (value == 13)
+                        {
+                            _chunkPhase = ChunkPhaseSizeLineFeed;
+                            _chunkScanOffset++;
+                            continue;
+                        }
+
+                        // 扩展里出现裸 LF 说明行尾不是 CRLF
+                        if (value == 10)
+                            throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
+
+                        _chunkScanOffset++;
+                        continue;
+
+                    case ChunkPhaseSizeLineFeed:
+                        if (value != 10)
+                            throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
+
+                        _chunkScanOffset++;
+
+                        // size 行完整后再累加解码长度，超限即刻 413，不等 chunk 数据到齐
+                        _chunkDecodedLength += _chunkRemaining;
+
+                        if (_chunkDecodedLength > (long)_maxRequestSize)
+                            throw new FrameProtocolException(HttpProtocolErrorCodes.RequestEntityTooLarge);
+
+                        _chunkPhase = _chunkRemaining == 0 ? ChunkPhaseTrailerLineStart : ChunkPhaseData;
+                        continue;
+
+                    case ChunkPhaseData:
+                        {
+                            // 数据段长度已知，整段跳过，不逐字节比较
+                            var available = buffer.Length - _chunkScanOffset;
+                            var take = _chunkRemaining < available ? _chunkRemaining : available;
+
+                            _chunkScanOffset += take;
+                            _chunkRemaining -= take;
+
+                            // data 段可能一次跨过帧预算并正好停在缓冲末尾，只靠循环入口判定会漏到下一次读取
+                            if (_chunkScanOffset > (long)_maxFrameLength)
+                                throw new FrameProtocolException(HttpProtocolErrorCodes.RequestEntityTooLarge);
+
+                            if (_chunkRemaining == 0)
+                                _chunkPhase = ChunkPhaseDataCarriageReturn;
+
+                            continue;
+                        }
+
+                    case ChunkPhaseDataCarriageReturn:
+                        if (value != 13)
+                            throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
+
+                        _chunkPhase = ChunkPhaseDataLineFeed;
+                        _chunkScanOffset++;
+                        continue;
+
+                    case ChunkPhaseDataLineFeed:
+                        if (value != 10)
+                            throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
+
+                        _chunkScanOffset++;
+
+                        // 回到 chunk-size 行，逐块复位 size 相关状态
+                        _chunkPhase = ChunkPhaseSize;
+                        _chunkSizeDigits = 0;
+                        _chunkRemaining = 0;
+                        continue;
+
+                    case ChunkPhaseTrailerLineStart:
+                        if (value == 13)
+                        {
+                            _chunkPhase = ChunkPhaseTrailerEmptyLineFeed;
+                            _chunkScanOffset++;
+                            continue;
+                        }
+
+                        // trailer 内容整段丢弃，只需要判断行尾
+                        _chunkPhase = ChunkPhaseTrailerLine;
+                        continue;
+
+                    case ChunkPhaseTrailerLine:
+                        if (value == 13)
+                        {
+                            _chunkPhase = ChunkPhaseTrailerLineFeed;
+                            _chunkScanOffset++;
+                            continue;
+                        }
+
+                        // 累计 trailer 字节数，避免畸形请求用 trailer 把分帧缓冲撑大
+                        if (++_chunkTrailerBytes > MaxChunkTrailerBytes)
+                            throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
+
+                        _chunkScanOffset++;
+                        continue;
+
+                    case ChunkPhaseTrailerLineFeed:
+                        if (value != 10)
+                            throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
+
+                        _chunkScanOffset++;
+                        _chunkPhase = ChunkPhaseTrailerLineStart;
+                        continue;
+
+                    case ChunkPhaseTrailerEmptyLineFeed:
+                        if (value != 10)
+                            throw new FrameProtocolException(HttpProtocolErrorCodes.BadRequest);
+
+                        _chunkScanOffset++;
+                        frameLength = _chunkScanOffset;
+
+                        // 整帧到齐，先清状态再返回，否则下一条请求会从半截 chunk 接着扫
+                        ResetChunkState();
+
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>把十六进制 ASCII 转成数值，非十六进制字符返回 -1。</summary>
+        /// <param name="value">待转换的字节</param>
+        /// <returns>0-15 的数值，或 -1</returns>
+        private static int ToHexValue(byte value)
+        {
+            if (value >= 48 && value <= 57) return value - 48;
+            if (value >= 65 && value <= 70) return value - 55;
+            if (value >= 97 && value <= 102) return value - 87;
+
+            return -1;
         }
 
         /// <summary>在可能跨段的缓冲里查找 <c>\r\n\r\n</c> 的起始偏移；未找到返回 -1。</summary>
@@ -222,20 +584,29 @@ namespace SAEA.Http
             /// <summary>Transfer-Encoding 的值里含 chunked</summary>
             public bool Chunked;
 
+            /// <summary>是否出现过 Content-Length 头；用来和 chunked 互斥判定，不看取值是否合法</summary>
+            public bool ContentLengthSeen;
+
             /// <summary>Content-Length 不是非负整数</summary>
             public bool ContentLengthInvalid;
 
+            /// <summary>Content-Length 是合法数字但超出 long 上限，无法得知剩余量</summary>
+            public bool ContentLengthOverflow;
+
             /// <summary>Content-Length 的数值，字段缺失时为 0</summary>
-            public int ContentLength;
+            public long ContentLength;
 
             /// <summary>Upgrade 的值里含 websocket</summary>
             public bool UpgradeWebSocket;
+
+            /// <summary>Expect 的值里含 100-continue</summary>
+            public bool ExpectContinue;
         }
 
         /// <summary>
         /// 逐字节扫描报头行，结果写进 <see cref="HeaderFields"/>。
         /// <para>
-        /// 头名按 ASCII 折大小写与三个目标名比较，值就地判定 chunked / websocket 子串与 Content-Length 数值；
+        /// 头名按 ASCII 折大小写与目标名比较，值就地判定 chunked / websocket / 100-continue 子串与 Content-Length 数值；
         /// 状态全是值类型字段，所以跨段的头名或值可以续扫，不必把报头复制进池化缓冲。
         /// </para>
         /// </summary>
@@ -250,10 +621,13 @@ namespace SAEA.Http
             private int _transferNameProgress;
             private int _contentLengthNameProgress;
             private int _upgradeNameProgress;
+            private int _expectNameProgress;
             private bool _chunkedSeen;
             private bool _webSocketSeen;
+            private bool _expectContinueSeen;
             private int _chunkedProgress;
             private int _webSocketProgress;
+            private int _expectContinueProgress;
             private int _contentLengthState;
             private int _contentLengthDigits;
             private bool _contentLengthNegative;
@@ -280,6 +654,7 @@ namespace SAEA.Http
                     _transferNameProgress = AdvanceName(_transferEncodingName, _transferNameProgress, foldedName);
                     _contentLengthNameProgress = AdvanceName(_contentLengthName, _contentLengthNameProgress, foldedName);
                     _upgradeNameProgress = AdvanceName(_upgradeName, _upgradeNameProgress, foldedName);
+                    _expectNameProgress = AdvanceName(_expectName, _expectNameProgress, foldedName);
                     return;
                 }
 
@@ -307,8 +682,14 @@ namespace SAEA.Http
                     if (_upgradeNameProgress == _upgradeName.Length)
                         Fields.UpgradeWebSocket = _webSocketSeen;
 
+                    if (_expectNameProgress == _expectName.Length)
+                        Fields.ExpectContinue = _expectContinueSeen;
+
                     if (_contentLengthNameProgress == _contentLengthName.Length)
                     {
+                        // 只要头名命中就记出现，取值合法性由 ContentLengthInvalid 单独判定
+                        Fields.ContentLengthSeen = true;
+
                         // 同名头重复出现时取最后一个，与报头字典「后写覆盖」一致；
                         // "-0" 解析成功且不小于 0，仍视为 0，所以先合成带符号的值再判负。
                         var value = _contentLengthNegative ? -_contentLengthValue : _contentLengthValue;
@@ -316,11 +697,12 @@ namespace SAEA.Http
                         var valid = _colonCount == 1
                             && _contentLengthDigits > 0
                             && _contentLengthState != 5
-                            && !_contentLengthOverflow
                             && value >= 0;
 
+                        // 语法非法按 400 拒绝；语法合法但数值超范围属于「太大」，由超限分支按 413 处理。
                         Fields.ContentLengthInvalid = !valid;
-                        Fields.ContentLength = valid ? (int)value : 0;
+                        Fields.ContentLengthOverflow = valid && _contentLengthOverflow;
+                        Fields.ContentLength = valid && !_contentLengthOverflow ? value : 0;
                     }
                 }
 
@@ -330,10 +712,13 @@ namespace SAEA.Http
                 _transferNameProgress = 0;
                 _contentLengthNameProgress = 0;
                 _upgradeNameProgress = 0;
+                _expectNameProgress = 0;
                 _chunkedSeen = false;
                 _webSocketSeen = false;
+                _expectContinueSeen = false;
                 _chunkedProgress = 0;
                 _webSocketProgress = 0;
+                _expectContinueProgress = 0;
                 _contentLengthState = 0;
                 _contentLengthDigits = 0;
                 _contentLengthNegative = false;
@@ -360,9 +745,15 @@ namespace SAEA.Http
                     _webSocketProgress = AdvanceToken(_webSocketToken, _webSocketFallback, _webSocketProgress, folded);
                     if (_webSocketProgress == _webSocketToken.Length) _webSocketSeen = true;
                 }
+
+                if (!_expectContinueSeen)
+                {
+                    _expectContinueProgress = AdvanceToken(_expectContinueToken, _expectContinueFallback, _expectContinueProgress, folded);
+                    if (_expectContinueProgress == _expectContinueToken.Length) _expectContinueSeen = true;
+                }
             }
 
-            /// <summary>按 int.TryParse(NumberStyles.Integer) 的规则推进 Content-Length：空白、符号、数字、空白。</summary>
+            /// <summary>按 long.TryParse(NumberStyles.Integer) 的规则推进 Content-Length：空白、符号、数字、空白。</summary>
             /// <param name="value">值内字节</param>
             private void ConsumeContentLength(byte value)
             {
@@ -427,7 +818,7 @@ namespace SAEA.Http
                 }
             }
 
-            /// <summary>累加一位十进制数字；超出 int 上限后按解析失败处理。</summary>
+            /// <summary>累加一位十进制数字；超出 long 上限按数值超范围处理。</summary>
             /// <param name="value">数字字节</param>
             private void AppendDigits(byte value)
             {
@@ -435,18 +826,22 @@ namespace SAEA.Http
 
                 if (_contentLengthOverflow) return;
 
-                _contentLengthValue = _contentLengthValue * 10 + (value - 48);
+                var digit = value - 48;
 
-                if (_contentLengthValue > int.MaxValue)
+                // 先判再加：越界值一旦乘 10 就会回绕成小数字，超范围会被误当成合法长度。
+                if (_contentLengthValue > (long.MaxValue - digit) / 10)
                 {
                     _contentLengthOverflow = true;
                     _contentLengthValue = 0;
+                    return;
                 }
+
+                _contentLengthValue = _contentLengthValue * 10 + digit;
             }
         }
 
         /// <summary>
-        /// 只扫出定帧需要的报头字段：Transfer-Encoding、Content-Length、Upgrade。
+        /// 只扫出定帧需要的报头字段：Transfer-Encoding、Content-Length、Expect、Upgrade。
         /// 报头只扫 <paramref name="headerLength"/> 以内，不建 HttpMessage、字典与字符串。
         /// </summary>
         /// <param name="buffer">自上次消费位置起的未消费缓冲</param>

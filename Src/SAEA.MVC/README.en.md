@@ -674,7 +674,7 @@ The cache key is the request verb plus the actual hit path plus the normalized q
 
 ### Q3: How to handle file uploads?
 
-**A**: Access via `HttpContext.Request.PostFiles`:
+**A**: Access via `HttpContext.Request.PostFiles`; `FilePart.Data` is a read-only `Stream` (seekable). Save with `FilePart.Save`, which copies from `Data` and can be called repeatedly:
 
 ```csharp
 [HttpPost]
@@ -685,6 +685,9 @@ public ActionResult Upload()
     {
         var path = Path.Combine(uploadPath, file.FileName);
         file.Save(path);
+
+        // To process the content yourself, read the Data stream; rewind first
+        file.Data.Position = 0;
     }
     return Json(new { Count = files.Count });
 }
@@ -1068,6 +1071,10 @@ var config = new SAEAMvcApplicationConfig
     IsDebug = false,            // Debug mode
     Timeout = 180,              // Idle connection reclamation time (seconds)
     ActionTimeout = 0,          // Action execution timeout (seconds): 0 disables the timeout wrapper (sync actions run inline), above 0 wraps the call and returns 408
+    MaxRequestBodySize = 20 * 1024 * 1024, // Request body limit (bytes), body only
+    LargeBodyThreshold = 1024 * 1024, // Body spool threshold (bytes); 0 keeps everything in memory
+    TempDirectory = null,       // Spool directory; null means saea-http under the system temp directory
+    RequestDrainTimeout = 2000, // Drain timeout in ms for the remaining body after a 413; 0 disables draining
     ConnectTimeout = 6          // Connection timeout (seconds)
 };
 
@@ -1145,10 +1152,16 @@ Notes:
 | Limit | Default | On Exceed |
 |-------|---------|-----------|
 | Request line + headers | 64KB | Returns 431 Request Header Fields Too Large |
-| Request body | 64MB | Returns 413 Request Entity Too Large |
-| `Transfer-Encoding: chunked` | Not supported | Returns 400 Bad Request; chunked decoding is not implemented |
+| Request body | 20MB | Returns 413 Request Entity Too Large |
+| 413 drain timeout | 2000ms | `RequestDrainTimeout`; how long to keep reading and discarding the remaining body after a 413; `0` disables draining |
+| `Transfer-Encoding: chunked` | Supported | Decoded length is capped by the body limit and raw bytes count toward the framing limit; exceeding either returns 413 |
+| `Expect: 100-continue` | Supported | Sends 100 Continue while the body is still incomplete, at most once per request; works together with chunked |
 
-These limits come from the default `HttpRequestSplitter` constructor; `WebConfig` does not expose them yet.
+Adjust the request body limit with `SAEAMvcApplicationConfig.MaxRequestBodySize` (or the same key in `SAEAMvcApplicationConfig.json`); the default is 20MB. The 64KB header limit remains fixed behavior, and the decoded chunked length is capped by the same body limit.
+
+An oversized body first gets a 413; the server then half-closes the write side and drains the remaining body within a bounded budget: fixed-length requests use `Content-Length` minus what has arrived, chunked requests fall back to `MaxRequestBodySize` because the remainder cannot be inferred, and `400`/`431` do no draining. Bytes that arrive during draining are discarded and never reach the application, and `SAEAMvcApplicationConfig.RequestDrainTimeout` (2000 ms by default, `0` disables draining) bounds the drain; the connection closes once the byte budget or timeout is reached, so unread data cannot trigger a RST that hides the 413 from the client. Requests rejected with 400/413 never receive 100 Continue first. 100 Continue is written directly to the raw socket by the HTTP layer, bypassing the response encoding chain.
+
+A body above `SAEAMvcApplicationConfig.LargeBodyThreshold` (1MB by default) is spooled to a temp file under `TempDirectory` (default: `saea-http` in the system temp directory) during decoding and deleted when the request ends; `LargeBodyThreshold = 0` disables spooling. Framing still requires the whole frame to be addressable, so spooling only removes the extra "frame → body array" copy and the post-request residency, not the per-connection peak during framing.
 
 ### Async Action
 

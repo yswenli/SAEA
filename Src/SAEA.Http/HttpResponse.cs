@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 10:00:00
+*修改时间：2026/11/24 15:41:00
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：Content-Length 文本按 0–1024 缓存，Connection 判定改用 span 扫描并直接写缓存键名
+*版本号： v26.11.24.1
+*描述：响应体 Body 下沉到本类，基类不再保留请求/响应共用的 Body 属性
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -128,6 +128,11 @@ namespace SAEA.Http
             _isZiped = isZiped;
             // 默认不设置Connection头，根据客户端请求决定
         }
+
+        /// <summary>
+        /// 响应报文体内容
+        /// </summary>
+        public byte[] Body { get; set; }
 
         internal HttpResponse SetContent(byte[] content)
         {

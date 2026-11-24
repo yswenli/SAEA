@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/19 20:10:00
+ *修改时间：2026/11/24 15:41:00
  *修改人： yswenli
- *版本号： v26.11.16.1
- *描述：同一条连接复用实现了 IReusableHttpContext 的上下文实例，复用前复位；升级后的上下文不参与复用
+ *版本号： v26.11.24.1
+ *描述：调试日志改记请求体长度，请求体已是流不再直接输出字节数组
  *
  *****************************************************************************/
 using System;
@@ -153,7 +153,7 @@ namespace SAEA.Http.Base.Net
             }
 
             if (_isDebug)
-                LogHelper.Debug("HttpSocket.Recieve", request.Body);
+                LogHelper.Debug("HttpSocket.Recieve", request.ContentLength);
 
             IHttpContext httpContext;
 

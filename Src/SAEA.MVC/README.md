@@ -674,7 +674,7 @@ public ActionResult GetList()
 
 ### Q3: 如何处理文件上传？
 
-**A**: 通过 `HttpContext.Request.PostFiles` 获取：
+**A**: 通过 `HttpContext.Request.PostFiles` 获取，`FilePart.Data` 是只读 `Stream`（可 `Seek`），保存文件用 `FilePart.Save`（内部从 `Data` 复制，可重复保存）：
 
 ```csharp
 [HttpPost]
@@ -685,6 +685,9 @@ public ActionResult Upload()
     {
         var path = Path.Combine(uploadPath, file.FileName);
         file.Save(path);
+
+        // 需要自行处理内容时直接读 Data 流，读前先归零
+        file.Data.Position = 0;
     }
     return Json(new { Count = files.Count });
 }
@@ -1068,6 +1071,10 @@ var config = new SAEAMvcApplicationConfig
     IsDebug = false,            // 调试模式
     Timeout = 180,              // 连接空闲回收时间(秒)
     ActionTimeout = 0,          // action 执行超时(秒)，0 表示不启用超时包装（同步 action 在当前线程直接执行），大于 0 才包装超时并返回 408
+    MaxRequestBodySize = 20 * 1024 * 1024, // 请求体上限（字节），只限制 body
+    LargeBodyThreshold = 1024 * 1024, // 请求体落盘阈值（字节），0 表示始终留在内存
+    TempDirectory = null,       // 请求体临时目录，null 表示系统临时目录下的 saea-http
+    RequestDrainTimeout = 2000, // 413 后等待并丢弃剩余请求体的超时（毫秒），0 表示不排空
     ConnectTimeout = 6          // 连接超时(秒)
 };
 
@@ -1145,10 +1152,16 @@ app.Start();
 | 限制 | 默认值 | 超限行为 |
 |------|--------|----------|
 | 请求行 + 报头 | 64KB | 返回 431 Request Header Fields Too Large |
-| 请求体 | 64MB | 返回 413 Request Entity Too Large |
-| `Transfer-Encoding: chunked` | 不支持 | 返回 400 Bad Request，当前不做 chunked 解码 |
+| 请求体 | 20MB | 返回 413 Request Entity Too Large |
+| 413 排空超时 | 2000ms | `RequestDrainTimeout`，413 后等待并丢弃剩余请求体的最长时间，`0` 表示不排空 |
+| `Transfer-Encoding: chunked` | 支持 | 解码后长度受请求体上限约束，原始字节计入分帧上限，超限返回 413 |
+| `Expect: 100-continue` | 支持 | 请求体未到齐前先回 100 Continue，每个请求最多一次；与 chunked 可组合 |
 
-这三个上限取自 `HttpRequestSplitter` 的默认构造，`WebConfig` 暂不提供配置项。
+请求体上限可用 `SAEAMvcApplicationConfig.MaxRequestBodySize`（或 `SAEAMvcApplicationConfig.json` 同名键）调整，默认 20MB；报头 64KB 仍是固定行为，chunked 解码后的长度同样受该请求体上限约束。
+
+请求体超限时先写出 413，再半关写方向并按有界预算排空剩余请求体：定长请求按 `Content-Length` 与已到达字节之差计算，chunked 无法推断剩余长度时按 `MaxRequestBodySize` 兜底，`400`/`431` 不排空。排空期间到达的字节直接丢弃、不进入业务，上限由 `SAEAMvcApplicationConfig.RequestDrainTimeout`（默认 2000 毫秒，`0` 表示不排空）控制；达到字节上限或超时后关闭连接，避免未读数据触发 RST 让客户端读不到 413。被 400/413 拒绝的请求不会先收到 100 Continue。100 Continue 由 HTTP 层通过裸套接字直发，不经过响应编码链。
+
+请求体超过 `SAEAMvcApplicationConfig.LargeBodyThreshold`（默认 1MB）时解码阶段写入 `TempDirectory`（默认系统临时目录下的 `saea-http`）下的临时文件，请求结束后删除；`LargeBodyThreshold = 0` 表示禁用落盘。分帧仍要求整帧可寻址，落盘只去掉「整帧 → body 数组」的重复复制与请求结束后的驻留，不降低分帧期的单连接峰值。
 
 ### 异步 Action
 

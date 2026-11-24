@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 15:26:46
+*修改时间：2026/11/24 16:56:32
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
+*版本号： v26.11.24.1
+*描述：新增 RequestDrainTimeout，透传 413 后请求体排空超时
 *
 *****************************************************************************/
 using System;
@@ -145,6 +145,30 @@ namespace SAEA.MVC.Hosting
         {
             get; set;
         } = 6;
+
+        /// <summary>
+        /// 请求体字节上限，默认 20MB；只限制报文体，不含请求行与报头。
+        /// 超过上限的请求在读完报头后立即返回 413 Request Entity Too Large。
+        /// 写入 SAEAMvcApplicationConfig.json 即可生效。
+        /// </summary>
+        public int MaxRequestBodySize { get; set; } = 20 * 1024 * 1024;
+
+        /// <summary>
+        /// 413 之后请求体排空超时（毫秒），默认 2000；取值 0 或负数表示不排空，直接关闭连接。
+        /// 写入 SAEAMvcApplicationConfig.json 即可生效。
+        /// </summary>
+        public int RequestDrainTimeout { get; set; } = 2000;
+
+        /// <summary>
+        /// 请求体落盘阈值（字节），默认 1MB；取值 0 表示禁用落盘，请求体始终留在内存。
+        /// 超过阈值的请求体会写入临时目录，请求结束后删除。取值不能小于 0。
+        /// </summary>
+        public int LargeBodyThreshold { get; set; } = 1024 * 1024;
+
+        /// <summary>
+        /// 请求体临时文件目录，默认 null 表示系统临时目录下的 saea-http；启动期确保目录存在。
+        /// </summary>
+        public string TempDirectory { get; set; }
 
         /// <summary>
         /// 初始化 SAEA MVC 应用程序配置类的新实例

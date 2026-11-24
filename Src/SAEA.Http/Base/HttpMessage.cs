@@ -23,16 +23,18 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 10:00:00
+*修改时间：2026/11/24 15:59:54
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：Cookie 报头改为首次读取 Cookies 时解析，并新增不建集合的按名查找
+*版本号： v26.11.24.1
+*描述：新增文件分段落盘阈值与临时目录配置，供流式 multipart 解析使用
 *
 *****************************************************************************/
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 
+using SAEA.Common;
 using SAEA.Common.Caching;
 using SAEA.Http.Model;
 
@@ -123,6 +125,30 @@ namespace SAEA.Http.Base
         public int Position { get; set; }
 
         /// <summary>
+        /// 请求体流，只读且可 Seek；无请求体时为 null，请求结束或复位时由本类释放
+        /// </summary>
+        public Stream Body
+        {
+            get; set;
+        }
+
+        /// <summary>
+        /// 文件分段落盘阈值，单位字节；0 表示全部留在内存。由解码器按配置在解析前写入
+        /// </summary>
+        internal int LargeBodyThreshold
+        {
+            get; set;
+        }
+
+        /// <summary>
+        /// 文件分段临时文件目录，null 或空白时用系统临时目录下的 saea-http。由解码器按配置在解析前写入
+        /// </summary>
+        internal string TempDirectory
+        {
+            get; set;
+        }
+
+        /// <summary>
         /// 接收到的文件信息
         /// </summary>
         public List<FilePart> PostFiles
@@ -139,7 +165,7 @@ namespace SAEA.Http.Base
         }
 
         /// <summary>
-        /// 清空参数集合、报头缓冲与报文体缓冲
+        /// 清空参数集合、报头缓冲、请求体流与文件分段
         /// </summary>
         public void Dispose()
         {
@@ -149,8 +175,11 @@ namespace SAEA.Http.Base
                 this.Forms.Clear();
             if (this.Parmas != null)
                 this.Parmas.Clear();
-            if (Body != null)
-                Array.Clear(Body, 0, Body.Length);
+
+            // 请求体流要么钉住整帧池化缓冲、要么持有临时文件，必须显式释放
+            ReleaseBody();
+
+            ReleasePostFiles();
 
             // 请求结束后不再需要报头原文，及时归还池化缓冲
             ReleaseHeaderSource();
@@ -254,7 +283,11 @@ namespace SAEA.Http.Base
             IsFormData = false;
             Boundary = null;
             ContentLength = 0;
-            Body = null;
+
+            // 复用前先释放上一条请求的体与文件，否则整帧缓冲与临时文件会留到下一次请求
+            ReleaseBody();
+
+            ReleasePostFiles();
 
             // 集合沿用原实例只清空内容：比较器与容量都保留，语义等同新建的空集合
             if (Query == null)
@@ -291,6 +324,56 @@ namespace SAEA.Http.Base
                 PostFiles = new List<FilePart>();
             else
                 PostFiles.Clear();
+        }
+
+        /// <summary>
+        /// 释放请求体流并置空；可重复调用
+        /// </summary>
+        void ReleaseBody()
+        {
+            var body = Body;
+
+            Body = null;
+
+            if (body == null) return;
+
+            try
+            {
+                body.Dispose();
+            }
+            catch (Exception ex)
+            {
+                // 释放失败不能中断连接收口，留日志即可
+                LogHelper.Error("HttpMessage.ReleaseBody", ex);
+            }
+        }
+
+        /// <summary>
+        /// 释放全部文件分段的流并清空集合；可重复调用
+        /// </summary>
+        void ReleasePostFiles()
+        {
+            var files = PostFiles;
+
+            if (files == null) return;
+
+            for (var i = 0; i < files.Count; i++)
+            {
+                var file = files[i];
+
+                if (file == null) continue;
+
+                try
+                {
+                    file.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Error("HttpMessage.ReleasePostFiles", ex);
+                }
+            }
+
+            files.Clear();
         }
 
     }

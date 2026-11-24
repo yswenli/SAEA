@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 11:31:43
+*修改时间：2026/11/24 18:12:35
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补残帧上限检查的前置条件说明
+*版本号： 
+*描述：v26.11.24.2
 *
 *****************************************************************************/
 using System;
@@ -987,7 +987,32 @@ namespace SAEA.Sockets.Pipeline
                 if (defaultChannel != null)
                     defaultChannel.ClearAttributes();
 
-                try { await _stream.CloseAsync(_shutdownReason).ConfigureAwait(false); } catch { }
+                // 协议层可能已经声明排空规格（例如 413 后还要读完剩余请求体才关闭）：
+                // 有规格且字节流支持半关排空时走排空关闭，否则保持原有关闭语义。
+                var drainableChannel = _channel as IDrainableChannel;
+                var drainedStream = _stream as IDrainedCloseStream;
+
+                var drainedClose = false;
+                if (drainableChannel != null && drainedStream != null)
+                {
+                    long drainBytes;
+                    int drainTimeoutMs;
+                    if (drainableChannel.TryTakeDrainSpec(out drainBytes, out drainTimeoutMs))
+                    {
+                        drainedClose = true;
+                        try
+                        {
+                            await drainedStream.DrainAndCloseAsync(_shutdownReason, drainBytes, drainTimeoutMs)
+                                .ConfigureAwait(false);
+                        }
+                        catch { }
+                    }
+                }
+
+                if (!drainedClose)
+                {
+                    try { await _stream.CloseAsync(_shutdownReason).ConfigureAwait(false); } catch { }
+                }
             }
             catch (Exception ex)
             {

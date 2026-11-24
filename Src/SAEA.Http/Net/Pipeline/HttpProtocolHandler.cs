@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/9 15:32:00
+ *修改时间：2026/11/24 18:12:35
  *修改人： yswenli
- *版本号： v26.11.5.1
- *描述：431 状态码改用数值转换，适配 netstandard2.0 缺少对应枚举成员
+ *版本号： 
+ *描述：v26.11.24.2
  *
  *****************************************************************************/
 using System;
@@ -61,6 +61,8 @@ namespace SAEA.Http
         private readonly SwitchableSplitter _barrier;
         private readonly IFrameSplitter _upgradedSplitter;
         private readonly IHttpUpgradeTarget _upgradeTarget;
+        private readonly int _maxRequestBodySize;
+        private readonly int _requestDrainTimeout;
 
         /// <summary>
         /// 创建 HTTP 协议边界处理器；三个能力都可为 null，为 null 时对应能力关闭而不是抛异常。
@@ -68,14 +70,20 @@ namespace SAEA.Http
         /// <param name="barrier">协议切换屏障，为 null 时不参与屏障复位与切换</param>
         /// <param name="upgradedSplitter">升级后生效的分帧器，为 null 时只写握手响应、不切换分帧器</param>
         /// <param name="upgradeTarget">升级判定入口，为 null 时一律按拒绝升级处理</param>
+        /// <param name="maxRequestBodySize">请求体上限，仅用于分帧器无法给出剩余长度时兜底排空字节数；0 表示不排空</param>
+        /// <param name="requestDrainTimeout">413 后请求体排空超时毫秒数；0 或负数表示不排空</param>
         public HttpProtocolHandler(
             SwitchableSplitter barrier,
             IFrameSplitter upgradedSplitter,
-            IHttpUpgradeTarget upgradeTarget)
+            IHttpUpgradeTarget upgradeTarget,
+            int maxRequestBodySize = 0,
+            int requestDrainTimeout = 0)
         {
             _barrier = barrier;
             _upgradedSplitter = upgradedSplitter;
             _upgradeTarget = upgradeTarget;
+            _maxRequestBodySize = maxRequestBodySize;
+            _requestDrainTimeout = requestDrainTimeout;
         }
 
         /// <summary>
@@ -191,8 +199,46 @@ namespace SAEA.Http
                 throw;
             }
 
+            // 413 时请求体通常还没发完：先声明有界排空规格，收口末端才会先半关再读完剩余字节，
+            // 否则带着未读数据关闭 socket 会触发 RST，客户端可能连 413 都收不到。
+            if (status == HttpStatusCode.RequestEntityTooLarge)
+                SetDrainSpec(ctx, protocolError.UnreadBodyBytes);
+
             // 错误响应的写已交接，这里收口；同一个协议异常不再向链尾二次派发。
             await ctx.CloseAfterWriteAsync("http-protocol-error").ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 为 413 收口声明有界排空规格：定长请求按未到达的字节数排空，剩余量未知时按请求体上限兜底，
+        /// 已经读完或未启用排空时不设置。排空只受超时约束。
+        /// </summary>
+        /// <param name="ctx">当前处理器在链上的节点上下文。</param>
+        /// <param name="unreadBodyBytes">分帧器给出的剩余请求体字节数，-1 表示未知。</param>
+        private void SetDrainSpec(IChannelHandlerContext ctx, long unreadBodyBytes)
+        {
+            if (_requestDrainTimeout <= 0) return;
+
+            var drainable = ctx.Channel as IDrainableChannel;
+            if (drainable == null) return;
+
+            long drainBytes;
+            if (unreadBodyBytes >= 0)
+            {
+                // 请求体已在缓冲里读完时不需要再等，直接关闭即可。
+                if (unreadBodyBytes == 0) return;
+
+                // 定长请求的剩余量是确定的：必须排空全部剩余字节，否则关闭时内核仍有未读数据会回 RST。
+                // 排空期间不再写入 Pipe，字节上限已失去内存意义，改由超时兜底。
+                drainBytes = unreadBodyBytes;
+            }
+            else
+            {
+                // chunked 无法从已到字节推断剩余长度，只能按请求体上限封顶等待。
+                if (_maxRequestBodySize <= 0) return;
+                drainBytes = _maxRequestBodySize;
+            }
+
+            drainable.SetDrainSpec(drainBytes, _requestDrainTimeout);
         }
 
         /// <summary>按分帧器写入的固定 token 映射响应状态码，未识别的一律 400。</summary>

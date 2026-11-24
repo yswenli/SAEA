@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/18 14:05:00
+*修改时间：2026/11/24 16:56:10
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：修正 ActionTimeout 注释：默认 0 不再沿用 Timeout，而是不启用超时包装，只有大于 0 才返回 408
+*版本号： v26.11.24.1
+*描述：新增 RequestDrainTimeout，控制 413 后请求体有界排空的超时
 *
 *****************************************************************************/
 using System;
@@ -141,6 +141,33 @@ namespace SAEA.Http.Model
         /// 与连接空闲回收分开配置后，调小动作超时不会再提前回收连接
         /// </summary>
         public double ActionTimeout { get; set; } = 0;
+
+        /// <summary>
+        /// 请求体字节上限，默认 20MB；只限制报文体，不含请求行与报头。
+        /// 必须在 WebHost.Start 之前设置，启动后再修改不会作用于已创建的连接。
+        /// 取值必须大于 0；超限时在读完报头、请求体到齐之前就返回 413 并关闭连接。
+        /// </summary>
+        public int MaxRequestBodySize { get; set; } = 20 * 1024 * 1024;
+
+        /// <summary>
+        /// 413 之后请求体排空的超时时间，单位毫秒，默认 2000；取值 0 或负数表示不排空，直接关闭连接。
+        /// 必须在 WebHost.Start 之前设置。排空期间服务端已半关发送方向，只继续读取剩余请求体，
+        /// 读完或超时后关闭连接，避免带着未读字节关闭触发 RST。
+        /// </summary>
+        public int RequestDrainTimeout { get; set; } = 2000;
+
+        /// <summary>
+        /// 请求体落盘阈值，单位字节，默认 1MB；取值 0 表示禁用落盘，请求体始终留在内存。
+        /// 必须在 WebHost.Start 之前设置；超过阈值的请求体会写入 <see cref="TempDirectory"/> 下的临时文件，
+        /// 请求结束后删除。取值不能小于 0。
+        /// </summary>
+        public int LargeBodyThreshold { get; set; } = 1024 * 1024;
+
+        /// <summary>
+        /// 请求体临时文件目录，默认 null 表示系统临时目录下的 saea-http；启动期确保目录存在。
+        /// 临时目录不可写时服务启动失败。
+        /// </summary>
+        public string TempDirectory { get; set; }
 
         /// <summary>
         /// 连接建立超时时间，单位秒，默认 3

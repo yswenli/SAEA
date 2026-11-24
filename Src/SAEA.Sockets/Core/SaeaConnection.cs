@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/13 10:48:34
+*修改时间：2026/11/24 18:12:35
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：修复对端不发 close_notify 直接断开时收尾路径访问已释放 TLS 锁导致的 NullReferenceException：TLS 锁生命周期跟随连接对象，Release 改为本地快照
+*版本号： 
+*描述：v26.11.24.2
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -101,9 +101,39 @@ namespace SAEA.Sockets.Core
         /// </summary>
         private long _tlsRecordsHandedOff;
 
+        // 排空状态：0 未排空、1 排空中、2 已完成。只有 0→1 能发起排空，保证半关只做一次。
+        private const int GracefulNone = 0;
+        private const int GracefulDraining = 1;
+        private const int GracefulCompleted = 2;
+
+        private int _gracefulState;
+
+        private long _drainRemaining;
+
+        private TaskCompletionSource<bool> _gracefulCompletion;
+
+        private Action _gracefulClose;
+
+        /// <summary>
+        /// 排空发起闸门：排空规格、完成信号与排空状态必须整体发布，避免并发调用方读到半成品状态。
+        /// </summary>
+        private readonly object _gracefulGate = new object();
+
+        /// <summary>
+        /// 入站是否已结束（EOF 或异常）。排空发起晚于入站结束时不会再收到字节，必须直接收口。
+        /// </summary>
+        private volatile bool _inputCompleted;
+
         private int _state;
 
-        private volatile bool _receivePaused;
+        /// <summary>
+        /// 传输层暂停标记：1 表示因 Pipe 背压暂停接收。
+        /// <para>
+        /// 用整数配 <see cref="Interlocked"/> 交换，保证「从暂停态恢复」只续投一次接收：
+        /// 重复续投会对同一个接收参数再次提交，触发内核/套接字错误并断开连接。
+        /// </para>
+        /// </summary>
+        private int _receivePausedFlag;
 
         private volatile bool _appPaused;
 
@@ -171,7 +201,7 @@ namespace SAEA.Sockets.Core
         /// <summary>是否暂停接收：Pipe 背压或应用级暂停任一成立。</summary>
         public bool IsReceivePaused
         {
-            get { return _receivePaused || _appPaused; }
+            get { return Volatile.Read(ref _receivePausedFlag) != 0 || _appPaused; }
         }
 
         /// <summary>是否因应用级暂停而停止接收。</summary>
@@ -193,7 +223,7 @@ namespace SAEA.Sockets.Core
         public void ResumeApplication()
         {
             _appPaused = false;
-            if (!_receivePaused)
+            if (Volatile.Read(ref _receivePausedFlag) == 0)
             {
                 try { _receiveResume?.Invoke(); } catch { }
             }
@@ -201,6 +231,11 @@ namespace SAEA.Sockets.Core
 
         /// <summary>是否已关闭。</summary>
         public bool IsClosed => Volatile.Read(ref _state) != 0;
+
+        /// <summary>
+        /// 是否处于排空入站状态：发送方向已半关，但接收方向仍在丢弃剩余请求体。
+        /// </summary>
+        internal bool IsGracefulDraining => Volatile.Read(ref _gracefulState) == GracefulDraining;
 
         /// <summary>
         /// 标记入站 <see cref="Input"/> 已被独占消费。PipeReader 不允许并发读，
@@ -268,6 +303,14 @@ namespace SAEA.Sockets.Core
 
             if (_tls == null)
             {
+                if (Volatile.Read(ref _gracefulState) == GracefulDraining)
+                {
+                    // 排空期间读侧已停，写入 Pipe 无人消费，超过背压阈值会暂停接收并把排空拖到超时；
+                    // 这里只计数不落缓冲，排空既不占内存也不受背压影响。
+                    ConsumeDrain(data.Length);
+                    return;
+                }
+
                 WriteToPipe(data);
                 return;
             }
@@ -275,6 +318,7 @@ namespace SAEA.Sockets.Core
             byte[] rented = null;
             var flushTask = default(Task<FlushResult>);
             var flushed = false;
+            var drainedBytes = 0;
 
             try
             {
@@ -299,6 +343,14 @@ namespace SAEA.Sockets.Core
                     {
                         var n = _tls.ReadInput(rented, 0, rented.Length);
                         if (n <= 0) break;
+
+                        if (Volatile.Read(ref _gracefulState) == GracefulDraining)
+                        {
+                            // TLS 排空也按解密后字节计数，且不落 Pipe，理由同上
+                            drainedBytes += n;
+                            continue;
+                        }
+
                         writer.Write(new ReadOnlySpan<byte>(rented, 0, n));
                         written = true;
                     }
@@ -338,6 +390,9 @@ namespace SAEA.Sockets.Core
             {
                 PauseReceive(flushTask);
             }
+
+            // TLS 按解密后的明文字节计数：排空规格描述的是请求体长度，与密文长度无关。
+            ConsumeDrain(drainedBytes);
         }
 
         /// <summary>
@@ -453,6 +508,13 @@ namespace SAEA.Sockets.Core
         /// </summary>
         public void CompleteInput(Exception ex = null)
         {
+            // 先记录入站结束再判断排空状态：排空可能在本行之后才发起，发起时会读该标记直接收口。
+            _inputCompleted = true;
+
+            // 对端已结束发送：排空中不会再有新字节到达，直接按排空完成收口。
+            if (Volatile.Read(ref _gracefulState) == GracefulDraining)
+                FinishGracefulClose();
+
             try { _writer.Complete(ex); } catch { }
 
             // 快照字段：Dispose 与接收回调可能并发执行，收尾路径不允许再向外抛异常。
@@ -487,11 +549,115 @@ namespace SAEA.Sockets.Core
         }
 
         /// <summary>
+        /// 半关发送方向，按字节上限与超时排空入站后通过 <paramref name="close"/> 收口。
+        /// <para>
+        /// 半关让对端立即收到响应与结束信号，同时保持接收方向可读，把已经发出的请求体读完，
+        /// 避免带着未读字节关闭 socket 触发 RST 而丢失 413 响应。参数非正或连接已关闭时直接收口。
+        /// </para>
+        /// </summary>
+        /// <param name="drainBytes">关闭前还需读取的字节数</param>
+        /// <param name="timeoutMs">排空超时毫秒数</param>
+        /// <param name="close">排空结束后的关闭动作，由传输层传入</param>
+        /// <returns>连接真正关闭后完成的任务</returns>
+        internal Task DrainAndCloseAsync(long drainBytes, int timeoutMs, Action close)
+        {
+            if (drainBytes <= 0 || timeoutMs <= 0 || IsClosed)
+            {
+                try { close?.Invoke(); } catch { }
+                return Task.CompletedTask;
+            }
+
+            var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            lock (_gracefulGate)
+            {
+                if (Volatile.Read(ref _gracefulState) != GracefulNone)
+                {
+                    // 已在排空或已收口（会话超时与协议错误可能同时要求关闭）：复用同一个完成信号，不再重复半关。
+                    var running = Volatile.Read(ref _gracefulCompletion);
+                    return running != null ? running.Task : Task.CompletedTask;
+                }
+
+                // 闸门内按「先写依赖、后发状态」的顺序发布：并发调用方只有看到 Draining 时，
+                // 排空字节数与完成信号一定已可见，不会读到半成品而误判为已关闭。
+                Interlocked.Exchange(ref _gracefulClose, close);
+                Interlocked.Exchange(ref _drainRemaining, drainBytes);
+                Interlocked.Exchange(ref _gracefulCompletion, completion);
+                Volatile.Write(ref _gracefulState, GracefulDraining);
+            }
+
+            // 排空前那批数据可能已把接收置为暂停；读侧已停，只能由这里恢复，否则排空收不到任何字节。
+            // 这里无条件续投：暂停标记未必已置位，按标记判断会漏投，排空便一直等到超时。
+            ForceResumeReceiveForDrain();
+
+            try { _socket.Shutdown(SocketShutdown.Send); } catch { }
+
+            // 超时用延时任务兜底：对端不发完也不关闭时，收口不能无限挂住。
+            Task.Delay(timeoutMs).ContinueWith(
+                t => FinishGracefulClose(),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            // 入站可能在本方法发布排空状态之前就已结束：此时不会再有字节到达，也不会再触发 ConsumeDrain。
+            if (_inputCompleted) FinishGracefulClose();
+
+            return completion.Task;
+        }
+
+        /// <summary>
+        /// 累计已读入站字节；达到排空规格后触发关闭。非排空状态下调用无副作用。
+        /// </summary>
+        /// <param name="count">本次读入的字节数</param>
+        internal void ConsumeDrain(int count)
+        {
+            if (count <= 0) return;
+            if (Volatile.Read(ref _gracefulState) != GracefulDraining) return;
+
+            if (Interlocked.Add(ref _drainRemaining, -count) > 0) return;
+
+            FinishGracefulClose();
+        }
+
+        /// <summary>
+        /// 结束排空并执行关闭动作，幂等；关闭动作放到线程池执行，避免在接收回调栈上释放连接。
+        /// </summary>
+        private void FinishGracefulClose()
+        {
+            if (Interlocked.Exchange(ref _gracefulState, GracefulCompleted) != GracefulDraining) return;
+
+            var completion = Interlocked.Exchange(ref _gracefulCompletion, null);
+            var close = Interlocked.Exchange(ref _gracefulClose, null);
+
+            ThreadPool.QueueUserWorkItem(state =>
+            {
+                try
+                {
+                    if (close != null) close();
+                    else Dispose();
+                }
+                catch
+                {
+                    // 关闭路径不允许再向外抛：异常只会影响本连接，收口仍需完成。
+                }
+                finally
+                {
+                    if (completion != null) completion.TrySetResult(true);
+                }
+            });
+        }
+
+        /// <summary>
         /// 释放连接。
         /// </summary>
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _state, 2) == 2) return;
+
+            // 外部直接释放时排空等待方必须落地，否则收口末端会一直等一个不可能完成的信号。
+            Volatile.Write(ref _gracefulState, GracefulCompleted);
+            var gracefulCompletion = Interlocked.Exchange(ref _gracefulCompletion, null);
+            if (gracefulCompletion != null) gracefulCompletion.TrySetResult(true);
 
             try { _handshakeTimer?.Dispose(); } catch { }
             _handshakeTimer = null;
@@ -535,13 +701,38 @@ namespace SAEA.Sockets.Core
 
         private void PauseReceive(Task flushTask)
         {
-            _receivePaused = true;
+            Volatile.Write(ref _receivePausedFlag, 1);
 
             _ = flushTask.ContinueWith(t =>
             {
-                _receivePaused = false;
-                try { _receiveResume?.Invoke(); } catch { }
+                ResumeReceiveOnce();
             }, TaskContinuationOptions.ExecuteSynchronously);
+        }
+
+        /// <summary>
+        /// 从传输层暂停态恢复一次接收；未处于暂停态时不做任何事，避免重复提交接收。
+        /// </summary>
+        private void ResumeReceiveOnce()
+        {
+            if (Interlocked.Exchange(ref _receivePausedFlag, 0) == 0) return;
+
+            // 应用级暂停优先：恢复仍由 ResumeApplication 负责，这里只清传输层标记。
+            if (_appPaused) return;
+
+            try { _receiveResume?.Invoke(); } catch { }
+        }
+
+        /// <summary>
+        /// 排空开始时无条件续投一次接收：暂停标记可能尚未置位，按标记判断会漏投，排空只能等到超时。
+        /// 应用级暂停由业务控制，这里不解除。
+        /// </summary>
+        private void ForceResumeReceiveForDrain()
+        {
+            Interlocked.Exchange(ref _receivePausedFlag, 0);
+
+            if (_appPaused) return;
+
+            try { _receiveResume?.Invoke(); } catch { }
         }
 
         /// <summary>

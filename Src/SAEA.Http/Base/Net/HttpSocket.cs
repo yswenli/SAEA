@@ -22,19 +22,22 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/16 10:20:00
+ *修改时间：2026/11/24 21:10:00
  *修改人： yswenli
- *版本号： v26.11.5.1
- *描述：通道链配置显式开启启动期链尾校验
+ *版本号： v26.11.24.1
+ *描述：协议处理器装配时传入请求体上限与 RequestDrainTimeout，支持 413 后有序排空
  *
  *****************************************************************************/
 using System;
 using System.Collections.Concurrent;
+using System.IO;
 using System.IO.Pipelines;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 using SAEA.Common;
+using SAEA.Http.Model;
 using SAEA.Sockets;
 using SAEA.Sockets.Interface;
 using SAEA.Sockets.Model;
@@ -50,6 +53,9 @@ namespace SAEA.Http.Base.Net
     {
         private const int DefaultReadBufferSize = 64 * 1024;
 
+        // 100 Continue 是固定不变的协议级中间响应；只读共享，SendAsync 内部不会改写
+        private static readonly byte[] _continueHead = Encoding.ASCII.GetBytes("HTTP/1.1 100 Continue\r\n\r\n");
+
         private readonly IServerSocket _serverSokcet;
 
         private readonly ISocketOption _option;
@@ -62,6 +68,14 @@ namespace SAEA.Http.Base.Net
             new ConcurrentDictionary<string, ChannelInfo>(StringComparer.Ordinal);
 
         private readonly int _bufferSize;
+
+        private readonly int _maxRequestBodySize;
+
+        private readonly int _requestDrainTimeout;
+
+        private readonly int _largeBodyThreshold;
+
+        private readonly string _tempDirectory;
 
         private readonly bool _isDebug;
 
@@ -89,6 +103,47 @@ namespace SAEA.Http.Base.Net
             _webHost = webHost;
             _bufferSize = bufferSize > 0 ? bufferSize : DefaultReadBufferSize;
             _isDebug = isDebug;
+
+            // 校验必须早于建链：否则端口已被占用时抛异常，监听端口会留在内核里没人释放。
+            // 配置只留在 WebConfig 一处，避免再出现 HandleBufferSize 那种构造参数与配置各存一份的重复来源。
+            // 上界按整帧缓冲的完整推导取：请求体上限 + 64KB 报头 + 9 字节帧头 + 读缓冲，
+            // 执行器在 MaxBufferedBytes = 0 时也会这样推导，只改一半就会把溢出推迟到每条连接建链时才抛。
+            var maxRequestBodySize = webHost.WebConfig.MaxRequestBodySize;
+
+            if (maxRequestBodySize <= 0)
+                throw new ArgumentOutOfRangeException(nameof(WebConfig.MaxRequestBodySize), "请求体上限必须大于 0。");
+
+            if (maxRequestBodySize > int.MaxValue - 64 * 1024 - FrameConstants.P_Head - _bufferSize)
+                throw new ArgumentOutOfRangeException(nameof(WebConfig.MaxRequestBodySize), "请求体上限与 64KB 报头上限、分帧附加开销（9 字节帧头 + 读缓冲）之和不能超过 int 上限。");
+
+            _maxRequestBodySize = maxRequestBodySize;
+
+            // 排空超时允许为 0 或负数：表示 413 后不排空，直接按普通关闭收口。
+            _requestDrainTimeout = webHost.WebConfig.RequestDrainTimeout;
+
+            var largeBodyThreshold = webHost.WebConfig.LargeBodyThreshold;
+
+            if (largeBodyThreshold < 0)
+                throw new ArgumentOutOfRangeException(nameof(WebConfig.LargeBodyThreshold), "请求体落盘阈值不能小于 0。");
+
+            var tempDirectory = webHost.WebConfig.TempDirectory;
+
+            if (string.IsNullOrWhiteSpace(tempDirectory))
+                tempDirectory = Path.Combine(Path.GetTempPath(), "saea-http");
+
+            try
+            {
+                // 幂等：已存在时直接返回；不可写时在启动期就暴露，而不是等第一条大请求才失败
+                Directory.CreateDirectory(tempDirectory);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("请求体临时目录创建失败：" + tempDirectory, ex);
+            }
+
+            _largeBodyThreshold = largeBodyThreshold;
+
+            _tempDirectory = tempDirectory;
 
             var optionBuilder = new SocketOptionBuilder()
                .SetSocket(SAEASocketType.Tcp)
@@ -150,7 +205,7 @@ namespace SAEA.Http.Base.Net
             _channels.TryGetValue(channelId, out info);
 
             // 先有 HTTP 分帧器，再有屏障，最后回填引用，打破「分帧器要屏障、屏障要分帧器」的构造循环。
-            var httpSplitter = new HttpRequestSplitter();
+            var httpSplitter = new HttpRequestSplitter(maxRequestSize: _maxRequestBodySize);
 
             var upgradedSplitter = new TakeAvailableSplitter(_bufferSize);
 
@@ -162,7 +217,7 @@ namespace SAEA.Http.Base.Net
             {
                 Splitter = barrier,
                 // 留 0 由执行器按 MaxFrameLength + P_Head + ReadBufferSize 推导，
-                // 保证一整帧请求加上本次读取的余量都能进缓冲。
+                // 保证一整帧请求加上本次读取的余量都能进缓冲；请求体上限变化时推导值随之变化。
                 MaxBufferedBytes = 0,
                 ReadBufferSize = _bufferSize,
                 // HTTP 是单工请求/响应：同一连接必须串行处理，否则保活连接的响应会乱序。
@@ -205,12 +260,17 @@ namespace SAEA.Http.Base.Net
             SwitchableSplitter barrier,
             IFrameSplitter upgradedSplitter)
         {
+            // 100 Continue 必须绕过出站处理链直发：它是协议级中间响应，不参与响应编码与串行化。
+            var httpSplitter = barrier == null ? null : barrier.Current as HttpRequestSplitter;
+            if (httpSplitter != null)
+                httpSplitter.ExpectContinueHandler = () => SendContinue(channelId);
+
             // 出站必须是链首连续前缀，串行器固定在最右，响应顺序才不会被异步编码打乱。
             pipeline.AddLast(new HttpResponseEncoder());
             pipeline.AddLast(new OutboundSerializingHandler());
 
-            pipeline.AddLast(new HttpRequestDecoder());
-            pipeline.AddLast(new HttpProtocolHandler(barrier, upgradedSplitter, null));
+            pipeline.AddLast(new HttpRequestDecoder(_largeBodyThreshold, _tempDirectory, channelId));
+            pipeline.AddLast(new HttpProtocolHandler(barrier, upgradedSplitter, null, _maxRequestBodySize, _requestDrainTimeout));
             pipeline.AddLast(new HttpDispatchHandler(_webHost, info, barrier, upgradedSplitter, _isDebug));
             pipeline.AddLast(new HttpRawFrameSinkHandler());
 
@@ -219,6 +279,23 @@ namespace SAEA.Http.Base.Net
                 configure(channelId, pipeline);
 
             pipeline.AddLast(new ExceptionTerminalHandler());
+        }
+
+        /// <summary>
+        /// 直发 100 Continue 中间响应。走底层 server socket，不经过出站处理链；TLS 连接由 SendAsync 内部处理加密。
+        /// </summary>
+        /// <param name="channelId">连接标识</param>
+        private void SendContinue(string channelId)
+        {
+            try
+            {
+                _serverSokcet.SendAsync(channelId, _continueHead);
+            }
+            catch (Exception ex)
+            {
+                // 100 Continue 只是加速提示，发送失败按普通请求继续处理
+                LogHelper.Error("HttpSocket.SendContinue:" + channelId, ex);
+            }
         }
 
         /// <summary>

@@ -23,13 +23,13 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:29
+*修改时间：2026/11/24 15:41:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.24.1
+*描述：Data 改为只读流并实现 IDisposable，Save 改为从流复制且保留原位置
 *
 *****************************************************************************/
-using SAEA.Common.IO;
+using System;
 using System.IO;
 using System.Linq;
 
@@ -38,12 +38,12 @@ namespace SAEA.Http.Model
     /// <summary>
     /// 上传文件的表单分段信息
     /// </summary>
-    public class FilePart
+    public class FilePart : IDisposable
     {
         /// <summary>
-        /// 文件内容字节
+        /// 文件内容流，只读；释放本对象后置空
         /// </summary>
-        public byte[] Data { get; set; }
+        public Stream Data { get; set; }
 
         /// <summary>
         /// 客户端提交的文件名，仅保留最后一个合法文件名片段
@@ -79,8 +79,8 @@ namespace SAEA.Http.Model
         /// <param name="name">表单字段名</param>
         /// <param name="fileName">客户端提交的文件名，会截取最后一个合法片段</param>
         /// <param name="type">文件 MIME 类型</param>
-        /// <param name="data">文件内容字节</param>
-        public FilePart(string name, string fileName, string type, byte[] data)
+        /// <param name="data">文件内容流</param>
+        public FilePart(string name, string fileName, string type, Stream data)
         {
             Name = name;
             FileName = fileName.Split(Path.GetInvalidFileNameChars()).Last();
@@ -90,13 +90,45 @@ namespace SAEA.Http.Model
 
 
         /// <summary>
-        /// 把文件内容写入指定路径
+        /// 把文件内容写入指定路径；可 Seek 的流先回到起点，保存后恢复原位置
         /// </summary>
         /// <param name="filePath">目标物理路径</param>
         public void Save(string filePath)
         {
-            FileHelper.Write(filePath, this.Data);
+            var data = Data;
+
+            using (var target = File.Create(filePath))
+            {
+                if (data == null) return;
+
+                var canSeek = data.CanSeek;
+
+                var origin = canSeek ? data.Position : 0;
+
+                if (canSeek) data.Position = 0;
+
+                try
+                {
+                    data.CopyTo(target);
+                }
+                finally
+                {
+                    // 恢复原位置，允许业务保存后继续按原进度读取
+                    if (canSeek) data.Position = origin;
+                }
+            }
         }
 
+        /// <summary>
+        /// 释放文件内容流并置空；可重复调用
+        /// </summary>
+        public void Dispose()
+        {
+            var data = Data;
+
+            Data = null;
+
+            if (data != null) data.Dispose();
+        }
     }
 }

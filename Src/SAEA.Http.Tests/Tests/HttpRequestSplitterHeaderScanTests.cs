@@ -108,19 +108,22 @@ namespace SAEA.Http.Tests
             Assert.AreEqual((long)bytes.Length, consumed, "consumed 应等于报头长度。");
         }
 
-        /// <summary>Transfer-Encoding 的值大小写混写时，仍应按 chunked 拒绝。</summary>
+        /// <summary>Transfer-Encoding 的值大小写混写时，仍应识别为 chunked 并正常切帧。</summary>
         [TestMethod]
-        public void HttpRequestSplitter_MixedCaseChunked_ThrowsChunkedToken()
+        public void HttpRequestSplitter_MixedCaseChunked_SplitsWholeRequest()
         {
-            var bytes = Encoding.ASCII.GetBytes("POST /c HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: Gzip, ChUnKeD\r\n\r\n");
+            var body = "5\r\nhello\r\n0\r\n\r\n";
+            var bytes = Encoding.ASCII.GetBytes(
+                "POST /c HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: Gzip, ChUnKeD\r\n\r\n" + body);
+
             var splitter = new HttpRequestSplitter();
 
             long consumed;
             ReadOnlySequence<byte> frame;
-            var ex = Assert.ThrowsExactly<FrameProtocolException>(
-                () => splitter.TrySplit(new ReadOnlySequence<byte>(bytes), out consumed, out frame));
+            var result = splitter.TrySplit(new ReadOnlySequence<byte>(bytes), out consumed, out frame);
 
-            Assert.AreEqual(HttpProtocolErrorCodes.ChunkedNotSupported, ex.Message, "值里含 chunked 时必须以固定 token 拒绝。");
+            Assert.IsTrue(result, "值里含大小写混写的 chunked 时应按 chunked 切帧。");
+            Assert.AreEqual((long)bytes.Length, consumed, "consumed 应等于报头加原始 chunk 字节总长。");
         }
 
         /// <summary>Content-Length 不是整数时按 400 拒绝，不能当成 0 放行。</summary>

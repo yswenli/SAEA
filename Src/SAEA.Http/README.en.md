@@ -119,11 +119,25 @@ The three business entry points live on `WebConfig`; there are no receive or lif
 
 | Limit | Default | Notes |
 |-------|---------|-------|
-| Request body | 64MB | `HttpRequestSplitter` `maxRequestSize`; body only |
+| Request body | 20MB | `WebConfig.MaxRequestBodySize`; body only |
+| Body spool threshold | 1MB | `WebConfig.LargeBodyThreshold`; above it the body is written to a temp file, `0` disables spooling |
+| Temp directory | `saea-http` under the system temp directory | `WebConfig.TempDirectory`; ensured to exist at startup |
+| 413 drain timeout | 2000ms | `WebConfig.RequestDrainTimeout`; how long to keep reading and discarding the remaining body after a 413; `0` disables draining |
 | Request header | 64KB | Separate limit; exceeding it returns 431 |
 | Framing buffer | `MaxFrameLength + 9 + ReadBufferSize` | Derived by the executor; do not set a smaller value |
 | Concurrent messages | 1 | HTTP is half-duplex; one request at a time per connection |
-| `Transfer-Encoding: chunked` | Not supported | Returns 400 instead of misreading chunk bytes |
+| `Transfer-Encoding: chunked` | Supported | Decoded chunk by chunk; the decoded length is capped by `MaxRequestBodySize` and the raw chunk bytes count toward `MaxFrameLength`; exceeding either returns 413 |
+| `Expect: 100-continue` | Supported | Sends 100 Continue while the body is still incomplete, at most once per request; works together with chunked |
+
+The request body limit is **per request**, not a global memory cap; the per-connection framing budget is roughly `MaxRequestBodySize + 64KB + ReadBufferSize`, so lower it to fit your memory budget when `MaxConnects` is large.
+
+A request body above 16MB exceeds the pool's per-array limit, so each request allocates a fresh full-frame buffer on the large object heap and drops it afterwards; with the 20MB default that is the per-request allocation, so prefer client-side chunking or a lower limit for sustained large uploads.
+
+The spool threshold does not change the per-connection peak during framing: the whole frame must still be addressable, so spooling only removes the extra "frame → body array" copy and the post-request residency.
+
+An oversized body first gets a 413; the server then half-closes the write side and drains the remaining body within a bounded budget: for fixed-length requests the unread bytes are `Content-Length` minus what has arrived, and chunked requests fall back to `MaxRequestBodySize` because the remainder cannot be inferred; `400` and `431` do no draining. Bytes that arrive during draining are discarded and never reach the application, and `WebConfig.RequestDrainTimeout` bounds the drain; the connection closes once the byte budget or timeout is reached, so unread data cannot trigger a RST that hides the 413 from the client.
+
+100 Continue is written directly to the raw socket, bypassing the response encoding chain; requests rejected with 400/413 never receive 100 Continue first. When `Expect: 100-continue` is combined with chunked, the splitter first confirms through the chunk state machine that the body is incomplete, sends 100 once, then keeps reading and decoding the chunks.
 
 ---
 
@@ -373,21 +387,50 @@ Call `server.SetCrossDomainHeaders("token", "auth")` to allow extra custom heade
 
 ### Q3: How do I upload large files?
 
-**A**: The body is fully read according to `Content-Length` before dispatch; anything above 64MB returns 413:
+**A**: The body is fully read according to `Content-Length` before dispatch; anything above 20MB returns 413. Raise the limit before `Start` when needed:
+
+The multipart parser tolerates a preamble before the first boundary, and caps a request at 1024 parts with each part header block limited to 16KB; above those caps it keeps what was already parsed and logs an error.
+
+Multipart parsing scans once in 64KB buffered chunks and tolerates a boundary split across reads; a file part larger than LargeBodyThreshold spills to a temp file that is deleted when the request is released.
+
+The request body and `FilePart.Data` are read-only `Stream` instances (seekable, `Position` readable and writable); save files with `FilePart.Save` or copy from `Data` yourself:
 
 ```csharp
+// Must be set before Start; body only, in bytes
+server.WebConfig.MaxRequestBodySize = 64 * 1024 * 1024;
+
 server.WebConfig.RequestDelegate = ctx =>
 {
     var files = ctx.Request.PostFiles;
     foreach (var file in files)
     {
         var savePath = Path.Combine("uploads", file.FileName);
-        File.WriteAllBytes(savePath, file.Data);
+        file.Save(savePath);   // copies from Data; can be called repeatedly
     }
+
+    // Non-multipart requests can read the raw body stream; rewind first and restore when done
+    var body = ctx.Request.Body;
+    if (body != null)
+    {
+        body.Position = 0;
+        using (var reader = new StreamReader(body, Encoding.UTF8, true, 4096, true))
+        {
+            var text = reader.ReadToEnd();
+        }
+        body.Position = 0;
+    }
+
     ctx.Response.ContentType = "application/json; charset=utf-8";
     ctx.Response.Write("{\"uploaded\": true}");
     ctx.Response.End();
 };
+```
+
+A body above `WebConfig.LargeBodyThreshold` (1MB by default) is spooled to a temp file during decoding and deleted when the request ends, so the payload does not stay resident afterwards; `0` disables spooling. Framing still requires the whole frame to be addressable: spooling removes the extra "frame → body array" copy and the post-request residency, but does not lower the per-connection peak during framing.
+
+```csharp
+server.WebConfig.LargeBodyThreshold = 1024 * 1024;                          // spool threshold in bytes; 0 keeps everything in memory
+server.WebConfig.TempDirectory = Path.Combine(Path.GetTempPath(), "uploads-tmp"); // defaults to saea-http under the system temp directory
 ```
 
 ### Q4: How do I enable GZIP?
@@ -437,7 +480,7 @@ server.WebConfig.RequestDelegate = ctx =>
 
 ### Q8: Is chunked request body supported?
 
-**A**: No. A request with `Transfer-Encoding: chunked` gets a 400 and the connection is closed, because framing by `Content-Length` would misinterpret chunk bytes as the next request.
+**A**: Yes. The splitter frames the whole request with a chunk state machine, and the decoder strips chunk headers and trailers before dispatch; the decoded length is capped by `MaxRequestBodySize` and the raw chunk bytes count toward `MaxFrameLength`, so exceeding either limit returns 413.
 
 ---
 
@@ -739,6 +782,10 @@ var server = new WebHost(
     connectTimeout: 3);         // connect timeout (seconds)
 
 server.WebConfig.ActionTimeout = 120; // action execution timeout (seconds): 0 disables the wrapper (sync actions run inline), above 0 wraps the call and returns 408
+server.WebConfig.MaxRequestBodySize = 20 * 1024 * 1024; // request body limit in bytes, body only, must be set before Start
+server.WebConfig.LargeBodyThreshold = 1024 * 1024; // spool threshold in bytes; 0 keeps everything in memory, must be set before Start
+server.WebConfig.TempDirectory = null; // spool directory; null means saea-http under the system temp directory
+server.WebConfig.RequestDrainTimeout = 2000; // drain timeout in ms for the remaining body after a 413; 0 disables draining
 server.WebConfig.ConfigurePipeline = (id, pipeline) => { /* ... */ };
 server.WebConfig.UseSsl(o => { /* ... */ });
 server.WebConfig.RequestDelegate = ctx => { /* ... */ };

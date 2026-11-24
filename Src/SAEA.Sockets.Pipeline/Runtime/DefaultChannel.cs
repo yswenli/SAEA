@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 10:48:29
+*修改时间：2026/11/24 18:12:35
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：失活只翻转活跃状态，属性改由唯一清理点释放
+*版本号： 
+*描述：v26.11.24.2
 *
 *****************************************************************************/
 using System;
@@ -45,7 +45,7 @@ namespace SAEA.Sockets.Pipeline
     /// 清空属性属于收口流程的末端：失活只翻转活跃状态，属性要等 <see cref="ClearAttributes"/> 才释放。
     /// </para>
     /// </summary>
-    public sealed class DefaultChannel : IChannel, IDisposable
+    public sealed class DefaultChannel : IChannel, IDrainableChannel, IDisposable
     {
         private readonly ConcurrentDictionary<string, object> _attributes =
             new ConcurrentDictionary<string, object>();
@@ -57,6 +57,13 @@ namespace SAEA.Sockets.Pipeline
         private int _closeRequested;
 
         private int _attributesCleared;
+
+        // 排空规格由协议处理器在写错误响应后设置、收口末端取走，读写分处不同线程，统一走 Interlocked/Volatile。
+        private long _drainBytes;
+
+        private int _drainTimeoutMs;
+
+        private int _drainSpecSet;
 
         /// <summary>
         /// 创建连接视图。
@@ -147,6 +154,43 @@ namespace SAEA.Sockets.Pipeline
                 return;
 
             _attributes.Clear();
+        }
+
+        /// <summary>
+        /// 设置排空规格；任一参数非正时忽略。后一次设置覆盖前一次，收口时只会取走最近一次。
+        /// </summary>
+        /// <param name="drainBytes">关闭前还需读取的字节数。</param>
+        /// <param name="timeoutMs">排空超时毫秒数。</param>
+        public void SetDrainSpec(long drainBytes, int timeoutMs)
+        {
+            if (drainBytes <= 0 || timeoutMs <= 0)
+                return;
+
+            Volatile.Write(ref _drainTimeoutMs, timeoutMs);
+            Interlocked.Exchange(ref _drainBytes, drainBytes);
+            Volatile.Write(ref _drainSpecSet, 1);
+        }
+
+        /// <summary>
+        /// 取走排空规格并清空；只在第一次调用时返回 true，保证同一次收口不会重复排空。
+        /// </summary>
+        /// <param name="drainBytes">关闭前还需读取的字节数；无规格时为 0。</param>
+        /// <param name="timeoutMs">排空超时毫秒数；无规格时为 0。</param>
+        /// <returns>存在有效规格时返回 true。</returns>
+        public bool TryTakeDrainSpec(out long drainBytes, out int timeoutMs)
+        {
+            drainBytes = 0;
+            timeoutMs = 0;
+
+            if (Interlocked.Exchange(ref _drainSpecSet, 0) == 0)
+                return false;
+
+            drainBytes = Interlocked.Exchange(ref _drainBytes, 0);
+            timeoutMs = Volatile.Read(ref _drainTimeoutMs);
+
+            Volatile.Write(ref _drainTimeoutMs, 0);
+
+            return drainBytes > 0 && timeoutMs > 0;
         }
 
         /// <summary>属性清理的生效次数，仅供测试与诊断读取。</summary>

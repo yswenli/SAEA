@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 10:00:00
+*修改时间：2026/11/24 15:41:00
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：Cookies 改为虚成员，供底层消息实现按需解析 Cookie 报头
+*版本号： v26.11.24.1
+*描述：移除 Body 属性，请求体改由 HttpRequest 以 Stream 暴露、响应体保留在 HttpResponse
 *
 *****************************************************************************/
 using System;
@@ -38,7 +38,7 @@ using SAEA.Http.Model;
 namespace SAEA.Http.Base
 {
     /// <summary>
-    /// Http 请求与响应的公共基类，承载方法、地址、报头、Cookie 与报文体
+    /// Http 请求与响应的公共基类，承载方法、地址、报头与 Cookie
     /// </summary>
     public class HttpBase
     {
@@ -183,14 +183,6 @@ namespace SAEA.Http.Base
         /// 报文体字节长度
         /// </summary>
         public int ContentLength
-        {
-            get; set;
-        }
-
-        /// <summary>
-        /// 报文体内容
-        /// </summary>
-        public byte[] Body
         {
             get; set;
         }

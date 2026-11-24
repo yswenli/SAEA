@@ -119,11 +119,25 @@ server.Start();
 
 | 限制 | 默认值 | 说明 |
 |------|--------|------|
-| 请求体长度 | 64MB | `HttpRequestSplitter` 的 `maxRequestSize`，只限制 body |
+| 请求体长度 | 20MB | `WebConfig.MaxRequestBodySize`，只限制 body |
+| 请求体落盘阈值 | 1MB | `WebConfig.LargeBodyThreshold`，超过即写临时文件，`0` 表示禁用落盘 |
+| 请求体临时目录 | 系统临时目录下 `saea-http` | `WebConfig.TempDirectory`，启动期确保存在 |
+| 413 排空超时 | 2000ms | `WebConfig.RequestDrainTimeout`，413 后等待并丢弃剩余请求体的最长时间，`0` 表示不排空 |
 | 请求头长度 | 64KB | 独立上限，超限回 431 |
 | 分帧缓冲 | `MaxFrameLength + 9 + ReadBufferSize` | 由执行器推导，不要手动填小于该值 |
 | 并发消息数 | 1 | HTTP 单工请求/响应，同连接串行处理 |
-| `Transfer-Encoding: chunked` | 不支持 | 显式回 400，避免把 chunk 字节当成下一条请求 |
+| `Transfer-Encoding: chunked` | 支持 | 逐块解码；解码后长度受 `MaxRequestBodySize` 限制，原始 chunk 字节计入 `MaxFrameLength`，任一上限超出回 413 |
+| `Expect: 100-continue` | 支持 | 请求体未到齐前先回 100 Continue，每个请求最多一次；与 chunked 可组合 |
+
+请求体上限是**每请求**上限，不是全局内存上限；单连接分帧缓冲预算 ≈ `MaxRequestBodySize + 64KB + ReadBufferSize`，`MaxConnects` 较大时需按内存预算下调。
+
+请求体超过 16MB 时，整帧缓冲超出内存池的单数组上限，每个请求会新分配一块整帧缓冲并直接进入大对象堆，用完即丢；默认 20MB 下这是每请求的实际分配量，长期传大文件建议客户端分片上传或下调上限。
+
+请求体落盘阈值不改变分帧期的单连接峰值：整帧仍需可寻址，落盘只去掉「整帧 → body 数组」的重复复制以及请求结束后的整段驻留。
+
+请求体超限时先写出 413，再半关写方向并按有界预算排空剩余请求体：定长请求按 `Content-Length` 与已到达字节之差计算，chunked 无法推断剩余长度时按 `MaxRequestBodySize` 兜底；`400`/`431` 不做排空。排空期间到达的字节直接丢弃、不进入业务，上限由 `WebConfig.RequestDrainTimeout` 控制；达到字节上限或超时后关闭连接，避免未读数据触发 RST 让客户端读不到 413。
+
+100 Continue 通过裸套接字直发，不经过响应编码链；被 400/413 拒绝的请求不会先收到 100 Continue。`Expect: 100-continue` 与 chunked 组合时，分帧器先按 chunk 状态机确认请求体未到齐，再回一次 100，随后继续按块收齐并解码。
 
 ---
 
@@ -392,21 +406,50 @@ server.WebConfig.RequestDelegate = ctx =>
 
 ### Q3: 如何实现大文件上传？
 
-**A**: 上传内容已按 `Content-Length` 完整读入后再交给业务，超过 64MB 会回 413：
+**A**: 上传内容已按 `Content-Length` 完整读入后再交给业务，默认超过 20MB 会回 413；需要在 `Start` 之前上调上限：
+
+multipart 解析允许 boundary 之前出现前导内容，并限制单个请求最多 1024 个分段、单个分段报头不超过 16KB；超过上限时保留已解析结果并记录错误日志。
+
+multipart 解析按 64KB 缓冲单遍扫描，boundary 可以跨读边界；单个文件分段的字节数超过 LargeBodyThreshold 时会转写临时文件，请求释放时删除。
+
+请求体与 `FilePart.Data` 都是只读 `Stream`（可 `Seek`，`Position` 可读写），保存文件用 `FilePart.Save`，或自行从 `Data` 复制：
 
 ```csharp
+// 必须在 Start 之前上调请求体上限（字节），只限制 body
+server.WebConfig.MaxRequestBodySize = 64 * 1024 * 1024;
+
 server.WebConfig.RequestDelegate = ctx =>
 {
     var files = ctx.Request.PostFiles;
     foreach (var file in files)
     {
         var savePath = Path.Combine("uploads", file.FileName);
-        File.WriteAllBytes(savePath, file.Data);
+        file.Save(savePath);   // 内部从 Data 复制，可重复保存
     }
+
+    // 非 multipart 时可直接读原始请求体流；读前先归零，读完按需复位
+    var body = ctx.Request.Body;
+    if (body != null)
+    {
+        body.Position = 0;
+        using (var reader = new StreamReader(body, Encoding.UTF8, true, 4096, true))
+        {
+            var text = reader.ReadToEnd();
+        }
+        body.Position = 0;
+    }
+
     ctx.Response.ContentType = "application/json; charset=utf-8";
     ctx.Response.Write("{\"uploaded\": true}");
     ctx.Response.End();
 };
+```
+
+请求体超过 `WebConfig.LargeBodyThreshold`（默认 1MB）时解码阶段写入临时文件，请求结束后删除，避免整段请求体在请求结束后继续驻留；`0` 表示禁用落盘。分帧仍要求整帧可寻址，落盘只去掉「整帧 → body 数组」的重复复制与请求结束后的驻留，不降低分帧期的单连接峰值。
+
+```csharp
+server.WebConfig.LargeBodyThreshold = 1024 * 1024;                          // 落盘阈值（字节），0 表示始终留在内存
+server.WebConfig.TempDirectory = Path.Combine(Path.GetTempPath(), "uploads-tmp"); // 默认系统临时目录下的 saea-http
 ```
 
 ### Q4: 如何开启 GZIP 压缩？
@@ -457,7 +500,7 @@ server.WebConfig.RequestDelegate = ctx =>
 
 ### Q8: 支持 chunked 请求体吗？
 
-**A**: 不支持。收到 `Transfer-Encoding: chunked` 的请求会直接回 400 并关闭连接，因为按 `Content-Length` 切帧会把 chunk 字节误判成下一条请求。
+**A**: 支持。分帧器按 chunk 状态机切出整帧，解码器去掉 chunk 头与 trailer 后交给业务；解码后的长度受 `MaxRequestBodySize` 限制，原始 chunk 字节计入 `MaxFrameLength`，任一上限超出都回 413。
 
 ---
 
@@ -760,6 +803,10 @@ var server = new WebHost(
     connectTimeout: 3);         // 连接建立超时（秒）
 
 server.WebConfig.ActionTimeout = 120; // action 执行超时（秒），0 表示不启用超时包装（同步 action 在当前线程直接执行），大于 0 才包装超时并返回 408
+server.WebConfig.MaxRequestBodySize = 20 * 1024 * 1024; // 请求体上限（字节），只限制 body，必须在 Start 之前设置
+server.WebConfig.LargeBodyThreshold = 1024 * 1024; // 请求体落盘阈值（字节），0 表示始终留在内存，必须在 Start 之前设置
+server.WebConfig.TempDirectory = null; // 请求体临时目录，null 表示系统临时目录下的 saea-http
+server.WebConfig.RequestDrainTimeout = 2000; // 413 后等待并丢弃剩余请求体的超时（毫秒），0 表示不排空
 server.WebConfig.ConfigurePipeline = (id, pipeline) => { /* ... */ };
 server.WebConfig.UseSsl(o => { /* ... */ });
 server.WebConfig.RequestDelegate = ctx => { /* ... */ };

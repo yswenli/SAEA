@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/20 20:52:03
+*修改时间：2026/11/24 18:12:35
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：Disconnect 先捕获令牌绑定代次再取会话标识，释放时按代次校验
+*版本号： 
+*描述：v26.11.24.2
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -554,13 +554,33 @@ namespace SAEA.Sockets.Core.Tcp
         public ISaeaTlsContext GetTlsContext(IUserToken userToken) => GetConnection(userToken)?.Tls;
 
         /// <summary>
+        /// 判断连接是否还能提交接收。<paramref name="userToken"/> 为 null 或套接字已释放时返回 false。
+        /// <para>
+        /// 半关发送方向（413 后排出剩余请求体）会让 <see cref="Socket.Connected"/> 变成 false，
+        /// 但接收方向仍然可用；排空期间按连接状态兜底，否则排空刚开始就会被当成对端断开而带未读字节关闭。
+        /// </para>
+        /// </summary>
+        /// <param name="userToken">连接令牌</param>
+        /// <returns>可以继续提交接收时返回 true</returns>
+        private bool CanReceive(IUserToken userToken)
+        {
+            var socket = userToken?.Socket;
+            if (socket == null) return false;
+
+            if (socket.Connected) return true;
+
+            var connection = GetConnection(userToken);
+            return connection != null && connection.IsGracefulDraining;
+        }
+
+        /// <summary>
         /// 背压恢复入口。
         /// </summary>
         private void ResumeReceive(IUserToken userToken)
         {
             var readArgs = userToken?.ReadArgs;
             if (readArgs == null) return;
-            if (userToken.Socket == null || !userToken.Socket.Connected) return;
+            if (!CanReceive(userToken)) return;
 
             var connection = GetConnection(userToken);
             if (connection != null && connection.IsReceivePaused) return;
@@ -675,22 +695,28 @@ namespace SAEA.Sockets.Core.Tcp
         {
             if (readArgs == null) return;
             var userToken = (IUserToken)readArgs.UserToken;
+            var baseToken = userToken as BaseUserToken;
+
+            // 同一连接同一时刻只允许一个接收在途：排空会无条件续投，前一次未完成时
+            // 对同一 args 再次提交会触发套接字错误并断开连接。
+            if (baseToken != null && !baseToken.TryBeginReceive()) return;
+
             try
             {
                 if (userToken == null) return;
-                if (userToken.Socket != null && userToken.Socket.Connected)
+                if (CanReceive(userToken))
                 {
                     lock (readArgs)
                     {
-                        if (userToken.Socket != null && userToken.Socket.Connected)
+                        if (CanReceive(userToken))
                         {
                             bool willRaiseEvent;
 
                             // 回收已请求时不得再提交：关闭 socket 不会撤销已投递的接收，
                             // 复用时对同一 args 再次 SetBuffer/ReceiveAsync 会抛异常并丢掉令牌。
-                            var baseToken = userToken as BaseUserToken;
                             if (baseToken != null && !baseToken.TryBeginOperation())
                             {
+                                baseToken.EndReceive();
                                 Disconnect(userToken, new KernelException("连接正在回收，停止接收。"));
                                 return;
                             }
@@ -701,6 +727,8 @@ namespace SAEA.Sockets.Core.Tcp
                             }
                             catch (ObjectDisposedException ex)
                             {
+                                if (baseToken != null) baseToken.EndReceive();
+
                                 // 连接正在关闭时 socket 句柄已释放，提交接收必然失败：属预期竞态，按信息记录，
                                 // 仍要断开并回滚在途计数，CompleteOperation 之后不再触碰令牌。
                                 var tokenId = userToken.ID;
@@ -717,6 +745,8 @@ namespace SAEA.Sockets.Core.Tcp
                             }
                             catch (InvalidOperationException ex)
                             {
+                                if (baseToken != null) baseToken.EndReceive();
+
                                 // 入池会清空 ID：日志、回调与断开都用入池前的快照；
                                 // 先断开再回滚在途计数，CompleteOperation 之后不再触碰令牌。
                                 var tokenId = userToken.ID;
@@ -735,6 +765,8 @@ namespace SAEA.Sockets.Core.Tcp
                             }
                             catch (Exception ex)
                             {
+                                if (baseToken != null) baseToken.EndReceive();
+
                                 // 入池会清空 ID：日志、回调与断开都用入池前的快照；
                                 // 先断开再回滚在途计数，CompleteOperation 之后不再触碰令牌。
                                 var tokenId = userToken.ID;
@@ -762,17 +794,21 @@ namespace SAEA.Sockets.Core.Tcp
                         }
                         else
                         {
+                            if (baseToken != null) baseToken.EndReceive();
                             Disconnect(userToken, new KernelException("The remote client has been disconnected."));
                         }
                     }
                 }
                 else
                 {
+                    if (baseToken != null) baseToken.EndReceive();
                     Disconnect(userToken, new KernelException("The remote client has been disconnected."));
                 }
             }
             catch (Exception exp)
             {
+                if (baseToken != null) baseToken.EndReceive();
+
                 var kex = new KernelException("An exception occurs when a message is received:" + exp.Message, exp);
                 LogHelper.Error($"An exception occurs when receiving:{userToken?.ID}", kex);
                 OnError?.Invoke(userToken?.ID, kex);
@@ -791,6 +827,10 @@ namespace SAEA.Sockets.Core.Tcp
             try
             {
                 if (readArgs == null || readArgs.UserToken == null) return;
+
+                // 与 ProcessReceive 的 TryBeginReceive 配对：本次接收已完成，后续 re-arm 才能再进一次。
+                var receivedToken = readArgs.UserToken as BaseUserToken;
+                if (receivedToken != null) receivedToken.EndReceive();
 
                 if (readArgs.BytesTransferred > 0 && readArgs.SocketError == SocketError.Success)
                 {

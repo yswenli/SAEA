@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 13:12:01
+*修改时间：2026/11/24 16:12:55
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：HTTP 分帧器把协议错误种类编码进 FrameProtocolException 的固定 token
+*版本号： v26.11.24.1
+*描述：chunked 已支持定帧，ChunkedNotSupported 降为历史 token 仅保留兼容
 *
 *****************************************************************************/
 namespace SAEA.Http
@@ -49,7 +49,7 @@ namespace SAEA.Http
         /// <summary>请求行与报头超过配置上限，应返回 431。</summary>
         public const string RequestHeaderFieldsTooLarge = "431";
 
-        /// <summary>请求使用 chunked 传输编码，当前不支持，应返回 400。</summary>
+        /// <summary>历史 token：分帧器已不再抛出（chunked 已支持），保留以兼容既有引用。</summary>
         public const string ChunkedNotSupported = "chunked";
     }
 }

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 15:26:46
+*修改时间：2026/11/24 15:41:00
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
+*版本号： v26.11.24.1
+*描述：透传请求体落盘阈值与临时目录到 WebConfig
 *
 *****************************************************************************/
 using System;
@@ -91,6 +91,17 @@ namespace SAEA.MVC.Hosting
 
             // 0 本身就是合法语义（沿用 Timeout），不需要判空或判正
             _webHost.WebConfig.ActionTimeout = mvcConfig.ActionTimeout;
+
+            // 请求体上限在 Start 建链时生效，这里只做透传
+            _webHost.WebConfig.MaxRequestBodySize = mvcConfig.MaxRequestBodySize;
+
+            // 排空超时同样在建链时读取，0 表示不排空
+            _webHost.WebConfig.RequestDrainTimeout = mvcConfig.RequestDrainTimeout;
+
+            // 落盘阈值与临时目录同样在 Start 建链时校验与创建
+            _webHost.WebConfig.LargeBodyThreshold = mvcConfig.LargeBodyThreshold;
+
+            _webHost.WebConfig.TempDirectory = mvcConfig.TempDirectory;
         }
 
         /// <summary>
@@ -254,6 +265,11 @@ namespace SAEA.MVC.Hosting
 
                 _webHost.Start();
                 this.Running = true;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                // 配置校验失败不是端口问题，原样抛出避免误导排查方向
+                throw;
             }
             catch (Exception ex)
             {

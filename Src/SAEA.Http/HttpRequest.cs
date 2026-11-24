@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 10:00:00
+*修改时间：2026/11/24 15:41:00
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：Cookies 改为透传底层消息的按需解析实现，初始化时不再触发 Cookie 解析
+*版本号： v26.11.24.1
+*描述：请求体改为只读 Stream，初始化时借用底层消息的流，释放与复位只置空
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -35,6 +35,7 @@ using SAEA.Http.Model;
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace SAEA.Http
 {
@@ -101,6 +102,14 @@ namespace SAEA.Http
         /// 接收到的文件信息
         /// </summary>
         public List<FilePart> PostFiles
+        {
+            get; set;
+        }
+
+        /// <summary>
+        /// 请求体流，只读且可 Seek；无请求体时为 null，生命周期与请求一致
+        /// </summary>
+        public Stream Body
         {
             get; set;
         }
@@ -208,6 +217,9 @@ namespace SAEA.Http
             this.ContentType = _httpMessage.ContentType;
             this.ContentLength = _httpMessage.ContentLength;
 
+            // 请求体流归底层消息持有：这里只借用引用，释放由 HttpMessage 统一负责
+            this.Body = _httpMessage.Body;
+
             if (this.Headers == null)
             {
                 this.Headers = new Dictionary<string, string>();
@@ -224,7 +236,6 @@ namespace SAEA.Http
             if (!string.IsNullOrEmpty(_httpMessage.Json))
             {
                 this.Json = _httpMessage.Json;
-                this.Body = _httpMessage.Body;
             }
         }
 
@@ -306,7 +317,7 @@ namespace SAEA.Http
 
             httpMessage.Dispose();
 
-            // 复用实例会在请求结束后继续存活，必须摘掉本请求的正文与文件引用，避免空闲连接把它们钉在内存里
+            // 底层消息已在上一步处置正文流与文件分段，这里只摘掉引用，避免空闲连接继续持有
             this.Json = null;
             this.PostFiles = null;
             this.Body = null;

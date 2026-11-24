@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 13:11:19
+*修改时间：2026/11/24 18:12:35
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：规范文件头 banner
+*版本号： 
+*描述：v26.11.24.2
 *
 *****************************************************************************/
 using System;
@@ -37,7 +37,7 @@ namespace SAEA.Sockets.Core
     /// <summary>
     /// 把一条连接的接收闸门适配为 <see cref="IReceiveFlowControl"/>。
     /// </summary>
-    internal sealed class ReceiveFlowControl : IReceiveFlowControl
+    internal sealed class ReceiveFlowControl : IReceiveFlowControl, IGracefulCloseFlow
     {
         private readonly SaeaConnection _connection;
 
@@ -81,6 +81,25 @@ namespace SAEA.Sockets.Core
         {
             try { _onClose?.Invoke(); } catch { }
             return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// 半关发送方向，按字节上限与超时排空入站后关闭连接。
+        /// 连接已释放或没有连接载体时退化为普通关闭，避免收口悬挂。
+        /// </summary>
+        /// <param name="drainBytes">关闭前还需读取的字节数</param>
+        /// <param name="timeoutMs">排空超时毫秒数</param>
+        /// <returns>连接真正关闭后完成的任务</returns>
+        public Task DrainAndCloseAsync(long drainBytes, int timeoutMs)
+        {
+            var connection = _connection;
+            if (connection == null || connection.IsClosed)
+            {
+                try { _onClose?.Invoke(); } catch { }
+                return Task.CompletedTask;
+            }
+
+            return connection.DrainAndCloseAsync(drainBytes, timeoutMs, _onClose);
         }
     }
 }

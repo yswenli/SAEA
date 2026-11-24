@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/20 20:52:03
+*修改时间：2026/11/24 18:12:35
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：增加绑定代次：每次绑定自增，供 Free 拒绝上一代遗留的断开调用
+*版本号： 
+*描述：v26.11.24.2
 *
 *****************************************************************************/
 using System;
@@ -78,6 +78,11 @@ namespace SAEA.Sockets.Base
         /// 绑定代次：每次绑定到新连接时自增，用于丢弃上一代连接遗留的断开调用
         /// </summary>
         long _generation;
+
+        /// <summary>
+        /// 接收在途标志：1 表示已提交接收且尚未回调完成；同一连接不允许重复提交接收
+        /// </summary>
+        int _receiving;
 
         /// <summary>
         /// 创建令牌并生成唯一标识
@@ -360,12 +365,33 @@ namespace SAEA.Sockets.Base
         }
 
         /// <summary>
+        /// 尝试占用接收在途标志。
+        /// </summary>
+        /// <returns>此前没有在途接收时返回 true，由本次调用方提交接收</returns>
+        internal bool TryBeginReceive()
+        {
+            return Interlocked.CompareExchange(ref _receiving, 1, 0) == 0;
+        }
+
+        /// <summary>
+        /// 释放接收在途标志，允许下一次提交接收；可重复调用。
+        /// </summary>
+        internal void EndReceive()
+        {
+            Interlocked.Exchange(ref _receiving, 0);
+        }
+
+        /// <summary>
         /// 清理令牌：关闭套接字、释放发送所有权与编解码器、释放读写 args 并置空引用，可重复调用
         /// </summary>
         public virtual void Clear()
         {
             // 在途发送对应的 Task 必须可观察地失败，否则调用方会永久等待一个已不可能完成的发送。
             AbandonPendingSend(new KernelException("连接已关闭，发送未完成。"));
+
+            // 回收后的令牌会绑定新连接：残留的在途标志会让新连接永远提交不了接收。
+            EndReceive();
+
             Socket?.Close();
             try { TakeSendingOwner()?.Dispose(); } catch { }
             Coder?.Clear();

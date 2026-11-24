@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 15:20:00
+*修改时间：2026/11/24 18:12:35
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：把服务端或客户端 socket 接到 IRawByteStream 的适配器
+*版本号： 
+*描述：v26.11.24.2
 *
 *****************************************************************************/
 using System;
@@ -52,7 +52,7 @@ namespace SAEA.Http
     /// 同步抛出的异常与异步 fault 统一翻译成 <see cref="ChannelClosedException"/>，让业务只面对一种关闭形态。
     /// </para>
     /// </summary>
-    public sealed class PipelineRawByteStream : IRawByteStream
+    public sealed class PipelineRawByteStream : IRawByteStream, IDrainedCloseStream
     {
         private readonly string _channelId;
         private readonly PipeReader _input;
@@ -177,6 +177,22 @@ namespace SAEA.Http
         /// <returns>关闭完成的 Task，可重复调用</returns>
         public Task CloseAsync(string reason)
         {
+            return _flow.CloseAsync(reason);
+        }
+
+        /// <summary>
+        /// 半关发送方向，按规格排空入站后关闭连接；闸门不支持排空时退化为普通关闭。
+        /// </summary>
+        /// <param name="reason">关闭原因，退化为普通关闭时透传给流量控制层</param>
+        /// <param name="drainBytes">关闭前还需读取的字节数</param>
+        /// <param name="timeoutMs">排空超时毫秒数</param>
+        /// <returns>连接真正关闭后完成的任务</returns>
+        public Task DrainAndCloseAsync(string reason, long drainBytes, int timeoutMs)
+        {
+            var graceful = _flow as IGracefulCloseFlow;
+            if (graceful != null)
+                return graceful.DrainAndCloseAsync(drainBytes, timeoutMs);
+
             return _flow.CloseAsync(reason);
         }
     }

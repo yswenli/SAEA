@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/9 14:05:22
+*修改时间：2026/11/24 18:12:35
 *修改人： yswenli
-*版本号： net10.0
-*描述：HTTP 测试用的通道链宿主：内存字节流、连接视图、捕获处理器与启动/收口辅助
+*版本号： 
+*描述：net10.0
 *
 *****************************************************************************/
 using System;
@@ -150,14 +150,20 @@ namespace SAEA.Http.Tests.Tests.Support
     }
 
     /// <summary>
-    /// 内存版连接视图：只提供标识、活跃标记与线程安全属性表。
+    /// 内存版连接视图：只提供标识、活跃标记与线程安全属性表，并记录协议层声明的排空规格。
     /// </summary>
-    public sealed class TestChannel : IChannel
+    public sealed class TestChannel : IChannel, IDrainableChannel
     {
         private readonly ConcurrentDictionary<string, object> _attributes =
             new ConcurrentDictionary<string, object>();
 
         private int _active = 1;
+
+        private long _drainBytes;
+
+        private int _drainTimeoutMs;
+
+        private int _drainSpecSet;
 
         /// <summary>以连接标识创建连接视图。</summary>
         /// <param name="id">连接标识。</param>
@@ -206,7 +212,39 @@ namespace SAEA.Http.Tests.Tests.Support
             Volatile.Write(ref _active, 0);
             return Task.CompletedTask;
         }
+
+        /// <summary>记录排空规格；任一参数非正时与真实实现一样忽略。</summary>
+        /// <param name="drainBytes">关闭前还需读取的字节数。</param>
+        /// <param name="timeoutMs">排空超时毫秒数。</param>
+        public void SetDrainSpec(long drainBytes, int timeoutMs)
+        {
+            if (drainBytes <= 0 || timeoutMs <= 0)
+                return;
+
+            Interlocked.Exchange(ref _drainBytes, drainBytes);
+            Volatile.Write(ref _drainTimeoutMs, timeoutMs);
+            Volatile.Write(ref _drainSpecSet, 1);
+        }
+
+        /// <summary>取走排空规格并清空，只在第一次调用时返回 true。</summary>
+        /// <param name="drainBytes">关闭前还需读取的字节数。</param>
+        /// <param name="timeoutMs">排空超时毫秒数。</param>
+        /// <returns>存在有效规格时返回 true。</returns>
+        public bool TryTakeDrainSpec(out long drainBytes, out int timeoutMs)
+        {
+            drainBytes = 0;
+            timeoutMs = 0;
+
+            if (Interlocked.Exchange(ref _drainSpecSet, 0) == 0)
+                return false;
+
+            drainBytes = Interlocked.Exchange(ref _drainBytes, 0);
+            timeoutMs = Volatile.Read(ref _drainTimeoutMs);
+            return drainBytes > 0 && timeoutMs > 0;
+        }
     }
+
+    
 
     /// <summary>
     /// 链尾捕获处理器：按到达顺序保存入站消息，供断言方法、报头与请求体。

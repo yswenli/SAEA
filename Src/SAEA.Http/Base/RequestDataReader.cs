@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 10:00:00
+*修改时间：2026/11/24 15:59:54
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：Cookie 只记录报头原文，解析推迟到首次读取 Cookies 时
+*版本号： v26.11.24.1
+*描述：multipart 改为按 64KB 缓冲单遍流式扫描，JSON 与 urlencoded 直接从流读取文本
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -37,7 +37,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace SAEA.Http.Base
 {
@@ -47,6 +46,16 @@ namespace SAEA.Http.Base
     public static class RequestDataReader
     {
         static readonly byte[] _dEnterBytes = new byte[] { 13, 10, 13, 10 };
+
+        /// <summary>
+        /// 单个 multipart 请求允许的最大分段数
+        /// </summary>
+        private const int MaxParts = 1024;
+
+        /// <summary>
+        /// 单个 multipart 分段允许的报头块最大字节数
+        /// </summary>
+        private const int MaxPartHeaderBytes = 16 * 1024;
 
         // 报头名每请求都要查表，缓存成静态字段可省掉枚举装箱与并发表查找
         static readonly string _cookieKey = RequestHeaderType.Cookie.GetDescription();
@@ -202,9 +211,16 @@ namespace SAEA.Http.Base
                 //form-data
                 if (message.ContentType != null && message.ContentType.AsSpan().Contains(ConstHelper.FormData.AsSpan(), StringComparison.InvariantCultureIgnoreCase))
                 {
-                    message.IsFormData = true;
+                    var boundary = GetMultipartBoundary(message.ContentType);
 
-                    message.Boundary = "--" + Regex.Split(message.ContentType, ConstHelper.SEMICOLON)[1].Replace(ConstHelper.BOUNDARY, "");
+                    // 没有 boundary 参数就无法切分分段，保持 IsFormData 为 false，不进入 multipart 解析
+                    if (!string.IsNullOrEmpty(boundary))
+                    {
+                        message.IsFormData = true;
+
+                        // 对外格式保持 "--" + token，解析器按同一个串定位分段
+                        message.Boundary = "--" + boundary;
+                    }
                 }
             }
 
@@ -482,7 +498,8 @@ namespace SAEA.Http.Base
             if (requestData.Length < positon + contentLen)
                 return false;
 
-            httpMessage.Body = requestData.AsSpan().Slice(positon, contentLen).ToArray();
+            // 只是把传入字节包成只读内存流，不复制；解析结束会把位置复位到 0
+            httpMessage.Body = new MemoryStream(requestData, positon, contentLen, false, true);
             return ParseBody(httpMessage);
         }
 
@@ -494,78 +511,87 @@ namespace SAEA.Http.Base
         /// <returns>解析完成返回 true；内容类型不参与解析或解析异常返回 false</returns>
         internal static bool ParseBody(HttpMessage httpMessage)
         {
+            if (httpMessage == null) return false;
+
+            var body = httpMessage.Body;
+
+            if (body == null || body.Length == 0) return false;
+
             try
             {
-                if (httpMessage.Body == null)
-                    return false;
+                var contentType = httpMessage.ContentType;
 
-                if (httpMessage.ContentType.IndexOf(ConstHelper.FormUrlEncode, StringComparison.InvariantCultureIgnoreCase) > -1)
+                if (contentType == null) return false;
+
+                if (contentType.IndexOf(ConstHelper.FormUrlEncode, StringComparison.InvariantCultureIgnoreCase) > -1)
                 {
-                    httpMessage.Forms = GetRequestForms(Encoding.UTF8.GetString(httpMessage.Body));
+                    httpMessage.Forms = GetRequestForms(ReadBodyText(body));
                 }
-                else if (httpMessage.ContentType.IndexOf(ConstHelper.FormData, StringComparison.InvariantCultureIgnoreCase) > -1)
+                else if (contentType.IndexOf(ConstHelper.FormData, StringComparison.InvariantCultureIgnoreCase) > -1)
                 {
-                    using (MemoryStream ms = new MemoryStream(httpMessage.Body))
-                    {
-                        ms.Position = 0;
-                        using var sr = new SAEA.Common.IO.StreamReader(ms);
-                        StringBuilder sb = new StringBuilder();
-                        var str = string.Empty;
-                        do
-                        {
-                            str = sr.ReadLine();
-                            if (str == null)
-                            {
-                                break;
-                            }
-                            else
-                            {
-                                sb.AppendLine(str);
-                                if (str.Contains(ConstHelper.CT))
-                                {
-                                    var filePart = GetRequestFormsWithMultiPart(sb.ToString(), httpMessage);
+                    SeekBodyStart(body);
 
-                                    if (filePart != null)
-                                    {
-                                        sr.ReadLine();
-
-                                        filePart.Data = sr.ReadData(sr.Position, httpMessage.Boundary);
-                                        if (filePart.Data != null)
-                                        {
-                                            // 原实现 Take(len - 2).ToArray() 会让文件数据再复制一遍，这里一次复制到位；
-                                            // 长度不足 2 时同样得到空数组，与截空结果一致
-                                            var dataLength = filePart.Data.Length - 2;
-                                            if (dataLength > 0)
-                                            {
-                                                var trimmed = new byte[dataLength];
-                                                Buffer.BlockCopy(filePart.Data, 0, trimmed, 0, dataLength);
-                                                filePart.Data = trimmed;
-                                            }
-                                            else
-                                            {
-                                                filePart.Data = Array.Empty<byte>();
-                                            }
-                                        }
-                                        httpMessage.PostFiles.Add(filePart);
-                                    }
-                                    sb.Clear();
-                                    sr.ReadLine();
-                                }
-                            }
-                        }
-                        while (true);
-                    }
+                    return MultipartStreamParser.Parse(body, httpMessage);
                 }
-                else if (httpMessage.ContentType.IndexOf(ConstHelper.Json, StringComparison.InvariantCultureIgnoreCase) > -1)
+                else if (contentType.IndexOf(ConstHelper.Json, StringComparison.InvariantCultureIgnoreCase) > -1)
                 {
-                    httpMessage.Json = Encoding.UTF8.GetString(httpMessage.Body);
+                    httpMessage.Json = ReadBodyText(body);
                 }
 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                // 畸形请求体或临时文件创建失败都只记日志，按「无表单」处理，不向连接层抛
+                LogHelper.Error("RequestDataReader.ParseBody", ex);
+
                 return false;
+            }
+            finally
+            {
+                // 解析结束后把位置复位，业务可以从头再读一遍
+                ResetBodyPosition(body);
+            }
+        }
+
+        /// <summary>
+        /// 直接从请求体流按 UTF-8 读成字符串，避免先复制整段字节再解码的二次复制
+        /// </summary>
+        /// <param name="body">请求体流</param>
+        /// <returns>请求体文本</returns>
+        private static string ReadBodyText(Stream body)
+        {
+            SeekBodyStart(body);
+
+            // leaveOpen 为 true：流归消息对象所有，读完不能关
+            using (var reader = new StreamReader(body, Encoding.UTF8, true, 1024, true))
+            {
+                return reader.ReadToEnd();
+            }
+        }
+
+        /// <summary>
+        /// 把请求体流定位到开头，不可 Seek 时保持当前进度
+        /// </summary>
+        /// <param name="body">请求体流</param>
+        private static void SeekBodyStart(Stream body)
+        {
+            if (body.CanSeek) body.Position = 0;
+        }
+
+        /// <summary>
+        /// 把请求体流的位置复位到 0，已释放或不可 Seek 时忽略
+        /// </summary>
+        /// <param name="body">请求体流</param>
+        private static void ResetBodyPosition(Stream body)
+        {
+            try
+            {
+                SeekBodyStart(body);
+            }
+            catch (Exception)
+            {
+                // 流已释放或不允许调整位置时保持原状，不影响解析结果
             }
         }
         #region private
@@ -719,51 +745,164 @@ namespace SAEA.Http.Base
             headers[key] = GetAsciiString(text.Slice(valueStart, valueEnd - valueStart));
         }
 
-        private static FilePart GetRequestFormsWithMultiPart(string row, HttpMessage httpMessage)
+        /// <summary>
+        /// 解析单个分段的报头块，读出字段名、文件名与 MIME 类型
+        /// </summary>
+        /// <param name="body">含报头块的缓冲区</param>
+        /// <param name="start">报头块起始下标</param>
+        /// <param name="length">报头块长度，不含结束空行</param>
+        /// <param name="name">表单字段名，没有 Content-Disposition 或其中没有 name 时为 null</param>
+        /// <param name="fileName">客户端提交的文件名，普通表单字段为 null</param>
+        /// <param name="type">MIME 类型，缺省为空串</param>
+        /// <returns>报头块里有带 name 的 Content-Disposition 返回 true</returns>
+        internal static bool TryParsePartHeaders(ReadOnlySpan<byte> body, int start, int length, out string name, out string fileName, out string type)
         {
-            FilePart filePart = null;
+            name = null;
+            fileName = null;
+            type = string.Empty;
 
-            var sections = row.Split(httpMessage.Boundary, StringSplitOptions.RemoveEmptyEntries);
+            if (length <= 0) return false;
 
-            if (sections != null)
+            // 报头块通常只有几百字节，按 UTF-8 一次解出，文件名里的非 ASCII 字符不会被弄坏
+            var text = Encoding.UTF8.GetString(body.Slice(start, length).ToArray());
+
+            var block = text.AsSpan();
+
+            var position = 0;
+
+            while (position <= block.Length)
             {
-                foreach (var section in sections)
+                var relative = block.Slice(position).IndexOf('\n');
+
+                var end = relative < 0 ? block.Length : position + relative;
+
+                var line = block.Slice(position, end - position);
+
+                if (line.Length > 0 && line[line.Length - 1] == '\r') line = line.Slice(0, line.Length - 1);
+
+                var colon = line.IndexOf(':');
+
+                if (colon > 0)
                 {
-                    if (section.IndexOf(ConstHelper.CT) > -1)
+                    var headerName = TrimWhiteSpace(line.Slice(0, colon));
+
+                    var headerValue = TrimWhiteSpace(line.Slice(colon + 1));
+
+                    if (headerName.Equals("Content-Disposition".AsSpan(), StringComparison.OrdinalIgnoreCase))
                     {
-                        var arr = section.Split(ConstHelper.ENTER, StringSplitOptions.RemoveEmptyEntries);
-                        if (arr != null && arr.Length > 0)
-                        {
-                            var firsts = arr[0].Split(ConstHelper.SEMICOLON);
-                            var name = firsts[1].Split(ConstHelper.EQUO)[1].Replace("\"", "");
-                            var fileName = firsts[2].Split(ConstHelper.EQUO)[1].Replace("\"", "");
-                            var type = string.Empty;
-                            if (arr.Length > 1)
-                            {
-                                type = arr[1].Split(new[] { ConstHelper.SEMICOLON, ConstHelper.COLON }, StringSplitOptions.RemoveEmptyEntries)[1];
-                            }
-                            filePart = new FilePart(name, fileName, type);
-                        }
+                        TryGetParameter(headerValue, "name".AsSpan(), out name);
+
+                        TryGetParameter(headerValue, "filename".AsSpan(), out fileName);
                     }
-                    else
+                    else if (headerName.Equals(ConstHelper.CT.AsSpan(), StringComparison.OrdinalIgnoreCase))
                     {
-                        if (!string.IsNullOrWhiteSpace(section))
-                        {
-                            var content = section.Trim();
+                        // 只取 MIME 类型本身，分段里的 charset 等参数不属于 Type
+                        var semicolon = headerValue.IndexOf(';');
 
-                            var name = content.Substring(content.IndexOf("=\"") + 2);
-
-                            name = name.Substring(0, name.LastIndexOf(ConstHelper.DOUBLEQUOTES));
-
-                            var value = content.Substring(content.IndexOf(ConstHelper.DENTER) + 4);
-
-                            httpMessage.Forms[name] = value;
-                        }
+                        type = TrimWhiteSpace(semicolon < 0 ? headerValue : headerValue.Slice(0, semicolon)).ToString();
                     }
                 }
+
+                if (relative < 0) break;
+
+                position = end + 1;
             }
 
-            return filePart;
+            return !string.IsNullOrEmpty(name);
+        }
+
+        /// <summary>
+        /// 在报头值里按分号拆分参数并读取指定键的值，值两侧的引号会去掉
+        /// </summary>
+        /// <param name="value">报头值</param>
+        /// <param name="key">参数名，不区分大小写</param>
+        /// <param name="result">参数值，未找到时为 null</param>
+        /// <returns>存在该参数返回 true</returns>
+        private static bool TryGetParameter(ReadOnlySpan<char> value, ReadOnlySpan<char> key, out string result)
+        {
+            result = null;
+
+            var position = 0;
+
+            while (position <= value.Length)
+            {
+                var end = position;
+
+                var quoted = false;
+
+                while (end < value.Length)
+                {
+                    var current = value[end];
+
+                    if (current == '"')
+                    {
+                        quoted = !quoted;
+                    }
+                    else if (current == ';' && !quoted)
+                    {
+                        break;
+                    }
+
+                    end++;
+                }
+
+                var segment = TrimWhiteSpace(value.Slice(position, end - position));
+
+                var equals = segment.IndexOf('=');
+
+                if (equals > 0 && TrimWhiteSpace(segment.Slice(0, equals)).Equals(key, StringComparison.OrdinalIgnoreCase))
+                {
+                    var raw = TrimWhiteSpace(segment.Slice(equals + 1));
+
+                    if (raw.Length >= 2 && raw[0] == '"' && raw[raw.Length - 1] == '"')
+                    {
+                        raw = raw.Slice(1, raw.Length - 2);
+                    }
+
+                    result = raw.ToString();
+
+                    return true;
+                }
+
+                if (end >= value.Length) break;
+
+                position = end + 1;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 去掉字符区段两侧的空白
+        /// </summary>
+        /// <param name="value">待裁剪的区段</param>
+        /// <returns>去掉两侧空白后的区段</returns>
+        private static ReadOnlySpan<char> TrimWhiteSpace(ReadOnlySpan<char> value)
+        {
+            var start = 0;
+
+            var end = value.Length;
+
+            while (start < end && char.IsWhiteSpace(value[start])) start++;
+
+            while (end > start && char.IsWhiteSpace(value[end - 1])) end--;
+
+            return value.Slice(start, end - start);
+        }
+
+        /// <summary>
+        /// 从 Content-Type 报头值里取 multipart 的 boundary 参数
+        /// </summary>
+        /// <param name="contentType">请求的 Content-Type 报头值</param>
+        /// <returns>去掉两侧引号的 boundary 值；没有该参数或值为空时返回 null</returns>
+        private static string GetMultipartBoundary(string contentType)
+        {
+            if (string.IsNullOrEmpty(contentType)) return null;
+
+            // 参数可以出现在任意位置，也可以带引号，按分号拆分后按键名查找即可
+            if (!TryGetParameter(contentType.AsSpan(), "boundary".AsSpan(), out var boundary)) return null;
+
+            return string.IsNullOrEmpty(boundary) ? null : boundary;
         }
         #endregion
     }
