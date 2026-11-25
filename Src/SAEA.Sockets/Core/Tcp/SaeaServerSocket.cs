@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/24 18:12:35
+*修改时间：2026/11/24 18:28:01
 *修改人： yswenli
-*版本号： 
-*描述：v26.11.24.2
+*版本号： v26.11.24.2
+*描述：接收守卫改为负载处理完再释放，避免续投覆盖正在读取的缓冲区
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -824,13 +824,23 @@ namespace SAEA.Sockets.Core.Tcp
         /// <param name="readArgs"></param>
         void ProcessReceived(SocketAsyncEventArgs readArgs)
         {
+            // 与 ProcessReceive 的 TryBeginReceive 配对，释放点要等到负载处理完：
+            // 守卫必须覆盖整段 readArgs.Buffer 读取窗口，否则排空续投或背压续体能在本栈
+            // 仍在读 dataSpan 时对同一 args 提交接收，把正写入 Pipe 的请求体覆盖成新数据。
+            var receivedToken = readArgs?.UserToken as BaseUserToken;
+
+            // 只释放一次：释放后置空，重复调用不会再清掉下一次接收的在途标记。
+            void ReleaseReceive()
+            {
+                var token = receivedToken;
+                if (token == null) return;
+                receivedToken = null;
+                token.EndReceive();
+            }
+
             try
             {
                 if (readArgs == null || readArgs.UserToken == null) return;
-
-                // 与 ProcessReceive 的 TryBeginReceive 配对：本次接收已完成，后续 re-arm 才能再进一次。
-                var receivedToken = readArgs.UserToken as BaseUserToken;
-                if (receivedToken != null) receivedToken.EndReceive();
 
                 if (readArgs.BytesTransferred > 0 && readArgs.SocketError == SocketError.Success)
                 {
@@ -859,6 +869,9 @@ namespace SAEA.Sockets.Core.Tcp
                         LogHelper.Error($"An exception occurs when receiving:{userToken?.ID}", ex);
                     }
 
+                    // 负载已写入 Pipe 或交给上层，读窗口到这里结束；释放同时覆盖背压暂停的返回与下面的续投。
+                    ReleaseReceive();
+
                     // Pipe 背压暂停：等待 ResumeReceive 恢复。
                     if (connection != null && connection.IsReceivePaused) return;
 
@@ -871,6 +884,9 @@ namespace SAEA.Sockets.Core.Tcp
 
                     // 与接收回调并发时 ID 可能被置空，只读一次局部副本，空判断与字典查找用同一个值。
                     var eofSessionId = eofToken?.ID;
+
+                    // 这两条出口都不再读 readArgs.Buffer，统一在分叉前释放一次。
+                    ReleaseReceive();
 
                     // 对端 FIN 只把「入站结束」交给连接门面：由输入处理器读完 Pipe 剩余字节后
                     // 自行收口，期间写方向仍可用。带 SocketError 的失败不等于 FIN，仍按断开处理。
@@ -889,6 +905,7 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (Exception ex)
             {
+                ReleaseReceive();
                 OnError?.Invoke("", ex);
             }
             finally

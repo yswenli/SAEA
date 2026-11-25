@@ -519,6 +519,8 @@ The usable connection count is also bounded by the OS: on Linux/macOS raise the 
 | `BufferManager` | Memory buffer pool (reuses `byte[]` buffers) |
 | `UserTokenPool` | User token pool |
 
+`IGracefulCloseFlow` is the transport-side entry point for half-close draining: the connection half-closes its write side, then reads and discards up to the declared byte count or until the timeout expires, and finally closes. `ReceiveFlowControl` is the only implementation. Protocol layers declare and trigger a drain through `IDrainableChannel` / `IDrainedCloseStream` in `SAEA.Sockets.Pipeline`.
+
 ---
 
 ## Usage Examples 📝

@@ -327,6 +327,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 - Once the hooks are enabled, the event pump is not started for that connection: neither server `OnServerReceiveSpan` nor client `OnClientReceiveSpan` fires.
 - `UseInputHandler` must be paired with `UseConnectionOpened` and requires `.UseStream()`. `SocketOptionBuilder.Build()` validates this and throws `InvalidOperationException`.
 - `UseConnectionOpened` runs synchronously: on the server inside `RaiseAccepted`, on the client before the connect callback. Keep it to lightweight registration (create the `IChannel`, write initial attributes). Blocking I/O and `await` are forbidden.
+- Protocols that must "half-close the write side, read the rest of the peer's bytes, then close" (HTTP 413, for example) declare the drain spec on the connection with `IDrainableChannel.SetDrainSpec(byteCount, timeoutMs)`. At the tail of shutdown `ChannelPipelineExecutor` takes it once with `TryTakeDrainSpec` and hands it to `IDrainedCloseStream.DrainAndCloseAsync`, which performs the half-close and the bounded drain; the transport implementation is `IGracefulCloseFlow` in `SAEA.Sockets`. Only the most recent valid spec is kept, taking it clears it, and a single shutdown drains once; bytes read while draining are only counted and never written to the `Pipe`, so receive backpressure cannot stall the drain.
 
 ---
 

@@ -322,6 +322,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 - 钩子启用后，该连接的事件泵不再启动：服务端 `OnServerReceiveSpan`、客户端 `OnClientReceiveSpan` 都不再触发。
 - `UseInputHandler` 必须与 `UseConnectionOpened` 成对配置，且必须 `.UseStream()`；`SocketOptionBuilder.Build()` 会校验并抛 `InvalidOperationException`。
 - `UseConnectionOpened` 同步调用：服务端在 `RaiseAccepted` 内、客户端在连接成功回调之前，只做轻量登记（创建 `IChannel`、写初始属性），禁止阻塞 IO 或 `await`。
+- 需要「先半关写方向、读完对端剩余字节再关闭」的协议（如 HTTP 413）用 `IDrainableChannel.SetDrainSpec(byteCount, timeoutMs)` 在连接上声明排空规格；收口末端由 `ChannelPipelineExecutor` 用 `TryTakeDrainSpec` 取走一次，再交给 `IDrainedCloseStream.DrainAndCloseAsync` 执行半关与有界排空，传输层实现是 `SAEA.Sockets` 的 `IGracefulCloseFlow`。规格只保留最近一次有效设置、取走即清空，同一次收口只排空一次；排空期间读到的字节只计数、不写入 `Pipe`，因此不受接收背压暂停影响。
 
 ---
 

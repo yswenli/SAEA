@@ -22,10 +22,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/24 18:12:35
+*修改时间：2026/11/24 18:28:01
 *修改人： yswenli
-*版本号： 
-*描述：net10.0
+*版本号： net10.0
+*描述：排空收尾返回多余应用字节数并断言为 0
 *
 *****************************************************************************/
 using SAEA.MVC.Hosting;
@@ -256,9 +256,11 @@ namespace SAEA.MVC.Tests
                         }
 
                         // 服务端按解密后的明文字节计数，读完全部正文后才关闭；这里应看到有序收尾而不是连接重置
-                        await DrainToCloseAsync(ssl).ConfigureAwait(false);
+                        var extra = await DrainToCloseAsync(ssl).ConfigureAwait(false);
 
                         stopwatch.Stop();
+
+                        Assert.AreEqual(0, extra, "413 响应读完后不应再收到字节。");
 
                         Assert.IsTrue(
                             stopwatch.ElapsedMilliseconds < 4000,
@@ -340,10 +342,12 @@ namespace SAEA.MVC.Tests
         /// 只有连接重置才算排空失败。
         /// </summary>
         /// <param name="ssl">已握手的 TLS 客户端流</param>
-        /// <returns>读到关闭的任务</returns>
-        private static async Task DrainToCloseAsync(SslStream ssl)
+        /// <returns>413 正文之后读到的多余应用字节数；正常收尾为 0</returns>
+        private static async Task<int> DrainToCloseAsync(SslStream ssl)
         {
             var buffer = new byte[4096];
+
+            var extra = 0;
 
             try
             {
@@ -352,13 +356,16 @@ namespace SAEA.MVC.Tests
                     var read = await ssl.ReadAsync(buffer, 0, buffer.Length).WaitAsync(WaitTimeout).ConfigureAwait(false);
 
                     if (read == 0)
-                        return;
+                        return extra;
+
+                    extra += read;
                 }
             }
             catch (IOException ex) when (!IsConnectionReset(ex))
             {
                 // 缺少 close_notify 的收尾属于有序关闭：SslStream 把 TCP 关闭包装成 IOException，
                 // 服务端不会另行发送 alert；只有链路上出现 ConnectionReset 才说明排空失败
+                return extra;
             }
         }
 

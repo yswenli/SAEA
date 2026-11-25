@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>26.11.24.2</Version>
+    <Version>26.11.25.1</Version>
     <Authors>yswenli</Authors>
     <Description>SAEA.Socket is a cross-platform high-performance Socket framework based on .NET Standard 2.0; Src contains its application test scenarios, such as websocket, rpc, redis driver, MVC WebAPI, lightweight message server, ultra large file transmission, etc.
 SAEA.Socket是一个跨平台高性能 Socket 框架，基于 .NET Standard 2.0；Src 中含有其应用测试场景，例如 websocket、rpc、redis 驱动、MVC WebAPI、轻量级消息服务器、超大文件传输等

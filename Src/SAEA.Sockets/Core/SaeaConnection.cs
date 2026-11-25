@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/24 18:12:35
+*修改时间：2026/11/24 18:29:57
 *修改人： yswenli
-*版本号： 
-*描述：v26.11.24.2
+*版本号： v26.11.24.2
+*描述：排空开始时一并解除应用级暂停，避免排空一直等满超时
 *
 *****************************************************************************/
 using SAEA.Common.Caching;
@@ -723,16 +723,20 @@ namespace SAEA.Sockets.Core
         }
 
         /// <summary>
-        /// 排空开始时无条件续投一次接收：暂停标记可能尚未置位，按标记判断会漏投，排空只能等到超时。
-        /// 应用级暂停由业务控制，这里不解除。
+        /// 排空开始时强制解除暂停并续投一次接收：只有当前确实处于暂停态才续投，避免与在途接收重复提交。
+        /// 应用级暂停在这里一并解除——连接即将关闭，排空的字节只计数丢弃、不写入 Pipe，不会交给业务。
         /// </summary>
         private void ForceResumeReceiveForDrain()
         {
-            Interlocked.Exchange(ref _receivePausedFlag, 0);
+            var appPaused = _appPaused;
+            _appPaused = false;
+            var transportPaused = Interlocked.Exchange(ref _receivePausedFlag, 0) == 1;
 
-            if (_appPaused) return;
-
-            try { _receiveResume?.Invoke(); } catch { }
+            // 两个暂停来源都要解除：排空不计入业务、也不写 Pipe，恢复接收不会把字节交给应用。
+            if (appPaused || transportPaused)
+            {
+                try { _receiveResume?.Invoke(); } catch { }
+            }
         }
 
         /// <summary>

@@ -519,6 +519,8 @@ var option = SocketOptionBuilder.Instance
 | `BufferManager` | 内存缓冲池（复用 `byte[]` 缓冲区） |
 | `UserTokenPool` | 用户令牌池 |
 
+`IGracefulCloseFlow` 是半关排空的传输层入口：连接层先半关发送方向，再按声明的字节数或超时读取并丢弃剩余入站字节，最后关闭；`ReceiveFlowControl` 是唯一实现。协议层通过 `SAEA.Sockets.Pipeline` 的 `IDrainableChannel` / `IDrainedCloseStream` 声明并触发排空。
+
 ---
 
 ## 使用示例 📝
