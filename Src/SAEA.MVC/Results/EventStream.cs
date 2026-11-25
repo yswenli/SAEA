@@ -66,6 +66,17 @@ namespace SAEA.MVC.Results
         private readonly CancellationTokenSource _heartbeatCts = new CancellationTokenSource();
 
         /// <summary>
+        /// 当前流是否连接中
+        /// </summary>
+        public bool IsConnect
+        {
+            get
+            {
+                return HttpContext.Current.Response.IsConnect();
+            }
+        }
+
+        /// <summary>
         /// SSE服务器事件流
         /// </summary>
         /// <param name="retry">指定浏览器重新发起连接的时间间隔</param>

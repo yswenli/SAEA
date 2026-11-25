@@ -44,7 +44,14 @@ namespace SAEA.MVCTest.Controllers
                 {
                     var str = $"SAEA.MVC EventStream Test {i}";
 
-                    es.ServerSent(str);
+                    if (es.IsConnect)
+                    {
+                        es.ServerSent(str);
+                    }
+                    else
+                    {
+                        break;
+                    }
 
                     Thread.Sleep(1000);
                 }

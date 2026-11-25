@@ -1193,6 +1193,19 @@ namespace SAEA.Http
         }
 
         /// <summary>
+        /// 是否在连
+        /// </summary>
+        /// <returns></returns>
+        public bool IsConnect()
+        {
+            var channel = Channel;
+            if (channel == null) return false;
+            return channel.IsActive;
+        }
+
+
+
+        /// <summary>
         /// 把一段完整字节写到连接：内置宿主走异步写出，外部 IWebHost 实现退回同步写，行为不变
         /// </summary>
         /// <param name="channel">连接通道</param>
