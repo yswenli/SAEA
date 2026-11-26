@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 17:46:21
+*修改时间：2026/11/26 17:59:02
 *修改人： yswenli
 *版本号： v26.11.26.1
-*描述：实现 IAttachmentResult，新增带 fileName 的构造重载并在报头前写 Content-Disposition
+*描述：按连接状态中止读取，避免客户端断开后仍把整个数据流读完
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -88,6 +88,10 @@ namespace SAEA.MVC.Results
                 total = stream.CanSeek ? stream.Length : -1;
 
                 var response = HttpContext.Current.Response;
+
+                // 连接在构建结果前就已失效时不再读文件：写失败被静默吞掉，继续读只会白读整个流
+                if (!response.IsConnect())
+                    return;
 
                 string rangeHeader;
 
@@ -183,6 +187,10 @@ namespace SAEA.MVC.Results
                 {
                     while (remaining != 0)
                     {
+                        // 客户端断开后写失败被静默吞掉，靠连接状态退出，避免把剩余内容读完
+                        if (!response.IsConnect())
+                            break;
+
                         // 区间请求只读剩余字节数，最后一块按剩余量收窄
                         var readSize = remaining < 0 ? bufferSize : (int)Math.Min(bufferSize, remaining);
 

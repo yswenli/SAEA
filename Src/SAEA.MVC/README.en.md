@@ -1076,6 +1076,8 @@ public ActionResult StreamEvents()
 // source.onmessage = (e) => console.log(e.data);
 ```
 
+- The heartbeat thread ends automatically when the connection dies or the response instance is reset for the next request on the same connection, so it no longer lingers.
+
 ### AOP Filters
 
 ```csharp

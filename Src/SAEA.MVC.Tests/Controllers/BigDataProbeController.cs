@@ -24,10 +24,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 15:13:26
+*修改时间：2026/11/26 17:59:02
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增，提供 64 KB 二进制大数据入口与普通文本对照入口
+*描述：新增慢速大数据入口，供客户端中断停止读取用例使用
 *
 *****************************************************************************/
 using SAEA.MVC.Controllers;
@@ -37,7 +37,7 @@ using System.IO;
 namespace SAEA.MVC.Tests.Controllers
 {
     /// <summary>
-    /// 大数据结果用例的控制器：一个返回 IBigDataResult 的入口与一个普通文本入口作对照。
+    /// 大数据结果用例的控制器：提供二进制大数据、慢速流与普通文本三个入口。
     /// </summary>
     public class BigDataProbeController : Controller
     {
@@ -64,6 +64,15 @@ namespace SAEA.MVC.Tests.Controllers
         public string Plain()
         {
             return "bigdata-plain";
+        }
+
+        /// <summary>
+        /// 慢速大数据入口：按 16 KB 分块读取并逐块延时，供客户端中断用例观察读循环是否停止。
+        /// </summary>
+        /// <returns>大数据结果</returns>
+        public ActionResult Slow()
+        {
+            return new BigDataResult(new CountingSlowStream(), "application/octet-stream");
         }
     }
 }

@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 16:54:00
+*修改时间：2026/11/26 20:40:52
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：HEAD 请求在启动心跳前只回报头并收尾，避免心跳线程因正文被抑制而永久驻留
+*版本号： v26.11.26.1
+*描述：心跳按连接状态与请求代际号退出，连接失效或响应实例被复用时自动结束
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -35,6 +35,7 @@ using SAEA.Common.Threading;
 using SAEA.MVC.Hosting;
 using SAEA.Http.Model;
 
+using System;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -130,6 +131,9 @@ namespace SAEA.MVC.Results
             // 报头已写出，后续发生异常不能再改状态码
             (HttpContext.Current as HttpContext)?.MarkResponseStarted();
 
+            // 心跳线程可能活过本条响应，先记下建立时的请求代际号，用于识别响应实例已换给下一条请求
+            var generation = response.RequestGeneration;
+
             //心跳
             var pong = $"SAEAServer PONG {DateTimeHelper.Now:yyyy:MM:dd HH:mm:ss.fff}";
 
@@ -145,13 +149,22 @@ namespace SAEA.MVC.Results
 
                         if (token.IsCancellationRequested) break;
 
-                        ServerSent(Encoding.UTF8.GetBytes($": {SerializeHelper.Serialize(pong)}\n\n"));
+                        // 写失败被响应层静默吞掉，所以以状态轮询为主路径：连接失效，或本响应实例已被
+                        // 复位给同一条连接的下一条请求，都必须结束，否则会把心跳写进下一条响应
+                        if (!response.IsConnect() || response.RequestGeneration != generation) break;
+
+                        ServerSent(response, Encoding.UTF8.GetBytes($": {SerializeHelper.Serialize(pong)}\n\n"));
                     }
                 }
                 catch
                 {
-                    // 客户端断开或连接已释放时写出会抛异常：结束心跳循环，避免线程跟着连接永久驻留
+                    // 异常兜底：退出与连接关闭的竞态仍可能让写出抛出，同样结束心跳循环
+                }
+                finally
+                {
                     StopHeartbeat();
+
+                    _heartbeatCts.Dispose();
                 }
             });
 
@@ -171,11 +184,28 @@ namespace SAEA.MVC.Results
         /// <summary>
         /// 发送通知
         /// </summary>
-        /// <param name="content"></param>
+        /// <param name="content">待写出的字节</param>
         public void ServerSent(byte[] content)
         {
+            var response = HttpContext.Current.Response;
+
+            // 连接已失效时直接丢弃：响应层不抛异常，继续提交只会每条心跳刷一条失败日志
+            if (!response.IsConnect())
+                return;
+
+            ServerSent(response, content);
+        }
+
+        /// <summary>
+        /// 通过指定响应实例写出，供心跳使用建立时捕获的实例，避免检查与写出之间响应被复位
+        /// </summary>
+        /// <param name="response">写出目标响应实例</param>
+        /// <param name="content">待写出的字节</param>
+        private void ServerSent(SAEA.Http.HttpResponse response, byte[] content)
+        {
             using var locker = ObjectLock.Create($"EventStream.ServerSent{HttpContext.Current.Request.UserHostAddress}");
-            HttpContext.Current.Response.SendData(content);
+
+            response.SendData(content);
         }
 
         /// <summary>
@@ -183,7 +213,14 @@ namespace SAEA.MVC.Results
         /// </summary>
         private void StopHeartbeat()
         {
-            _heartbeatCts.Cancel();
+            try
+            {
+                _heartbeatCts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // 取消源可能已被心跳线程自己释放，重复停止按幂等处理
+            }
         }
     }
 }

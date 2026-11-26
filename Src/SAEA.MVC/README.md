@@ -1076,6 +1076,8 @@ public ActionResult StreamEvents()
 // source.onmessage = (e) => console.log(e.data);
 ```
 
+- 心跳线程在连接失效、或响应实例被复位给同一条连接的下一条请求时自动结束，不再永久驻留。
+
 ### AOP 过滤器
 
 ```csharp

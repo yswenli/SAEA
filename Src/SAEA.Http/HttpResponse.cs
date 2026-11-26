@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 17:46:21
+*修改时间：2026/11/26 20:40:52
 *修改人： yswenli
 *版本号： v26.11.26.1
-*描述：SetCached 对 IAttachmentResult 写出 Content-Disposition
+*描述：新增请求代际号，供长连接识别响应实例已被复用给下一条请求
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -67,6 +67,11 @@ namespace SAEA.Http
         /// 是否已直接写过原始响应（如握手失败的 400/426）
         /// </summary>
         public bool IsHandled { get; private set; }
+
+        /// <summary>
+        /// 请求代际号：每次复位给下一条请求时递增，长连接据此识别本响应实例已被复用
+        /// </summary>
+        internal int RequestGeneration { get; private set; }
 
         /// <summary>
         /// 只发报头不发正文；HEAD 请求置位，Content-Length 仍按等价 GET 的正文长度给出
@@ -1314,8 +1319,6 @@ namespace SAEA.Http
             return channel.IsActive;
         }
 
-
-
         /// <summary>
         /// 把一段完整字节写到连接：内置宿主走异步写出，外部 IWebHost 实现退回同步写，行为不变
         /// </summary>
@@ -1347,6 +1350,9 @@ namespace SAEA.Http
         /// </summary>
         internal void ResetForNextRequest()
         {
+            // 代际号让仍在运行的长连接线程识别本实例已换给下一条请求，不能继续往里写
+            RequestGeneration++;
+
             this.Status = HttpStatusCode.OK;
             this.IsUpgraded = false;
             this.IsHandled = false;
