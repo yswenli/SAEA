@@ -23,14 +23,15 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 16:54:00
+*修改时间：2026/11/26 10:00:00
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：写正文循环加 try/finally，客户端中途断开时也关闭文件流；SendEnd 只在正文写完时调用
+*版本号： v26.11.25.1
+*描述：流式正文支持单区间 Range，可满足返回 206、不可满足返回 416
 *
 *****************************************************************************/
 using SAEA.Common.IO;
 using SAEA.Http.Base;
+using SAEA.Http.Common;
 using SAEA.Http.Model;
 using SAEA.MVC.Hosting;
 using System;
@@ -59,20 +60,78 @@ namespace SAEA.MVC.Results
             this.ContentType = contentType;
             this.Status = status;
 
-            HttpContext.Current.Response.ContentType = contentType;
-            HttpContext.Current.Response.Headers["Connection"] = "close";
-            HttpContext.Current.Response.Status = status;
-            HttpContext.Current.Response.SendHeader(total);
+            var response = HttpContext.Current.Response;
 
-            // 报头已写出，后续发生异常不能再改状态码
-            (HttpContext.Current as HttpContext)?.MarkResponseStarted();
+            string rangeHeader;
 
-            // HEAD 只要报头：Content-Length 已按完整长度写出，正文一个字节都不发
-            if (HttpContext.Current.Response.SuppressBody)
+            HttpContext.Current.Request.Headers.TryGetValue("Range", out rangeHeader);
+
+            // 只有可定位且长度已知的流才能按区间定位；其余按完整响应处理
+            var parsed = stream.CanSeek && total >= 0
+                ? ByteRangeHeader.Parse(rangeHeader, total)
+                : default(ByteRangeParseResult);
+
+            response.ContentType = contentType;
+            response.Headers["Connection"] = "close";
+            response.Status = status;
+
+            long remaining;
+
+            if (parsed.Kind == ByteRangeParseKind.Satisfiable)
+            {
+                response.Status = HttpStatusCode.PartialContent;
+                response.Headers["Accept-Ranges"] = "bytes";
+                response.Headers["Content-Range"] = "bytes " + parsed.Start + "-" + parsed.End + "/" + total;
+                response.SendHeader(parsed.Length);
+
+                // 报头已写出，后续发生异常不能再改状态码
+                (HttpContext.Current as HttpContext)?.MarkResponseStarted();
+
+                stream.Position = parsed.Start;
+
+                remaining = parsed.Length;
+            }
+            else if (parsed.Kind == ByteRangeParseKind.Unsatisfiable)
+            {
+                response.Status = HttpStatusCode.RequestedRangeNotSatisfiable;
+                response.Headers["Accept-Ranges"] = "bytes";
+                response.Headers["Content-Range"] = "bytes */" + total;
+                response.Headers["Content-Length"] = "0";
+                response.SendHeader(0);
+
+                (HttpContext.Current as HttpContext)?.MarkResponseStarted();
+
+                try
+                {
+                    response.SendEnd();
+                }
+                finally
+                {
+                    stream.Close();
+                }
+
+                return;
+            }
+            else
+            {
+                response.Headers["Accept-Ranges"] = "bytes";
+                response.SendHeader(total);
+
+                // 报头已写出，后续发生异常不能再改状态码
+                (HttpContext.Current as HttpContext)?.MarkResponseStarted();
+
+                // 不可定位的流保持原有从当前位置开始读的行为
+                if (stream.CanSeek) stream.Position = 0;
+
+                remaining = -1;
+            }
+
+            // HEAD 只要报头：Content-Length 已按区间长度或完整长度写出，正文一个字节都不发
+            if (response.SuppressBody)
             {
                 try
                 {
-                    HttpContext.Current.Response.SendEnd();
+                    response.SendEnd();
                 }
                 finally
                 {
@@ -84,21 +143,23 @@ namespace SAEA.MVC.Results
             }
 
             var buffer = new byte[10240];
-            stream.Position = 0;
             try
             {
-                do
+                while (remaining != 0)
                 {
-                    var count = stream.Read(buffer, 0, buffer.Length);
+                    // 区间请求只读剩余字节数，最后一块按剩余量收窄
+                    var readSize = remaining < 0 ? buffer.Length : (int)Math.Min(buffer.Length, remaining);
+
+                    var count = stream.Read(buffer, 0, readSize);
 
                     if (count < 1)
                     {
                         break;
                     }
 
-                    if (count == 10240)
+                    if (count == buffer.Length)
                     {
-                        HttpContext.Current.Response.SendData(buffer);
+                        response.SendData(buffer);
                     }
                     else
                     {
@@ -106,14 +167,14 @@ namespace SAEA.MVC.Results
 
                         Buffer.BlockCopy(buffer, 0, b, 0, count);
 
-                        HttpContext.Current.Response.SendData(b);
+                        response.SendData(b);
                     }
 
+                    if (remaining > 0) remaining -= count;
                 }
-                while (true);
 
                 // 只有正文整体写完才结束连接：中途因客户端断开发送失败时，异常交给响应层按已开始写出的响应收尾
-                HttpContext.Current.Response.SendEnd();
+                response.SendEnd();
             }
             finally
             {

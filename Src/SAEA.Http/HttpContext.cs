@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 20:10:00
+*修改时间：2026/11/26 10:00:00
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：声明为可复用上下文，同一条连接上的后续请求复用同一个实例
+*版本号： v26.11.25.1
+*描述：静态文件结果写出前按请求 Range 头应用单区间范围
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -138,6 +138,14 @@ namespace SAEA.Http
                 else
                 {
                     Response.SetCached(result, this.Session.CacheCalcString);
+                }
+
+                // 文件正文已在 SetCached 中装好，此时才能按完整长度计算单区间并切片
+                if (result is IFileResult)
+                {
+                    Request.Headers.TryGetValue("Range", out var rangeHeader);
+
+                    Response.ApplyRangeHeader(rangeHeader);
                 }
 
                 // 连接复用由请求协议与请求的 Connection 头决定：HTTP/1.1 默认保持，

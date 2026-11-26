@@ -23,13 +23,14 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2020/05/20 14:37:39
+*修改时间：2026/11/26 10:00:00
 *修改人： yswenli
-*版本号： v26.4.23.1
-*描述：HttpBigDataResult接口
+*版本号： v26.11.25.1
+*描述：流式正文支持单区间 Range，可满足返回 206、不可满足返回 416
 *
 *****************************************************************************/
 using SAEA.Http.Base;
+using SAEA.Http.Common;
 using SAEA.Common.Caching;
 using System;
 using System.IO;
@@ -57,9 +58,54 @@ namespace SAEA.Http.Model
             this.ContentType = contentType;
             this.Status = status;
 
-            HttpContext.Current.Response.ContentType = contentType;
-            HttpContext.Current.Response.Status = status;
-            HttpContext.Current.Response.SendHeader(total);
+            var response = HttpContext.Current.Response;
+
+            string rangeHeader;
+
+            HttpContext.Current.Request.Headers.TryGetValue("Range", out rangeHeader);
+
+            // 只有可定位且长度已知的流才能按区间定位；其余按完整响应处理
+            var parsed = stream.CanSeek && total >= 0
+                ? ByteRangeHeader.Parse(rangeHeader, total)
+                : default(ByteRangeParseResult);
+
+            response.ContentType = contentType;
+            response.Status = status;
+
+            long remaining;
+
+            if (parsed.Kind == ByteRangeParseKind.Satisfiable)
+            {
+                response.Status = HttpStatusCode.PartialContent;
+                response.Headers["Accept-Ranges"] = "bytes";
+                response.Headers["Content-Range"] = "bytes " + parsed.Start + "-" + parsed.End + "/" + total;
+                response.SendHeader(parsed.Length);
+
+                stream.Position = parsed.Start;
+
+                remaining = parsed.Length;
+            }
+            else if (parsed.Kind == ByteRangeParseKind.Unsatisfiable)
+            {
+                response.Status = HttpStatusCode.RequestedRangeNotSatisfiable;
+                response.Headers["Accept-Ranges"] = "bytes";
+                response.Headers["Content-Range"] = "bytes */" + total;
+                response.Headers["Content-Length"] = "0";
+                response.SendHeader(0);
+                response.SendEnd();
+
+                return;
+            }
+            else
+            {
+                response.Headers["Accept-Ranges"] = "bytes";
+                response.SendHeader(total);
+
+                // 不可定位的流保持原有从当前位置开始读的行为
+                if (stream.CanSeek) stream.Position = 0;
+
+                remaining = -1;
+            }
 
             const int bufferSize = 1024;
             byte[] buffer = null;
@@ -68,9 +114,12 @@ namespace SAEA.Http.Model
             {
                 buffer = MemoryPoolManager.Rent(bufferSize);
 
-                do
+                while (remaining != 0)
                 {
-                    var count = stream.Read(buffer, 0, bufferSize);
+                    // 区间请求只读剩余字节数，最后一块按剩余量收窄
+                    var readSize = remaining < 0 ? bufferSize : (int)Math.Min(bufferSize, remaining);
+
+                    var count = stream.Read(buffer, 0, readSize);
 
                     if (count < 1)
                     {
@@ -79,15 +128,15 @@ namespace SAEA.Http.Model
 
                     if (count == bufferSize)
                     {
-                        HttpContext.Current.Response.SendData(buffer.AsSpan(0, bufferSize).ToArray());
+                        response.SendData(buffer.AsSpan(0, bufferSize).ToArray());
                     }
                     else
                     {
-                        HttpContext.Current.Response.SendData(buffer.AsSpan(0, count).ToArray());
+                        response.SendData(buffer.AsSpan(0, count).ToArray());
                     }
 
+                    if (remaining > 0) remaining -= count;
                 }
-                while (true);
             }
             finally
             {
@@ -97,7 +146,7 @@ namespace SAEA.Http.Model
                 }
             }
 
-            HttpContext.Current.Response.SendEnd();
+            response.SendEnd();
         }
 
 

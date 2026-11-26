@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/20 15:18:00
+*修改时间：2026/11/26 10:00:00
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：参数集改为仅在有参数时转换，无参数请求直接传 null，不再为每个无参数请求新建空集合
+*版本号： v26.11.25.1
+*描述：静态文件结果写出前按请求 Range 头应用单区间范围
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -160,6 +160,14 @@ namespace SAEA.MVC.Invocation
             {
                 // 非大数据结果和非事件流，设置缓存并结束连接
                 _context.Response.SetCached(result, _context.Session.CacheCalcString);
+
+                // 文件正文已在 SetCached 中装好，此时才能按完整长度计算单区间并切片
+                if (result is IFileResult)
+                {
+                    _context.Request.Headers.TryGetValue("Range", out var rangeHeader);
+
+                    _context.Response.ApplyRangeHeader(rangeHeader);
+                }
 
                 // 连接复用由请求协议与请求的 Connection 头决定：HTTP/1.1 默认保持，
                 // HTTP/1.0 默认关闭；响应头与 Send/End 的连接副作用必须一致。
