@@ -41,6 +41,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="SAEA.Http.Tests" />
+    <InternalsVisibleTo Include="SAEA.MVC" />
   </ItemGroup>
 
   <ItemGroup>

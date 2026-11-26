@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/24 15:41:00
+*修改时间：2026/11/26 10:00:00
 *修改人： yswenli
-*版本号： v26.11.24.1
-*描述：响应体 Body 下沉到本类，基类不再保留请求/响应共用的 Body 属性
+*版本号： v26.11.25.1
+*描述：新增 ApplyRangeHeader，按单区间 Range 把内存正文改写为 206 或 416
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -34,10 +34,12 @@ using SAEA.Common.Caching;
 using SAEA.Common.Encryption;
 using SAEA.Http.Base;
 using SAEA.Http.Base.Net;
+using SAEA.Http.Common;
 using SAEA.Http.Model;
 using SAEA.Sockets.Pipeline;
 
 using System;
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -485,6 +487,55 @@ namespace SAEA.Http
                 this.ContentType = result.ContentType;
                 this.SetContent(result.Content);
             }
+        }
+
+        /// <summary>
+        /// 按请求的 Range 头把内存正文裁剪为单区间，或改写为 416 响应
+        /// </summary>
+        /// <param name="rangeHeader">请求的 Range 头值，可为 null</param>
+        public void ApplyRangeHeader(string rangeHeader)
+        {
+            // gzip 压缩后正文长度与 Content-Length 不一致，按未压缩长度算范围会切错位置
+            if (_isZiped) return;
+
+            // 只有 200 完整响应才能改写；304 等状态保持原样
+            if (this.Status != HttpStatusCode.OK) return;
+
+            this.Headers[ResponseHeaderType.AcceptRanges.GetDescription()] = "bytes";
+
+            if (string.IsNullOrWhiteSpace(rangeHeader)) return;
+
+            var body = this.Body;
+
+            var total = body == null ? 0 : body.Length;
+
+            var parsed = ByteRangeHeader.Parse(rangeHeader, total);
+
+            if (parsed.Kind == ByteRangeParseKind.Ignore) return;
+
+            if (parsed.Kind == ByteRangeParseKind.Unsatisfiable)
+            {
+                this.Status = HttpStatusCode.RequestedRangeNotSatisfiable;
+
+                this.Headers[ResponseHeaderType.ContentRange.GetDescription()] =
+                    "bytes */" + total.ToString(CultureInfo.InvariantCulture);
+
+                // 显式转型到 byte[]，避免命中 string 重载
+                this.SetContent((byte[])null);
+
+                return;
+            }
+
+            var slice = new byte[(int)parsed.Length];
+
+            Buffer.BlockCopy(body, (int)parsed.Start, slice, 0, slice.Length);
+
+            this.SetContent(slice);
+
+            this.Status = HttpStatusCode.PartialContent;
+
+            this.Headers[ResponseHeaderType.ContentRange.GetDescription()] =
+                "bytes " + parsed.Start.ToString(CultureInfo.InvariantCulture) + "-" + parsed.End.ToString(CultureInfo.InvariantCulture) + "/" + total.ToString(CultureInfo.InvariantCulture);
         }
 
         /// <summary>

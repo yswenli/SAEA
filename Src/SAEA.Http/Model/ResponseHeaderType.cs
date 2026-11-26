@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/6 12:52:29
+*修改时间：2026/11/26 10:00:00
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补全公开成员的 XML 注释
+*版本号： v26.11.25.1
+*描述：修正 ContentRange 的描述为 Content-Range，供 Range 响应写出范围头
 *
 *****************************************************************************/
 using System.ComponentModel;
@@ -141,9 +141,9 @@ namespace SAEA.Http.Model
         ContentMd5 = 16,
 
         /// <summary>
-        /// Range 标头，指定客户端请求返回的响应的单个或多个子范围来代替整个响应。
+        /// Content-Range 标头，指定响应正文返回的字节范围或不可满足区间。
         /// </summary>
-        [Description("Range")]
+        [Description("Content-Range")]
         ContentRange = 17,
 
         /// <summary>
