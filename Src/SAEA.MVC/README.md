@@ -357,6 +357,7 @@ RouteEntry put = table.GetOrAdd(typeof(HomeController), "Index", "PUT");
 | 💾 **输出缓存**     | OutputCacheAttribute  | 方法级缓存，提升响应速度    |
 | 📡 **SSE 推送**   | Server-Sent Events    | 实时服务器推送         |
 | 📁 **静态文件**     | 自动缓存、大文件分块            | 智能区分大小文件传输      |
+| 📥 **Range 请求**  | 单区间 `bytes=a-b` 等      | 分段下载与断点续传       |
 | 🌐 **跨域支持**     | CORS 配置               | 前后端分离项目友好       |
 
 ***
@@ -995,6 +996,25 @@ response.ContentType = "text/html";
 response.Write("<h3>自定义响应</h3>");
 response.End();
 return Empty();
+```
+
+### Range 请求（分段下载）
+
+静态文件、`File(...)` 与 `BigData(...)` 都支持单区间 `Range`：
+
+- 超过 4MB 的静态文件走 `BigDataResult` 流式路径，按区间定位后只发送区间字节。
+- `bytes=a-b`、`bytes=a-`、`bytes=-N` 命中时返回 `206 Partial Content`，带 `Content-Range: bytes a-b/total` 与 `Accept-Ranges: bytes`。
+- 区间超出正文长度时返回 `416 Requested Range Not Satisfiable`，带 `Content-Range: bytes */total` 与 `Content-Length: 0`。
+- 没有 `Range` 的普通文件响应仍是 `200`，但会带 `Accept-Ranges: bytes`。
+- 多区间（含逗号）与非法语法按 RFC 7233 忽略 `Range`，返回 `200` 全量；不支持 `multipart/byteranges` 与 `If-Range`。
+- `HEAD` 带 `Range` 时只回报头，`Content-Length` 等于区间长度。
+
+```csharp
+// 控制器返回的文件同样按 Range 切片
+public ActionResult Download()
+{
+    return File(@"C:\files\document.pdf");
+}
 ```
 
 ### SSE 服务器推送

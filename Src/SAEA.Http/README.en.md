@@ -70,6 +70,7 @@ curl http://localhost:28080/api/test
 | 🚀 **Cross-platform async IO** | Built on SAEA.Sockets async IO | Low latency under high concurrency |
 | 📡 **Standard HTTP methods** | GET/POST/PUT/DELETE/PATCH/HEAD/OPTIONS (HEAD returns headers only) | Full RESTful support |
 | 📁 **Static files** | Automatic caching, chunked transfer | Efficient large-file delivery |
+| 📥 **Range requests** | Single range `bytes=a-b`, `bytes=a-`, `bytes=-N` | Resumable and segmented downloads for static files |
 | 📤 **File upload** | multipart/form-data parsing | Uploads without manual parsing |
 | 🔒 **Session management** | HttpSession + Manager | State tracking with idle expiry |
 | 🍪 **Cookies** | HttpCookie/HttpCookies | Full read/write support |
@@ -703,6 +704,24 @@ server.WebConfig.RequestDelegate = ctx =>
 
     ctx.Response.SendEnd();
 };
+```
+
+### Range requests (segmented downloads)
+
+Static files and `HttpFileResult` support a single `Range`:
+
+- `bytes=a-b`, `bytes=a-`, and `bytes=-N` return `206 Partial Content` with `Content-Range: bytes a-b/total` and `Accept-Ranges: bytes`; only the requested bytes are sent.
+- A range beyond the body length returns `416 Requested Range Not Satisfiable` with `Content-Range: bytes */total` and `Content-Length: 0`.
+- A normal file request without `Range` still returns `200`, with `Accept-Ranges: bytes`.
+- Multiple ranges (any comma) and invalid syntax are ignored per RFC 7233 and return the full `200` body; `multipart/byteranges` and `If-Range` are not supported.
+- With gzip enabled (`isZiped` on `WebHost`), in-memory bodies are not sliced and `Accept-Ranges` is not written, because the compressed length no longer matches `Content-Length`.
+
+```bash
+# First 4 bytes
+curl -H "Range: bytes=0-3" http://localhost:28080/files/document.pdf
+
+# Last 100 bytes
+curl -H "Range: bytes=-100" http://localhost:28080/files/document.pdf
 ```
 
 ### SSE push

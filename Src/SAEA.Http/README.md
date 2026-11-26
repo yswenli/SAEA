@@ -70,6 +70,7 @@ curl http://localhost:28080/api/test
 | 🚀 **跨平台异步 IO** | 基于 SAEA.Sockets 异步 IO | 面向高并发请求场景，低延迟 |
 | 📡 **标准 HTTP 方法** | GET/POST/PUT/DELETE/PATCH/HEAD/OPTIONS（HEAD 只回报头） | 完整 RESTful 支持 |
 | 📁 **静态文件服务** | 自动缓存、分块传输 | 大文件高效传输，内存优化 |
+| 📥 **Range 请求** | 单区间 `bytes=a-b`、`bytes=a-`、`bytes=-N` | 分段下载与断点续传，静态文件生效 |
 | 📤 **文件上传** | multipart/form-data 解析 | 轻松处理文件上传 |
 | 🔒 **Session 管理** | HttpSession + Manager | 会话状态追踪，超时清理 |
 | 🍪 **Cookie 支持** | HttpCookie/HttpCookies | 完整 Cookie 读写 |
@@ -724,6 +725,24 @@ server.WebConfig.RequestDelegate = ctx =>
 
     ctx.Response.SendEnd();
 };
+```
+
+### Range 请求（分段下载）
+
+静态文件与 `HttpFileResult` 支持单区间 `Range`：
+
+- `bytes=a-b`、`bytes=a-`、`bytes=-N` 命中时返回 `206 Partial Content`，带 `Content-Range: bytes a-b/total` 与 `Accept-Ranges: bytes`，正文只发区间字节。
+- 区间超出正文长度时返回 `416 Requested Range Not Satisfiable`，带 `Content-Range: bytes */total` 与 `Content-Length: 0`。
+- 没有 `Range` 的普通文件响应仍是 `200`，但会带 `Accept-Ranges: bytes`。
+- 多区间（含逗号）与非法语法按 RFC 7233 忽略 `Range`，返回 `200` 全量；不支持 `multipart/byteranges` 与 `If-Range`。
+- 开启 gzip（`WebHost` 的 `isZiped`）时内存正文不做区间切片，也不写 `Accept-Ranges`，避免压缩后长度与 `Content-Length` 不一致。
+
+```bash
+# 取前 4 个字节
+curl -H "Range: bytes=0-3" http://localhost:28080/files/document.pdf
+
+# 取末尾 100 个字节
+curl -H "Range: bytes=-100" http://localhost:28080/files/document.pdf
 ```
 
 ### SSE 服务器推送
