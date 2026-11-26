@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 16:21:35
+*修改时间：2026/11/26 17:46:21
 *修改人： yswenli
 *版本号： v26.11.26.1
-*描述：Content-Encoding 按实际压缩置位，SendHeader 保留显式 Connection，新增段发送重载，ApplyRangeHeader 全量区间不再复制
+*描述：SetCached 对 IAttachmentResult 写出 Content-Disposition
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -493,6 +493,14 @@ namespace SAEA.Http
                 var fileResult = (IFileResult)result;
                 this.ContentType = fileResult.ContentType;
                 this.SetContent(fileResult.Content);
+
+                var attachment = result as IAttachmentResult;
+                if (attachment != null)
+                {
+                    var disposition = ContentDispositionHelper.Build(attachment.FileName);
+                    if (disposition != null)
+                        this.Headers[ResponseHeaderType.ContentDisposition.GetDescription()] = disposition;
+                }
             }
             else
             {

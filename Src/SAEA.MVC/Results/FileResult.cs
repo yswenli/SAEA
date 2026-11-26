@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 15:26:46
+*修改时间：2026/11/26 17:46:21
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
+*版本号： v26.11.26.1
+*描述：实现 IAttachmentResult 并新增带 fileName 的构造重载
 *
 *****************************************************************************/
 using System.IO;
@@ -43,7 +43,7 @@ namespace SAEA.MVC.Results
     /// <summary>
     /// 小文件或数据
     /// </summary>
-    public class FileResult : ActionResult, IFileResult
+    public class FileResult : ActionResult, IFileResult, IAttachmentResult
     {
         /// <summary>
         /// 小文件响应内容
@@ -51,11 +51,27 @@ namespace SAEA.MVC.Results
         public new byte[] Content { get; set; }
 
         /// <summary>
+        /// 下载文件名；为 null 或空白表示不写 Content-Disposition
+        /// </summary>
+        public string FileName { get; }
+
+        /// <summary>
         /// 小文件或数据
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="isStaticsCached"></param>
-        public FileResult(string filePath, bool isStaticsCached) : this(isStaticsCached, filePath, HttpMIME.GetType(filePath))
+        public FileResult(string filePath, bool isStaticsCached) : this(isStaticsCached, filePath, HttpMIME.GetType(filePath), HttpStatusCode.OK, null)
+        {
+
+        }
+
+        /// <summary>
+        /// 小文件或数据，并指定下载文件名
+        /// </summary>
+        /// <param name="filePath">文件路径</param>
+        /// <param name="isStaticsCached">是否使用静态资源缓存</param>
+        /// <param name="fileName">下载文件名；为 null 或空白时不写 Content-Disposition</param>
+        public FileResult(string filePath, bool isStaticsCached, string fileName) : this(isStaticsCached, filePath, HttpMIME.GetType(filePath), HttpStatusCode.OK, fileName)
         {
 
         }
@@ -66,7 +82,19 @@ namespace SAEA.MVC.Results
         /// <param name="stream"></param>
         /// <param name="contentType"></param>
         /// <param name="status"></param>
-        public FileResult(Stream stream, string contentType = "", HttpStatusCode status = HttpStatusCode.OK)
+        public FileResult(Stream stream, string contentType = "", HttpStatusCode status = HttpStatusCode.OK) : this(stream, contentType, status, null)
+        {
+
+        }
+
+        /// <summary>
+        /// 小文件或数据，并指定下载文件名
+        /// </summary>
+        /// <param name="stream">正文数据流，读取后由本结果关闭</param>
+        /// <param name="contentType">响应内容类型</param>
+        /// <param name="status">响应状态码</param>
+        /// <param name="fileName">下载文件名；为 null 或空白时不写 Content-Disposition</param>
+        public FileResult(Stream stream, string contentType, HttpStatusCode status, string fileName)
         {
             int len = (int)stream.Length;
             var data = new byte[len];
@@ -76,6 +104,7 @@ namespace SAEA.MVC.Results
             ContentEncoding = Encoding.UTF8;
             ContentType = contentType;
             Status = status;
+            FileName = fileName;
             stream.Close();
         }
 
@@ -86,11 +115,25 @@ namespace SAEA.MVC.Results
         /// <param name="filePath"></param>
         /// <param name="contentType"></param>
         /// <param name="status"></param>
-        public FileResult(bool isStaticsCached, string filePath, string contentType = "", HttpStatusCode status = HttpStatusCode.OK)
+        public FileResult(bool isStaticsCached, string filePath, string contentType = "", HttpStatusCode status = HttpStatusCode.OK) : this(isStaticsCached, filePath, contentType, status, null)
+        {
+
+        }
+
+        /// <summary>
+        /// 文件内容，并指定下载文件名
+        /// </summary>
+        /// <param name="isStaticsCached">是否使用静态资源缓存</param>
+        /// <param name="filePath">文件路径</param>
+        /// <param name="contentType">响应内容类型</param>
+        /// <param name="status">响应状态码</param>
+        /// <param name="fileName">下载文件名；为 null 或空白时不写 Content-Disposition</param>
+        public FileResult(bool isStaticsCached, string filePath, string contentType, HttpStatusCode status, string fileName)
         {
             this.ContentEncoding = Encoding.UTF8;
             this.ContentType = contentType;
             this.Status = status;
+            this.FileName = fileName;
 
             if (isStaticsCached)
             {

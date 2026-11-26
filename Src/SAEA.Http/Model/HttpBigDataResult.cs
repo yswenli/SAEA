@@ -23,15 +23,16 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 17:40:00
+*修改时间：2026/11/26 17:46:21
 *修改人： yswenli
 *版本号： v26.11.26.1
-*描述：把 HttpContext.Current.Response 取值移入 try，构造阶段异常也会关闭数据流
+*描述：实现 IAttachmentResult，新增带 fileName 的构造重载并在报头前写 Content-Disposition
 *
 *****************************************************************************/
+using SAEA.Common;
+using SAEA.Common.Caching;
 using SAEA.Http.Base;
 using SAEA.Http.Common;
-using SAEA.Common.Caching;
 using System;
 using System.IO;
 using System.Net;
@@ -42,8 +43,13 @@ namespace SAEA.Http.Model
     /// <summary>
     /// 大数据结果
     /// </summary>
-    public class HttpBigDataResult : HttpActionResult, IBigDataResult
+    public class HttpBigDataResult : HttpActionResult, IBigDataResult, IAttachmentResult
     {
+        /// <summary>
+        /// 下载文件名；为 null 或空白表示不写 Content-Disposition
+        /// </summary>
+        public string FileName { get; }
+
         /// <summary>
         /// 大数据结果
         /// </summary>
@@ -52,15 +58,32 @@ namespace SAEA.Http.Model
         /// <param name="status">响应状态码</param>
         /// <param name="leaveOpen">发送结束后是否保留调用方传入的数据流不关闭，默认 false 表示由本结果负责关闭；仅对 Stream 构造生效，filePath 构造总是关闭内部打开的流</param>
         public HttpBigDataResult(Stream stream, string contentType = "", HttpStatusCode status = HttpStatusCode.OK, bool leaveOpen = false)
+            : this(stream, contentType, status, leaveOpen, null)
         {
-            var total = stream.CanSeek ? stream.Length : -1;
+
+        }
+
+        /// <summary>
+        /// 大数据结果，并指定下载文件名
+        /// </summary>
+        /// <param name="stream">正文数据流</param>
+        /// <param name="contentType">响应内容类型</param>
+        /// <param name="status">响应状态码</param>
+        /// <param name="leaveOpen">发送结束后是否保留调用方传入的数据流不关闭</param>
+        /// <param name="fileName">下载文件名；为 null 或空白时不写 Content-Disposition</param>
+        public HttpBigDataResult(Stream stream, string contentType, HttpStatusCode status, bool leaveOpen, string fileName)
+        {
+            long total = -1;
 
             this.ContentEncoding = Encoding.UTF8;
             this.ContentType = contentType;
             this.Status = status;
+            this.FileName = fileName;
 
             try
             {
+                total = stream.CanSeek ? stream.Length : -1;
+
                 var response = HttpContext.Current.Response;
 
                 string rangeHeader;
@@ -73,6 +96,11 @@ namespace SAEA.Http.Model
                     : default(ByteRangeParseResult);
 
                 response.ContentType = contentType;
+
+                var disposition = ContentDispositionHelper.Build(fileName);
+                if (disposition != null)
+                    response.Headers[ResponseHeaderType.ContentDisposition.GetDescription()] = disposition;
+
                 response.Status = status;
 
                 long remaining;
@@ -193,7 +221,19 @@ namespace SAEA.Http.Model
         /// <param name="filePath">文件路径，内部打开的流由本结果负责关闭</param>
         /// <param name="status">响应状态码</param>
         public HttpBigDataResult(string filePath, HttpStatusCode status = HttpStatusCode.OK)
-            : this(File.OpenRead(filePath), HttpMIME.GetType(filePath), status)
+            : this(filePath, null, status)
+        {
+
+        }
+
+        /// <summary>
+        /// 大数据结果，并指定下载文件名
+        /// </summary>
+        /// <param name="filePath">文件路径，内部打开的流由本结果负责关闭</param>
+        /// <param name="fileName">下载文件名；为 null 或空白时不写 Content-Disposition</param>
+        /// <param name="status">响应状态码</param>
+        public HttpBigDataResult(string filePath, string fileName, HttpStatusCode status = HttpStatusCode.OK)
+            : this(File.OpenRead(filePath), HttpMIME.GetType(filePath), status, false, fileName)
         {
 
         }

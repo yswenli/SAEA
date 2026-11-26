@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 10:00:00
+*修改时间：2026/11/26 17:46:21
 *修改人： yswenli
-*版本号： v26.11.25.1
-*描述：修正 ContentRange 的描述为 Content-Range，供 Range 响应写出范围头
+*版本号： v26.11.26.1
+*描述：新增 ContentDisposition 枚举，供附件下载写出文件名头
 *
 *****************************************************************************/
 using System.ComponentModel;
@@ -218,6 +218,11 @@ namespace SAEA.Http.Model
         [Description("WWW-Authenticate")]
         WwwAuthenticate = 29,
 
+        /// <summary>
+        /// Content-Disposition 标头，指定正文的呈现方式与下载文件名。
+        /// </summary>
+        [Description("Content-Disposition")]
+        ContentDisposition = 30,
 
     }
 }

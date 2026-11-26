@@ -998,6 +998,41 @@ response.End();
 return Empty();
 ```
 
+### 附件下载（Content-Disposition）
+
+`File(...)`、`BigData(...)` 的重载与 `FileResult` / `BigDataResult` 的 `fileName` 构造参数会生成附件下载头：
+
+```text
+Content-Disposition: attachment; filename="..."; filename*=UTF-8''...
+```
+
+```csharp
+// 小文件一行式附件下载
+return File(filePath, "报告.pdf");
+
+// 大文件流式附件下载
+return BigData(filePath, "报告.pdf");
+
+// 直接构造结果
+return new FileResult(stream, "application/octet-stream", HttpStatusCode.OK, "报告.pdf");
+return new BigDataResult(stream, "application/octet-stream", HttpStatusCode.OK, false, "报告.pdf");
+```
+
+- 文件名为 `null` 或空白时按普通响应输出，不写 `Content-Disposition`。
+- 文件名只取最后一个路径段（同时识别 `/` 与 `\`），并删除 CR/LF 等控制字符，避免响应头注入。
+- 非 ASCII 字符按 RFC 5987 编码进 `filename*`，同时给出 ASCII 回退名；中文在回退名中会变成 `_`。
+- 非文件结果（如导出的 CSV 文本）可手动写头：
+
+```csharp
+using SAEA.Http.Common;
+
+var disposition = ContentDispositionHelper.Build("导出.csv");
+if (disposition != null)
+    HttpContext.Current.Response.Headers["Content-Disposition"] = disposition;
+```
+
+`ContentDispositionHelper.Build(fileName, inline: true)` 可生成 `inline` 前缀。
+
 ### Range 请求（分段下载）
 
 静态文件、`File(...)` 与 `BigData(...)`（含 `FileResult` / `BigDataResult`）都支持单区间 `Range`：

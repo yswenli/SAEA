@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/19 15:26:46
+*修改时间：2026/11/26 17:46:21
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：命名空间改为与目录一致（SAEA.MVC.Attributes/Controllers/Hosting/Results）
+*版本号： v26.11.26.1
+*描述：新增 File 与 BigData 的 fileName 重载，支持一行式附件下载
 *
 *****************************************************************************/
 using SAEA.Common.IO;
@@ -107,6 +107,21 @@ namespace SAEA.MVC.Controllers
         }
 
         /// <summary>
+        /// 小文件，并指定下载文件名
+        /// </summary>
+        /// <param name="filePath">文件路径</param>
+        /// <param name="fileName">下载文件名；为 null 或空白时不写 Content-Disposition</param>
+        /// <returns>文件结果，文件不存在时为 404 内容结果</returns>
+        protected ActionResult File(string filePath, string fileName)
+        {
+            if (FileHelper.Exists(filePath))
+
+                return new FileResult(filePath, HttpContext.Current.IsStaticsCached, fileName);
+            else
+                return new ContentResult($"o_o，找不到文件", System.Net.HttpStatusCode.NotFound);
+        }
+
+        /// <summary>
         /// 大数据
         /// </summary>
         /// <param name="filePath"></param>
@@ -116,6 +131,21 @@ namespace SAEA.MVC.Controllers
             if (FileHelper.Exists(filePath))
 
                 return new BigDataResult(filePath);
+            else
+                return new ContentResult($"o_o，找不到文件", System.Net.HttpStatusCode.NotFound);
+        }
+
+        /// <summary>
+        /// 大数据，并指定下载文件名
+        /// </summary>
+        /// <param name="filePath">文件路径</param>
+        /// <param name="fileName">下载文件名；为 null 或空白时不写 Content-Disposition</param>
+        /// <returns>大数据结果，文件不存在时为 404 内容结果</returns>
+        protected ActionResult BigData(string filePath, string fileName)
+        {
+            if (FileHelper.Exists(filePath))
+
+                return new BigDataResult(filePath, fileName);
             else
                 return new ContentResult($"o_o，找不到文件", System.Net.HttpStatusCode.NotFound);
         }

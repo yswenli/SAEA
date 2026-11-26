@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/26 17:40:00
+ *修改时间：2026/11/26 17:42:00
  *修改人： yswenli
  *版本号： net10.0
- *描述：无请求上下文时 BigDataResult 构造关闭数据流的用例
+ *描述：新增读取流长度抛异常时构造仍释放数据流的用例
  *
  *****************************************************************************/
 using System;
@@ -88,9 +88,24 @@ namespace SAEA.MVC.Tests
         }
 
         /// <summary>
+        /// 读取流长度抛异常时，构造应原样抛出并关闭传入的数据流。
+        /// </summary>
+        [TestMethod]
+        public void Constructor_LengthThrows_DisposesStream()
+        {
+            var stream = new LengthThrowingStream();
+
+            Assert.ThrowsExactly<NotSupportedException>(
+                () => new BigDataResult(stream),
+                "读取流长度抛异常时应原样抛出");
+
+            Assert.IsTrue(stream.IsDisposed, "长度读取失败后默认应关闭传入的数据流");
+        }
+
+        /// <summary>
         /// 记录释放状态的最小内存流。
         /// </summary>
-        private sealed class TrackedMemoryStream : MemoryStream
+        private class TrackedMemoryStream : MemoryStream
         {
             /// <summary>
             /// 是否已被释放。
@@ -106,6 +121,28 @@ namespace SAEA.MVC.Tests
                 IsDisposed = true;
 
                 base.Dispose(disposing);
+            }
+        }
+
+        /// <summary>
+        /// 声明可定位但读取长度必抛异常的流。
+        /// </summary>
+        private sealed class LengthThrowingStream : TrackedMemoryStream
+        {
+            /// <summary>
+            /// 始终声明可定位，使构造阶段一定会读取长度。
+            /// </summary>
+            public override bool CanSeek
+            {
+                get { return true; }
+            }
+
+            /// <summary>
+            /// 读取长度时抛异常，模拟底层流不支持该操作。
+            /// </summary>
+            public override long Length
+            {
+                get { throw new NotSupportedException(); }
             }
         }
     }

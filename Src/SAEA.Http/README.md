@@ -727,6 +727,43 @@ server.WebConfig.RequestDelegate = ctx =>
 };
 ```
 
+### 附件下载（Content-Disposition）
+
+`HttpFileResult` 与 `HttpBigDataResult` 的 `fileName` 构造参数会生成附件下载头，响应写出时统一为：
+
+```text
+Content-Disposition: attachment; filename="..."; filename*=UTF-8''...
+```
+
+```csharp
+// 小文件
+ctx.Response.SetCached(new HttpFileResult(filePath, true, "报告.pdf"));
+ctx.Response.End();
+
+// 大文件流式
+ctx.Response.SetCached(new HttpBigDataResult(filePath, "报告.pdf"));
+ctx.Response.End();
+
+// 也可以直接从流创建
+ctx.Response.SetCached(new HttpBigDataResult(stream, "application/octet-stream", System.Net.HttpStatusCode.OK, false, "报告.pdf"));
+ctx.Response.End();
+```
+
+- 文件名为 `null` 或空白时按普通响应输出，不写 `Content-Disposition`。
+- 文件名只取最后一个路径段（同时识别 `/` 与 `\`），并删除 CR/LF 等控制字符，避免响应头注入。
+- 非 ASCII 字符按 RFC 5987 编码进 `filename*`，同时给出 ASCII 回退名；中文在回退名中会变成 `_`。
+- 非文件结果（如导出的 CSV 文本）可手动写头：
+
+```csharp
+using SAEA.Http.Common;
+
+var disposition = ContentDispositionHelper.Build("导出.csv");
+if (disposition != null)
+    ctx.Response.Headers["Content-Disposition"] = disposition;
+```
+
+`ContentDispositionHelper.Build(fileName, inline: true)` 可生成 `inline` 前缀。
+
 ### Range 请求（分段下载）
 
 静态文件（超过 4MB 时走 `HttpBigDataResult` 流式路径）、`HttpFileResult` 与 `HttpBigDataResult` 支持单区间 `Range`：

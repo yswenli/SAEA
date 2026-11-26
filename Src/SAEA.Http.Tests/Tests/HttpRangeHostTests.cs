@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 10:40:00
+*修改时间：2026/11/26 17:46:21
 *修改人： yswenli
 *版本号： net10.0
-*描述：补充 gzip 开启、大文件句柄释放、不可定位流与非 200 状态下的 Range 用例
+*描述：新增流式结果带下载文件名的 Content-Disposition 端到端用例
 *
 *****************************************************************************/
 using System;
@@ -672,6 +672,37 @@ namespace SAEA.Http.Tests
             }
         }
 
+        /// <summary>
+        /// 大数据结果指定下载文件名时应写出 Content-Disposition，并带 UTF-8 扩展值。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task HttpAttachment_BigData_WritesContentDisposition()
+        {
+            var rootName = NewRootName();
+
+            var host = NewHost(rootName, out var port, false, typeof(ProbeBigDataContext));
+
+            try
+            {
+                host.Start();
+
+                var response = await RequestAsync(port, "GET", "/probe-attachment", null).ConfigureAwait(false);
+
+                Assert.AreEqual(200, response.StatusCode, "带下载文件名的流式结果应正常返回 200。");
+
+                var disposition = response.Header("Content-Disposition");
+
+                StringAssert.Contains(disposition, "attachment;");
+                StringAssert.Contains(disposition, "filename*=UTF-8''%E6%8A%A5%E5%91%8A.txt");
+            }
+            finally
+            {
+                StopQuietly(host);
+                DeleteRoot(rootName);
+            }
+        }
+
         /// <summary>生成只含安全字符的站点根目录名，避免 HttpUtility 归一化时报错。</summary>
         private static string NewRootName()
         {
@@ -998,6 +1029,9 @@ namespace SAEA.Http.Tests
 
                     case "/probe-leave-open":
                         return new HttpBigDataResult(PendingStream, "application/octet-stream", HttpStatusCode.OK, true);
+
+                    case "/probe-attachment":
+                        return new HttpBigDataResult(new MemoryStream(BuildPayload(64)), "application/octet-stream", HttpStatusCode.OK, false, "报告.txt");
                 }
 
                 return base.GetActionResult();

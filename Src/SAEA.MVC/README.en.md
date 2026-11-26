@@ -998,6 +998,41 @@ response.End();
 return Empty();
 ```
 
+### Attachment downloads (Content-Disposition)
+
+The `File(...)` / `BigData(...)` overloads and the `fileName` constructor arguments of `FileResult` / `BigDataResult` generate an attachment download header:
+
+```text
+Content-Disposition: attachment; filename="..."; filename*=UTF-8''...
+```
+
+```csharp
+// One-line small-file attachment download
+return File(filePath, "report.pdf");
+
+// Large-file streaming attachment download
+return BigData(filePath, "report.pdf");
+
+// Construct results directly
+return new FileResult(stream, "application/octet-stream", HttpStatusCode.OK, "report.pdf");
+return new BigDataResult(stream, "application/octet-stream", HttpStatusCode.OK, false, "report.pdf");
+```
+
+- A `null` or blank file name keeps the normal response and writes no `Content-Disposition`.
+- Only the last path segment is kept (`/` and `\` are both recognized), and control characters such as CR/LF are removed to prevent header injection.
+- Non-ASCII characters are encoded into `filename*` per RFC 5987, with an ASCII fallback name; Chinese characters become `_` in the fallback.
+- For non-file results (such as exported CSV text), write the header manually:
+
+```csharp
+using SAEA.Http.Common;
+
+var disposition = ContentDispositionHelper.Build("export.csv");
+if (disposition != null)
+    HttpContext.Current.Response.Headers["Content-Disposition"] = disposition;
+```
+
+`ContentDispositionHelper.Build(fileName, inline: true)` produces the `inline` prefix.
+
 ### Range requests (segmented downloads)
 
 Static files, `File(...)`, and `BigData(...)` (including `FileResult` / `BigDataResult`) all support a single `Range`:

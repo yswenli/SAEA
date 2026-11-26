@@ -706,6 +706,43 @@ server.WebConfig.RequestDelegate = ctx =>
 };
 ```
 
+### Attachment downloads (Content-Disposition)
+
+The `fileName` constructor arguments of `HttpFileResult` and `HttpBigDataResult` generate an attachment download header, written as:
+
+```text
+Content-Disposition: attachment; filename="..."; filename*=UTF-8''...
+```
+
+```csharp
+// Small file
+ctx.Response.SetCached(new HttpFileResult(filePath, true, "report.pdf"));
+ctx.Response.End();
+
+// Large file, streaming
+ctx.Response.SetCached(new HttpBigDataResult(filePath, "report.pdf"));
+ctx.Response.End();
+
+// Or create directly from a stream
+ctx.Response.SetCached(new HttpBigDataResult(stream, "application/octet-stream", System.Net.HttpStatusCode.OK, false, "report.pdf"));
+ctx.Response.End();
+```
+
+- A `null` or blank file name keeps the normal response and writes no `Content-Disposition`.
+- Only the last path segment is kept (`/` and `\` are both recognized), and control characters such as CR/LF are removed to prevent header injection.
+- Non-ASCII characters are encoded into `filename*` per RFC 5987, with an ASCII fallback name; Chinese characters become `_` in the fallback.
+- For non-file results (such as exported CSV text), write the header manually:
+
+```csharp
+using SAEA.Http.Common;
+
+var disposition = ContentDispositionHelper.Build("export.csv");
+if (disposition != null)
+    ctx.Response.Headers["Content-Disposition"] = disposition;
+```
+
+`ContentDispositionHelper.Build(fileName, inline: true)` produces the `inline` prefix.
+
 ### Range requests (segmented downloads)
 
 Static files (including those over 4MB, served through the `HttpBigDataResult` streaming path), `HttpFileResult`, and `HttpBigDataResult` support a single `Range`:

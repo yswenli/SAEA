@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 17:00:00
+*修改时间：2026/11/26 17:46:21
 *修改人： yswenli
 *版本号： net10.0
-*描述：补充非 200 大数据、不可定位流与 leaveOpen 观测入口
+*描述：新增带下载文件名的文件结果与大数据结果入口
 *
 *****************************************************************************/
 using System;
@@ -106,6 +106,24 @@ namespace SAEA.MVC.Tests.Controllers
         public string StreamState(string id)
         {
             return StreamProbeRegistry.IsDisposed(id) ? "disposed" : "open";
+        }
+
+        /// <summary>
+        /// 返回带下载文件名的 64 字节文件结果，用于验证 Content-Disposition。
+        /// </summary>
+        /// <returns>文件结果</returns>
+        public ActionResult Attachment()
+        {
+            return new FileResult(new MemoryStream(BuildPayload(64)), "application/octet-stream", HttpStatusCode.OK, "报告.txt");
+        }
+
+        /// <summary>
+        /// 返回带下载文件名的大数据结果，用于验证流式路径的 Content-Disposition。
+        /// </summary>
+        /// <returns>大数据结果</returns>
+        public ActionResult BigDataAttachment()
+        {
+            return new BigDataResult(new MemoryStream(BuildPayload(64)), "application/octet-stream", HttpStatusCode.OK, false, "报告.bin");
         }
 
         /// <summary>

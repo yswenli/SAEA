@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 17:00:00
+*修改时间：2026/11/26 17:46:21
 *修改人： yswenli
 *版本号： net10.0
-*描述：补充 gzip 开启、416、HEAD、非 200、不可定位流、leaveOpen 与大文件句柄释放用例
+*描述：新增文件与大数据的 Content-Disposition 端到端用例
 *
 *****************************************************************************/
 using System;
@@ -343,6 +343,50 @@ namespace SAEA.MVC.Tests
                     {
                         Assert.AreEqual((byte)(i % 251), body[i], "大数据 206 第 " + i + " 字节应与源数据一致");
                     }
+                }
+            }, new Dictionary<string, string>()).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 控制器返回带下载文件名的 FileResult 时应写出 Content-Disposition。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task ControllerFile_WithFileName_WritesContentDisposition()
+        {
+            await WithAppAsync(async (port, rootDirectory) =>
+            {
+                using (var client = TestAppFactory.CreateHttpClient())
+                using (var response = await TestAppFactory.GetAsync(client, BaseUrl(port) + "/rangeprobe/attachment").ConfigureAwait(false))
+                {
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "带下载文件名的文件结果应返回 200");
+
+                    var disposition = Header(response, "Content-Disposition");
+
+                    StringAssert.Contains(disposition, "attachment;");
+                    StringAssert.Contains(disposition, "filename*=UTF-8''%E6%8A%A5%E5%91%8A.txt");
+                }
+            }, new Dictionary<string, string>()).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 控制器返回带下载文件名的大数据结果时应写出 Content-Disposition。
+        /// </summary>
+        /// <returns>该用例的异步执行任务。</returns>
+        [TestMethod]
+        public async Task ControllerBigData_WithFileName_WritesContentDisposition()
+        {
+            await WithAppAsync(async (port, rootDirectory) =>
+            {
+                using (var client = TestAppFactory.CreateHttpClient())
+                using (var response = await TestAppFactory.GetAsync(client, BaseUrl(port) + "/rangeprobe/bigdataattachment").ConfigureAwait(false))
+                {
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "带下载文件名的大数据结果应返回 200");
+
+                    var disposition = Header(response, "Content-Disposition");
+
+                    StringAssert.Contains(disposition, "attachment;");
+                    StringAssert.Contains(disposition, "filename*=UTF-8''%E6%8A%A5%E5%91%8A.bin");
                 }
             }, new Dictionary<string, string>()).ConfigureAwait(false);
         }
