@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 10:00:00
+*修改时间：2026/11/26 16:21:35
 *修改人： yswenli
-*版本号： v26.11.25.1
-*描述：新增 ApplyRangeHeader，按单区间 Range 把内存正文改写为 206 或 416
+*版本号： v26.11.26.1
+*描述：Content-Encoding 按实际压缩置位，SendHeader 保留显式 Connection，新增段发送重载，ApplyRangeHeader 全量区间不再复制
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -41,6 +41,7 @@ using SAEA.Sockets.Pipeline;
 using System;
 using System.Globalization;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -75,6 +76,9 @@ namespace SAEA.Http
         internal IWebHost WebHost { get; set; }
 
         bool _isZiped = false;
+
+        // gzip 头只在真正压缩了正文的那一帧写出：流式与池化路径从不压缩，声明了就是骗客户端
+        bool _gzipApplied = false;
 
         // 空行与报头行尾用同一组换行字节：每请求都 Encoding.GetBytes 一次纯属重复分配，
         // 数组只读不写，可安全共享
@@ -128,6 +132,7 @@ namespace SAEA.Http
             Channel = channel;
             Protocal = protocal;
             _isZiped = isZiped;
+            _gzipApplied = false;
             // 默认不设置Connection头，根据客户端请求决定
         }
 
@@ -179,6 +184,9 @@ namespace SAEA.Http
         /// <returns></returns>
         protected string BuildHeader()
         {
+            // 只构建报头，不知道正文是否压缩，不能带 Content-Encoding
+            _gzipApplied = false;
+
             // 容量按典型报头一次给够，避免从 16 逐级扩容；结果与逐段扩容完全一致
             var builder = new StringBuilder(512);
             var sink = new StringBuilderHeaderSink(builder);
@@ -205,7 +213,8 @@ namespace SAEA.Http
             sink.Text(GetDateHeaderText());
             sink.Break();
 
-            if (_isZiped)
+            // 只在本次确实压缩了正文时声明 gzip：计量与写出都读同一个标志，两处不会不一致
+            if (_gzipApplied)
                 //支持gzip
                 sink.Line(ConstHelper.ContentEncoding);
 
@@ -333,6 +342,9 @@ namespace SAEA.Http
         /// <returns>报头与空行组成的字节数组，长度一次性算准</returns>
         byte[] EncodeHeaderWithBlankLine(Encoding encoding)
         {
+            // 只写报头的帧没有正文，也就不存在压缩，不能带 Content-Encoding
+            _gzipApplied = false;
+
             var newLineBytes = GetNewLineBytes(encoding);
             var headerLen = GetHeaderByteCount(encoding, newLineBytes);
 
@@ -526,6 +538,17 @@ namespace SAEA.Http
                 return;
             }
 
+            // 全量区间与完整正文相同：复用原数组，省掉整块复制，Content-Length 已等于 total
+            if (parsed.Start == 0 && parsed.Length == total)
+            {
+                this.Status = HttpStatusCode.PartialContent;
+
+                this.Headers[ResponseHeaderType.ContentRange.GetDescription()] =
+                    "bytes 0-" + (total - 1).ToString(CultureInfo.InvariantCulture) + "/" + total.ToString(CultureInfo.InvariantCulture);
+
+                return;
+            }
+
             var slice = new byte[(int)parsed.Length];
 
             Buffer.BlockCopy(body, (int)parsed.Start, slice, 0, slice.Length);
@@ -692,8 +715,16 @@ namespace SAEA.Http
         protected byte[] ToBytes()
         {
             var bdata = this.Body;
+            var gzipApplied = false;
+
             if (_isZiped && this.Body != null)
+            {
                 bdata = GZipHelper.Compress(this.Body);
+                gzipApplied = true;
+            }
+
+            // 报头里的 Content-Encoding 必须与本次真实压缩结果一致
+            _gzipApplied = gzipApplied;
 
             var bodyLen = 0;
 
@@ -732,6 +763,9 @@ namespace SAEA.Http
             // gzip 压缩结果本身就是新数组，池化省不掉这块分配，直接走一次性分配路径
             if (_isZiped && this.Body != null)
                 return false;
+
+            // 本路径不压缩正文，任何残留的压缩标志都不能带进本次报头
+            _gzipApplied = false;
 
             var bdata = this.Body;
             var bodyLen = bdata != null ? bdata.Length : 0;
@@ -970,16 +1004,11 @@ namespace SAEA.Http
             if (bodyLen > 0)
                 this.SetHeader(ResponseHeaderType.ContentLength, bodyLen.ToString());
 
-            // 默认情况下，对普通短连接响应使用 Connection: close
-            // 对于长连接/流式场景（如 SSE），调用方可以传入 bodyLen = -1 来表示无限长度流，此时保持连接
-            if (bodyLen >= 0)
+            // 只有调用方没有显式指定 Connection 时才写默认值：大文件流可预设 close，
+            // 而 SSE 这类未预设的无限流仍按 keep-alive 保持连接
+            if (!this.Headers.ContainsKey(_connectionKey))
             {
-                Headers["Connection"] = "close";
-            }
-            else
-            {
-                // 长连接/流式响应，使用 keep-alive，允许持续发送数据
-                Headers["Connection"] = "keep-alive";
+                this.Headers[_connectionKey] = bodyLen >= 0 ? "close" : "keep-alive";
             }
 
             // 与 ToBytes 同理：先算长度一次分配，报头直接编进目标数组，返回的 byte[] 会被发送流程继续持有
@@ -1001,6 +1030,17 @@ namespace SAEA.Http
         }
 
         /// <summary>
+        /// 发送缓冲中的一段字节，不复制底层缓冲，供大数据流按块下发
+        /// </summary>
+        /// <param name="data">背衬缓冲</param>
+        /// <param name="offset">起始下标</param>
+        /// <param name="count">有效字节数</param>
+        internal void SendData(byte[] data, int offset, int count)
+        {
+            SendDataAsync(data, offset, count).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
         /// 异步发送数据，
         /// 与 <see cref="SendHeaderAsync"/>、<see cref="SendEndAsync"/> 联合使用
         /// </summary>
@@ -1011,7 +1051,19 @@ namespace SAEA.Http
             return SendDataCoreAsync(data);
         }
 
-        private async Task SendDataCoreAsync(byte[] data)
+        /// <summary>
+        /// 异步发送缓冲中的一段字节，只下发 offset 起的 count 个字节，不复制底层缓冲
+        /// </summary>
+        /// <param name="data">背衬缓冲</param>
+        /// <param name="offset">起始下标</param>
+        /// <param name="count">有效字节数</param>
+        /// <returns>写出完成后的任务</returns>
+        internal Task SendDataAsync(byte[] data, int offset, int count)
+        {
+            return SendDataCoreAsync(new ReadOnlyMemory<byte>(data, offset, count));
+        }
+
+        private async Task SendDataCoreAsync(ReadOnlyMemory<byte> data)
         {
             if (IsUpgraded || IsHandled) return;
 
@@ -1260,10 +1312,13 @@ namespace SAEA.Http
         /// 把一段完整字节写到连接：内置宿主走异步写出，外部 IWebHost 实现退回同步写，行为不变
         /// </summary>
         /// <param name="channel">连接通道</param>
-        /// <param name="data">待写出的字节</param>
+        /// <param name="data">待写出的字节，可以是池化缓冲中的一段</param>
         /// <returns>写出完成后的任务</returns>
-        private async Task SendToHostAsync(IChannel channel, byte[] data)
+        private async Task SendToHostAsync(IChannel channel, ReadOnlyMemory<byte> data)
         {
+            if (data.Length == 0)
+                return;
+
             var webHost = WebHost as WebHost;
 
             if (webHost != null)
@@ -1272,7 +1327,11 @@ namespace SAEA.Http
                 return;
             }
 
-            WebHost.Send(channel, data);
+            // 外部 IWebHost 只接受独立数组：整段时直接复用背衬，切片时才复制
+            if (MemoryMarshal.TryGetArray(data, out var segment) && segment.Offset == 0 && segment.Count == segment.Array.Length)
+                WebHost.Send(channel, segment.Array);
+            else
+                WebHost.Send(channel, data.ToArray());
         }
 
         /// <summary>
@@ -1287,6 +1346,7 @@ namespace SAEA.Http
             this.WebHost = null;
             this.Channel = null;
             this._isZiped = false;
+            this._gzipApplied = false;
 
             this.Method = null;
             this.Url = null;

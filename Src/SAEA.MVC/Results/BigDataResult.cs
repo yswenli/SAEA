@@ -23,12 +23,13 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 10:00:00
+*修改时间：2026/11/26 17:40:00
 *修改人： yswenli
-*版本号： v26.11.25.1
-*描述：流式正文支持单区间 Range，可满足返回 206、不可满足返回 416
+*版本号： v26.11.26.1
+*描述：把 HttpContext.Current.Response 取值移入 try，构造阶段异常也会关闭数据流
 *
 *****************************************************************************/
+using SAEA.Common.Caching;
 using SAEA.Common.IO;
 using SAEA.Http.Base;
 using SAEA.Http.Common;
@@ -49,137 +50,156 @@ namespace SAEA.MVC.Results
         /// <summary>
         /// 大数据结果
         /// </summary>
-        /// <param name="stream"></param>
-        /// <param name="contentType"></param>
-        /// <param name="status"></param>
-        public BigDataResult(Stream stream, string contentType = "", HttpStatusCode status = HttpStatusCode.OK)
+        /// <param name="stream">正文数据流</param>
+        /// <param name="contentType">响应内容类型</param>
+        /// <param name="status">响应状态码</param>
+        /// <param name="leaveOpen">发送结束后是否保留调用方传入的数据流不关闭，默认 false 表示由本结果负责关闭；仅对 Stream 构造生效，filePath 构造总是关闭内部打开的流</param>
+        public BigDataResult(Stream stream, string contentType = "", HttpStatusCode status = HttpStatusCode.OK, bool leaveOpen = false)
         {
-            var total = stream.Length;
+            var total = stream.CanSeek ? stream.Length : -1;
 
             this.ContentEncoding = Encoding.UTF8;
             this.ContentType = contentType;
             this.Status = status;
 
-            var response = HttpContext.Current.Response;
-
-            string rangeHeader;
-
-            HttpContext.Current.Request.Headers.TryGetValue("Range", out rangeHeader);
-
-            // 只有可定位且长度已知的流才能按区间定位；其余按完整响应处理
-            var parsed = stream.CanSeek && total >= 0
-                ? ByteRangeHeader.Parse(rangeHeader, total)
-                : default(ByteRangeParseResult);
-
-            response.ContentType = contentType;
-            response.Headers["Connection"] = "close";
-            response.Status = status;
-
-            long remaining;
-
-            if (parsed.Kind == ByteRangeParseKind.Satisfiable)
-            {
-                response.Status = HttpStatusCode.PartialContent;
-                response.Headers["Accept-Ranges"] = "bytes";
-                response.Headers["Content-Range"] = "bytes " + parsed.Start + "-" + parsed.End + "/" + total;
-                response.SendHeader(parsed.Length);
-
-                // 报头已写出，后续发生异常不能再改状态码
-                (HttpContext.Current as HttpContext)?.MarkResponseStarted();
-
-                stream.Position = parsed.Start;
-
-                remaining = parsed.Length;
-            }
-            else if (parsed.Kind == ByteRangeParseKind.Unsatisfiable)
-            {
-                response.Status = HttpStatusCode.RequestedRangeNotSatisfiable;
-                response.Headers["Accept-Ranges"] = "bytes";
-                response.Headers["Content-Range"] = "bytes */" + total;
-                response.Headers["Content-Length"] = "0";
-                response.SendHeader(0);
-
-                (HttpContext.Current as HttpContext)?.MarkResponseStarted();
-
-                try
-                {
-                    response.SendEnd();
-                }
-                finally
-                {
-                    stream.Close();
-                }
-
-                return;
-            }
-            else
-            {
-                response.Headers["Accept-Ranges"] = "bytes";
-                response.SendHeader(total);
-
-                // 报头已写出，后续发生异常不能再改状态码
-                (HttpContext.Current as HttpContext)?.MarkResponseStarted();
-
-                // 不可定位的流保持原有从当前位置开始读的行为
-                if (stream.CanSeek) stream.Position = 0;
-
-                remaining = -1;
-            }
-
-            // HEAD 只要报头：Content-Length 已按区间长度或完整长度写出，正文一个字节都不发
-            if (response.SuppressBody)
-            {
-                try
-                {
-                    response.SendEnd();
-                }
-                finally
-                {
-                    // 结束连接失败时同样要释放文件流，否则 HEAD 请求会泄漏句柄
-                    stream.Close();
-                }
-
-                return;
-            }
-
-            var buffer = new byte[10240];
             try
             {
-                while (remaining != 0)
+                var response = HttpContext.Current.Response;
+
+                string rangeHeader;
+
+                HttpContext.Current.Request.Headers.TryGetValue("Range", out rangeHeader);
+
+                // 只有 200 完整响应且长度已知的流才能按区间定位；非 200 与不可定位流按完整正文处理
+                var parsed = status == HttpStatusCode.OK && stream.CanSeek && total >= 0
+                    ? ByteRangeHeader.Parse(rangeHeader, total)
+                    : default(ByteRangeParseResult);
+
+                response.ContentType = contentType;
+                response.Headers["Connection"] = "close";
+                response.Status = status;
+
+                long remaining;
+
+                if (parsed.Kind == ByteRangeParseKind.Satisfiable)
                 {
-                    // 区间请求只读剩余字节数，最后一块按剩余量收窄
-                    var readSize = remaining < 0 ? buffer.Length : (int)Math.Min(buffer.Length, remaining);
+                    response.Status = HttpStatusCode.PartialContent;
+                    response.Headers["Accept-Ranges"] = "bytes";
+                    response.Headers["Content-Range"] = "bytes " + parsed.Start + "-" + parsed.End + "/" + total;
+                    response.SendHeader(parsed.Length);
 
-                    var count = stream.Read(buffer, 0, readSize);
+                    // 报头已写出，后续发生异常不能再改状态码
+                    (HttpContext.Current as HttpContext)?.MarkResponseStarted();
 
-                    if (count < 1)
-                    {
-                        break;
-                    }
+                    stream.Position = parsed.Start;
 
-                    if (count == buffer.Length)
-                    {
-                        response.SendData(buffer);
-                    }
-                    else
-                    {
-                        var b = new byte[count];
+                    remaining = parsed.Length;
+                }
+                else if (parsed.Kind == ByteRangeParseKind.Unsatisfiable)
+                {
+                    response.Status = HttpStatusCode.RequestedRangeNotSatisfiable;
+                    response.Headers["Accept-Ranges"] = "bytes";
+                    response.Headers["Content-Range"] = "bytes */" + total;
+                    response.Headers["Content-Length"] = "0";
+                    response.SendHeader(0);
 
-                        Buffer.BlockCopy(buffer, 0, b, 0, count);
+                    (HttpContext.Current as HttpContext)?.MarkResponseStarted();
 
-                        response.SendData(b);
-                    }
+                    response.SendEnd();
 
-                    if (remaining > 0) remaining -= count;
+                    return;
+                }
+                else if (!stream.CanSeek)
+                {
+                    // 不可定位流没有总长度：不声明 Accept-Ranges，连接已预设 close，正文以连接关闭结束
+                    response.SendHeader(-1);
+
+                    // 报头已写出，后续发生异常不能再改状态码
+                    (HttpContext.Current as HttpContext)?.MarkResponseStarted();
+
+                    remaining = -1;
+                }
+                else
+                {
+                    // 非 200 不声明区间支持，保持传入状态与完整正文
+                    if (status == HttpStatusCode.OK)
+                        response.Headers["Accept-Ranges"] = "bytes";
+
+                    // 空正文也要有明确长度，否则分段写路径不会写 Content-Length
+                    if (total == 0)
+                        response.Headers["Content-Length"] = "0";
+
+                    response.SendHeader(total);
+
+                    // 报头已写出，后续发生异常不能再改状态码
+                    (HttpContext.Current as HttpContext)?.MarkResponseStarted();
+
+                    stream.Position = 0;
+
+                    remaining = -1;
                 }
 
-                // 只有正文整体写完才结束连接：中途因客户端断开发送失败时，异常交给响应层按已开始写出的响应收尾
-                response.SendEnd();
+                // HEAD 只要报头：Content-Length 已按区间长度或完整长度写出，正文一个字节都不发
+                if (response.SuppressBody)
+                {
+                    response.SendEnd();
+
+                    return;
+                }
+
+                const int bufferSize = 16384;
+
+                var buffer = MemoryPoolManager.Rent(bufferSize);
+
+                try
+                {
+                    while (remaining != 0)
+                    {
+                        // 区间请求只读剩余字节数，最后一块按剩余量收窄
+                        var readSize = remaining < 0 ? bufferSize : (int)Math.Min(bufferSize, remaining);
+
+                        var count = stream.Read(buffer, 0, readSize);
+
+                        if (count < 1)
+                        {
+                            break;
+                        }
+
+                        // 池化数组可能比 16384 大，只能下发实际读到的字节
+                        response.SendData(buffer, 0, count);
+
+                        if (remaining > 0) remaining -= count;
+                    }
+
+                    // 只有正文整体写完才结束连接：中途因客户端断开发送失败时，异常交给响应层按已开始写出的响应收尾
+                    response.SendEnd();
+                }
+                finally
+                {
+                    MemoryPoolManager.Return(buffer, bufferSize);
+                }
             }
             finally
             {
-                // 无论是否中途失败都要关闭文件流，否则客户端断开一次就泄漏一个句柄
-                stream.Close();
+                // 无论正常结束、HEAD 提前返回还是中途失败都要关闭文件流，否则客户端断开一次就泄漏一个句柄
+                if (!leaveOpen)
+                    CloseQuietly(stream);
+            }
+        }
+
+        /// <summary>
+        /// 关闭数据流，关闭失败不覆盖发送阶段抛出的原始异常
+        /// </summary>
+        /// <param name="stream">待关闭的数据流</param>
+        static void CloseQuietly(Stream stream)
+        {
+            try
+            {
+                stream.Dispose();
+            }
+            catch
+            {
+                // 关闭失败通常来自已断开的底层连接，不能盖掉真正的发送异常
             }
         }
 
@@ -187,9 +207,10 @@ namespace SAEA.MVC.Results
         /// <summary>
         /// 大数据结果
         /// </summary>
-        /// <param name="filePath"></param>
-        /// <param name="status"></param>
-        public BigDataResult(string filePath, HttpStatusCode status = HttpStatusCode.OK) : this(FileHelper.GetStream(filePath), HttpMIME.GetType(filePath), status)
+        /// <param name="filePath">文件路径，内部打开的流由本结果负责关闭</param>
+        /// <param name="status">响应状态码</param>
+        public BigDataResult(string filePath, HttpStatusCode status = HttpStatusCode.OK)
+            : this(FileHelper.GetStream(filePath), HttpMIME.GetType(filePath), status)
         {
 
         }

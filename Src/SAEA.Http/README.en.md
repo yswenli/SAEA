@@ -708,13 +708,17 @@ server.WebConfig.RequestDelegate = ctx =>
 
 ### Range requests (segmented downloads)
 
-Static files and `HttpFileResult` support a single `Range`:
+Static files (including those over 4MB, served through the `HttpBigDataResult` streaming path), `HttpFileResult`, and `HttpBigDataResult` support a single `Range`:
 
 - `bytes=a-b`, `bytes=a-`, and `bytes=-N` return `206 Partial Content` with `Content-Range: bytes a-b/total` and `Accept-Ranges: bytes`; only the requested bytes are sent.
 - A range beyond the body length returns `416 Requested Range Not Satisfiable` with `Content-Range: bytes */total` and `Content-Length: 0`.
 - A normal file request without `Range` still returns `200`, with `Accept-Ranges: bytes`.
 - Multiple ranges (any comma) and invalid syntax are ignored per RFC 7233 and return the full `200` body; `multipart/byteranges` and `If-Range` are not supported.
-- With gzip enabled (`isZiped` on `WebHost`), in-memory bodies are not sliced and `Accept-Ranges` is not written, because the compressed length no longer matches `Content-Length`.
+- `HEAD` with `Range` returns headers only and does not read the body; `Content-Length` equals the range length, and is `0` for a `416`.
+- `Range` is processed only when the response status is `200 OK`; any other status keeps its original status and full body, without `Accept-Ranges` / `Content-Range`.
+- `isZiped` affects only in-memory bodies (static small files and `HttpFileResult`): `Range` is then disabled and `Accept-Ranges` is not written. Streaming large files are not gzip-compressed, so `Range` works normally and the response does not carry `Content-Encoding`.
+- A non-seekable stream (`CanSeek == false`) is sent as the full response: no `Accept-Ranges`, no `Content-Length`, with `Connection: close` delimiting the body.
+- The `HttpBigDataResult(Stream ...)` constructor accepts `leaveOpen`: `false` (the default) closes the caller-supplied stream when the response finishes, while `true` leaves it for the caller to close. The `filePath` constructor does not expose this parameter and always closes the stream it opens.
 
 ```bash
 # First 4 bytes

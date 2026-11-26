@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/20 10:30:00
+*修改时间：2026/11/26 16:21:35
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：新增 SendFrameAsync 与 EndFrameAsync，接收池化帧并连同归还句柄交给连接会话，写出路径不再整帧分配
+*版本号： v26.11.26.1
+*描述：新增接收 ReadOnlyMemory 的 SendAsync，大数据段发送不再复制成独立数组
 *
 *****************************************************************************/
 using System;
@@ -234,6 +234,21 @@ namespace SAEA.Http
         /// <param name="data">待发送字节</param>
         /// <returns>写出完成后的任务</returns>
         public Task SendAsync(IChannel channel, byte[] data)
+        {
+            var session = HttpConnectionSession.TryGet(channel);
+            if (session == null)
+                return Task.CompletedTask;
+
+            return session.WriteBytesSafeAsync(data);
+        }
+
+        /// <summary>
+        /// 异步发送一段字节（可以是池化缓冲中的一段），不关闭连接；写失败只记日志，不向调用方抛出
+        /// </summary>
+        /// <param name="channel">连接通道</param>
+        /// <param name="data">待发送字节</param>
+        /// <returns>写出完成后的任务</returns>
+        internal Task SendAsync(IChannel channel, ReadOnlyMemory<byte> data)
         {
             var session = HttpConnectionSession.TryGet(channel);
             if (session == null)

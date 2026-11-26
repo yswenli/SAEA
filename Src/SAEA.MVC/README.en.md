@@ -1000,14 +1000,18 @@ return Empty();
 
 ### Range requests (segmented downloads)
 
-Static files, `File(...)`, and `BigData(...)` all support a single `Range`:
+Static files, `File(...)`, and `BigData(...)` (including `FileResult` / `BigDataResult`) all support a single `Range`:
 
 - Static files larger than 4MB go through the streaming `BigDataResult` path and send only the requested slice.
 - `bytes=a-b`, `bytes=a-`, and `bytes=-N` return `206 Partial Content` with `Content-Range: bytes a-b/total` and `Accept-Ranges: bytes`.
 - A range beyond the body length returns `416 Requested Range Not Satisfiable` with `Content-Range: bytes */total` and `Content-Length: 0`.
 - A normal file request without `Range` still returns `200`, with `Accept-Ranges: bytes`.
 - Multiple ranges (any comma) and invalid syntax are ignored per RFC 7233 and return the full `200` body; `multipart/byteranges` and `If-Range` are not supported.
-- `HEAD` with `Range` returns headers only, and `Content-Length` equals the range length.
+- `HEAD` with `Range` returns headers only and does not read the body; `Content-Length` equals the range length, and is `0` for a `416`.
+- `Range` is processed only when the response status is `200 OK`; any other status keeps its original status and full body, without `Accept-Ranges` / `Content-Range`.
+- `IsZiped` affects only in-memory bodies (static small files and `FileResult`): when enabled, `Range` is disabled and `Accept-Ranges` is not written. Streaming `BigDataResult` is not gzip-compressed, so `Range` works normally and the response does not carry `Content-Encoding`. MVC defaults to `IsZiped = false` and follows the same rules when it is enabled.
+- A non-seekable stream (`CanSeek == false`) is sent as the full response: no `Accept-Ranges`, no `Content-Length`, with `Connection: close` delimiting the body.
+- The `BigDataResult(Stream ...)` constructor accepts `leaveOpen`: `false` (the default) closes the caller-supplied stream when the response finishes, while `true` leaves it for the caller to close. The `filePath` constructor does not expose this parameter and always closes the stream it opens.
 
 ```csharp
 // Files returned by controllers are sliced the same way

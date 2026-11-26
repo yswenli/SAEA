@@ -22,7 +22,7 @@
 
 - `SAEA.Http/Common/ByteRangeHeader.cs`：把 `Range` 头与正文总长度解析为 `Ignore`、`Satisfiable` 或 `Unsatisfiable`，`Start`/`End` 为闭区间，`Length` 为区间字节数。数字按 `NumberStyles.None` + `InvariantCulture` 解析，拒绝正负号、空白与 long 溢出。
 - `HttpResponse.ApplyRangeHeader`：用于内存正文（静态小文件、控制器 `FileResult`）。只改写状态为 `200` 的响应；`_isZiped` 时直接返回。
-- `HttpBigDataResult` 与 MVC `BigDataResult`：用于流式大文件，解析后定位到 `Start` 并只发送 `Length` 字节。
+- `HttpBigDataResult` 与 MVC `BigDataResult`：用于流式大文件；可定位流解析后定位到 `Start` 并只发送 `Length` 字节，非可定位流按完整响应处理。
 - `HttpContext.cs` 与 MVC `RequestPipeline.cs`：在 `SetCached` 之后、连接策略之前调用 `ApplyRangeHeader`，只对 `IFileResult` 生效。
 
 ## 响应语义
@@ -33,6 +33,9 @@
 | 可满足 | `206` | `Accept-Ranges: bytes`、`Content-Range: bytes a-b/total` | 区间字节 |
 | 不可满足 | `416` | `Accept-Ranges: bytes`、`Content-Range: bytes */total` | 空，`Content-Length: 0` |
 | 语法非法或多区间 | `200` | `Accept-Ranges: bytes`，不写 `Content-Range` | 完整正文 |
+| 非可定位流 | `200` | 不写 `Accept-Ranges`，不带 `Content-Length`，`Connection: close` | 从流当前位置读到结尾 |
+
+`status != 200 OK` 时不做 `Range` 处理：保持调用方设置的状态与完整正文，不写 `Accept-Ranges` 与 `Content-Range`。非可定位流沿用调用方给定的状态，上表按默认 `200` 描述。
 
 不可满足的判定顺序：
 
@@ -42,21 +45,23 @@
 
 ## 压缩限制
 
-`_isZiped == true` 时，内存正文不启用 `Range`，也不写 `Accept-Ranges`。原因是 gzip 压缩后的正文长度与 `Content-Length` 不一致，按未压缩长度计算区间会切错位置。
+gzip 只作用于内存正文帧；`Content-Encoding: gzip` 只在正文真正被压缩时写出。`_isZiped == true` 时，内存正文（静态小文件与 `HttpFileResult`）不启用 `Range`，也不写 `Accept-Ranges`，因为压缩后的正文长度与 `Content-Length` 不一致，按未压缩长度计算区间会切错位置。流式正文（`HttpBigDataResult` / MVC `BigDataResult`）不做压缩，因此 `Range` 在流式路径始终可用，响应也不写 `Content-Encoding`。
 
 ## 大文件与 HEAD
 
-- 只有 `stream.CanSeek` 且总长度已知时才解析 `Range`；其余按完整响应处理。
-- 206 时把流定位到 `Start`，只读 `Length` 字节；416 时只写报头与 `SendEnd()`。
-- 保留 HEAD 的 `SuppressBody` 机制：206/416 的 `Content-Length` 分别等于区间长度与 0，正文由响应层统一丢弃。
-- MVC `BigDataResult` 保持 `MarkResponseStarted` 语义与 `finally` 中的 `stream.Close()`；Http `HttpBigDataResult` 维持不关闭流的既有行为，并继续使用 `MemoryPoolManager` 的 1024 字节缓冲。
+- 可定位流（`stream.CanSeek == true` 且总长度已知）按区间处理：206 时把流定位到 `Start`，只读 `Length` 字节；416 时只写报头与 `SendEnd()`。
+- 非可定位流（`CanSeek == false`）按完整响应发送：不写 `Accept-Ranges`，不带 `Content-Length`，用 `Connection: close` 界定正文，从流当前位置读到结尾，不再抛异常。
+- HEAD 提前收尾：206/416 的 `Content-Length` 分别等于区间长度与 `0`，正文一个字节都不读，由响应层的 `SuppressBody` 统一丢弃正文。
+- Http `HttpBigDataResult` 使用 16KB 池化缓冲（`MemoryPoolManager`）。
+- 两个接收 `Stream` 的构造都新增 `leaveOpen`（默认 `false`）：默认由结果类在正常完成、416、HEAD 提前收尾与异常路径关闭调用方传入的流；传 `true` 表示流归调用方所有，结果类不关闭。`filePath` 构造不提供 `leaveOpen`，总是关闭内部打开的文件流。
+- MVC `BigDataResult` 保持 `MarkResponseStarted` 语义。
 
 ## 测试覆盖
 
 - `SAEA.Http.Tests/ByteRangeHeaderTests`：三种区间写法、`b` 截断、不可满足、`b < a`、非法 unit、多区间、`-0`、空正文、大小写与空白、long 溢出。
-- `SAEA.Http.Tests/HttpResponseRangeTests`：反射构造 `HttpResponse`，覆盖无 `Range`、206、尾部区间、416、非法语法、多区间、非 `200` 状态与 `_isZiped`。
-- `SAEA.Http.Tests/HttpRangeHostTests`：真实 `WebHost` 端到端覆盖静态小文件的 206/尾部/416/无 `Range`/多区间回 `200`/HEAD，以及超过 4MB 静态大文件的 206 与 416。
-- `SAEA.MVC.Tests/RangeRequestTests`：`TestAppFactory` 端到端覆盖静态小文件 206/尾部/416/无 `Range`/HEAD、原始 socket 多区间与非法语法回 `200`、4MB 以上大文件与控制器 `FileResult`、`BigDataResult`。
+- `SAEA.Http.Tests/HttpResponseRangeTests`：反射构造 `HttpResponse`，覆盖无 `Range`、206、尾部区间、416、非法语法、多区间、非 `200` 状态、`_isZiped` 与全量区间免拷贝。
+- `SAEA.Http.Tests/HttpRangeHostTests`：真实 `WebHost` 端到端覆盖静态小文件的 206/尾部/416/无 `Range`/多区间回 `200`/HEAD，以及超过 4MB 静态大文件的 206 与 416；另覆盖 gzip 默认开启（`isZiped: true`）时的大文件 206/200、大文件 HEAD、非 `200` 状态、非可定位流、`leaveOpen`、句柄释放。
+- `SAEA.MVC.Tests/RangeRequestTests`：`TestAppFactory` 端到端覆盖静态小文件 206/尾部/416/无 `Range`/HEAD、原始 socket 多区间与非法语法回 `200`、4MB 以上大文件与控制器 `FileResult`、`BigDataResult`；另覆盖大文件 416、开启 gzip 时的大文件 206/200、大文件 HEAD、非 `200` 状态、非可定位流、`leaveOpen`、句柄释放。
 
 ## 已知限制
 
@@ -64,4 +69,4 @@
 - 不支持 `If-Range`，条件请求始终按当前正文计算。
 - 内存正文切片使用 `Buffer.BlockCopy` 与 `int` 下标，正文超过 2GB 不支持。
 - 开启 gzip 时内存正文不做 `Range`。
-- 不可定位的流（如网络流、压缩流）不解析 `Range`。
+- 不可定位的流（如网络流、压缩流）按完整响应发送：不写 `Accept-Ranges`，不带 `Content-Length`，用 `Connection: close` 界定正文。

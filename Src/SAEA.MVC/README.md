@@ -1000,14 +1000,18 @@ return Empty();
 
 ### Range 请求（分段下载）
 
-静态文件、`File(...)` 与 `BigData(...)` 都支持单区间 `Range`：
+静态文件、`File(...)` 与 `BigData(...)`（含 `FileResult` / `BigDataResult`）都支持单区间 `Range`：
 
 - 超过 4MB 的静态文件走 `BigDataResult` 流式路径，按区间定位后只发送区间字节。
 - `bytes=a-b`、`bytes=a-`、`bytes=-N` 命中时返回 `206 Partial Content`，带 `Content-Range: bytes a-b/total` 与 `Accept-Ranges: bytes`。
 - 区间超出正文长度时返回 `416 Requested Range Not Satisfiable`，带 `Content-Range: bytes */total` 与 `Content-Length: 0`。
 - 没有 `Range` 的普通文件响应仍是 `200`，但会带 `Accept-Ranges: bytes`。
 - 多区间（含逗号）与非法语法按 RFC 7233 忽略 `Range`，返回 `200` 全量；不支持 `multipart/byteranges` 与 `If-Range`。
-- `HEAD` 带 `Range` 时只回报头，`Content-Length` 等于区间长度。
+- `HEAD` 带 `Range` 时只回报头，不读正文；`Content-Length` 等于区间长度，`416` 时为 `0`。
+- `Range` 只在响应状态为 `200 OK` 时处理；其它状态保持原状态与完整正文，不写 `Accept-Ranges` / `Content-Range`。
+- `IsZiped` 只影响内存正文（静态小文件与 `FileResult`）：开启后不启用 `Range`，也不写 `Accept-Ranges`。流式 `BigDataResult` 不做 gzip，`Range` 正常生效且响应不写 `Content-Encoding`。MVC 默认 `IsZiped = false`，开启后同样遵循该规则。
+- 不可定位的流（`CanSeek == false`）按完整响应发送：不写 `Accept-Ranges`，不带 `Content-Length`，用 `Connection: close` 界定正文。
+- `BigDataResult(Stream ...)` 提供 `leaveOpen`：默认 `false` 关闭调用方传入的流，传 `true` 则由调用方关闭；`filePath` 构造不提供该参数，总是关闭内部打开的文件流。
 
 ```csharp
 // 控制器返回的文件同样按 Range 切片

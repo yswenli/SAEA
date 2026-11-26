@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/26 10:05:00
+*修改时间：2026/11/26 17:00:00
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增，覆盖 206 切片、416 空正文、非法与多区间回退 200、304 与 gzip 不启用
+*描述：新增整段区间 bytes=0- 复用原正文数组的用例
 *
 *****************************************************************************/
 using System;
@@ -93,6 +93,24 @@ namespace SAEA.Http.Tests
             Assert.AreEqual(HttpStatusCode.PartialContent, response.Status);
             CollectionAssert.AreEqual(new byte[] { 7, 8, 9 }, response.Body);
             Assert.AreEqual("bytes 7-9/10", Read(response, ContentRangeKey));
+        }
+
+        /// <summary>
+        /// 请求整段区间时应回 206，且复用原正文数组、不复制。
+        /// </summary>
+        [TestMethod]
+        public void ApplyRangeHeader_FullRange_Returns206WithSameBody()
+        {
+            var payload = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+
+            var response = CreateResponse(payload);
+
+            response.ApplyRangeHeader("bytes=0-");
+
+            Assert.AreEqual(HttpStatusCode.PartialContent, response.Status);
+            Assert.AreEqual("bytes 0-9/10", Read(response, ContentRangeKey));
+            Assert.AreEqual("bytes", Read(response, AcceptRangesKey));
+            Assert.AreSame(payload, response.Body, "整段区间应复用原正文数组。");
         }
 
         /// <summary>

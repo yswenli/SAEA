@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/20 10:30:00
+ *修改时间：2026/11/26 16:21:35
  *修改人： yswenli
- *版本号： v26.11.16.1
- *描述：新增 WriteFrameSafeAsync、WriteFrameAndCloseAsync 与 WriteFrameAsync：整帧连同归还句柄交给 RawFrame，写出失败或没有管线时归还缓冲
+ *版本号： v26.11.26.1
+ *描述：新增接收 ReadOnlyMemory 的 WriteBytesAsync 与 WriteBytesSafeAsync，byte[] 重载委托给新重载
  *
  *****************************************************************************/
 using System;
@@ -165,9 +165,22 @@ namespace SAEA.Http.Base.Net
         /// </summary>
         /// <param name="data">待写出的字节</param>
         /// <returns>写出完成后的任务</returns>
-        internal async Task WriteBytesSafeAsync(byte[] data)
+        internal Task WriteBytesSafeAsync(byte[] data)
         {
             if (data == null || data.Length == 0)
+                return Task.CompletedTask;
+
+            return WriteBytesSafeAsync((ReadOnlyMemory<byte>)data);
+        }
+
+        /// <summary>
+        /// 异步写出一段完整字节（可以是池化缓冲中的一段）；写失败只记录，不向业务抛出。
+        /// </summary>
+        /// <param name="data">待写出的字节</param>
+        /// <returns>写出完成后的任务</returns>
+        internal async Task WriteBytesSafeAsync(ReadOnlyMemory<byte> data)
+        {
+            if (data.Length == 0)
                 return;
 
             try
@@ -251,7 +264,22 @@ namespace SAEA.Http.Base.Net
             return pending.Wait(timeoutMs);
         }
 
-        internal async Task WriteBytesAsync(byte[] data)
+        /// <summary>
+        /// 异步写出一段完整字节；没有管线时抛出，调用方决定是否吞掉。
+        /// </summary>
+        /// <param name="data">待写出的字节</param>
+        /// <returns>写出完成后的任务</returns>
+        internal Task WriteBytesAsync(byte[] data)
+        {
+            return WriteBytesAsync((ReadOnlyMemory<byte>)data);
+        }
+
+        /// <summary>
+        /// 异步写出一段完整字节（可以是池化缓冲中的一段）；没有管线时抛出，调用方决定是否吞掉。
+        /// </summary>
+        /// <param name="data">待写出的字节</param>
+        /// <returns>写出完成后的任务</returns>
+        internal async Task WriteBytesAsync(ReadOnlyMemory<byte> data)
         {
             var pipeline = Pipeline;
             if (pipeline == null)
