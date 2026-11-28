@@ -252,7 +252,7 @@ TCP 只有一套底层引擎，`UsePacket()` 与 `UseStream()` 只决定数据�
 9. **`CloseAfterWriteAsync` 只保证已提交传输层**：不表示对端已收到；`DrainTimeout <= 0` 在该入口按 5 秒处理。
 10. **内存只承诺两项有界**：`MaxBufferedBytes` 约束输入残余字节，`MaxPendingWrites` 约束出站待写项数；其余排队帧、在途帧、TLS 复制与 socket 缓冲等没有固定总上界。
 11. **装配位置与限制**：`OutboundSerializingHandler` 必须恰好一个且位于出站前缀最右侧；`SwitchableSplitter` 每连接一个实例，`SwitchTo` 是解除 `StopAfterCurrent` 屏障的唯一方式，切换目标 `MaxFrameLength` 不得超过创建时固定的上限，`SplitterSwitchTimeout` 默认 10 秒；`TakeAvailableSplitter` 以一次读取为消息边界、`MaxFrameLength` 为单帧硬上界（可用缓冲超出时按上限切块，不抛异常），且不豁免 `ChannelPipeline.Create` 的缓冲下限校验。
-12. **服务端发送失败的上报级别与异常类型变化**：`SaeaServerSocket` 的同步发送不再按 `Socket.Connected` 预判拒发，连接已断开时的异常由 `KernelException` 变为底层 `SocketException` / `ObjectDisposedException`；连接关闭、重置、回收等收尾类发送失败不再触发 `OnError`，改记调试日志，明文与 TLS 发送路径口径一致。带 `owner` 的 `SendAsync(...)` 返回的 `Task` 仍以异常结束，调用方应按 `Task` 判断失败，不要依赖 `OnError`；`void Send` 与 `void SendAsync` 没有返回 `Task`，收尾类失败只记调试日志。客户端 `SaeaClientSocket` 的发送守卫本次未调整，仍按 `Socket.Connected` 拒发并上报。
+12. **服务端与客户端统一口径**：两端同步与异步发送都不再按 `Socket.Connected` 预判拒发，连接已断开时异常由 `KernelException` 变为底层 `SocketException` / `ObjectDisposedException`；仅「会话/连接未建立、已回收」这类前置判定仍以 `KernelException` 失败。连接关闭、重置、回收等收尾类发送失败不再触发 `OnError`，改记调试日志，TLS 与明文、服务端与客户端口径一致；客户端接收循环续投发现连接不可用时也不再误报「发送失败」。带 `owner` 的 `SendAsync(...)` 返回的 `Task` 仍以异常结束，调用方应按 `Task` 判断失败；`void Send` 与 `void SendAsync` 没有返回 `Task`，收尾类失败只记调试日志；断开通知统一由 `OnDisconnected` 负责。客户端同步完成即失败的发送也会按同一口径收口：收尾类只记调试日志并断开，其它错误仍上报 `OnError`。
 
 ---
 

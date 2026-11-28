@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/11 17:21:26
+*修改时间：2026/11/28 14:16:18
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：流模式下对端 FIN 视为入站结束，输入处理器返回后收尾断开
+*版本号： v26.11.27.1
+*描述：发送失败与服务端同口径分级；同步发送不再按 Connected 预判拒发；断开通知去重
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -809,7 +809,15 @@ namespace SAEA.Sockets.Core.Tcp
             }
 
             connection.SendApplicationData(data).ContinueWith(
-                t => RaiseError(_userToken?.ID ?? "", t.Exception.GetBaseException()),
+                t =>
+                {
+                    // 关闭/重置/回收类失败属预期收尾，不该按错误级别上报
+                    var ex = t.Exception.GetBaseException();
+                    if (SendTeardownClassifier.IsExpectedSendTeardown(ex))
+                        LogHelper.Debug($"TLS 发送时连接已收尾:{_userToken?.ID ?? ""}", ex);
+                    else
+                        RaiseError(_userToken?.ID ?? "", ex);
+                },
                 CancellationToken.None,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
                 TaskScheduler.Default);
@@ -887,7 +895,8 @@ namespace SAEA.Sockets.Core.Tcp
             else
             {
                 Interlocked.Exchange(ref _receiving, 0);
-                OnError?.Invoke("", new Exception("SAEA SocketError:发送失败,当前连接已断开"));
+                // 连接断开已由其它路径通知 OnDisconnected，这里只留原因，避免重复上报与重复收口
+                LogHelper.Debug($"续投接收时连接已不可用:{_userToken?.ID}");
             }
         }
 
@@ -969,8 +978,12 @@ namespace SAEA.Sockets.Core.Tcp
                             return;
                         }
 
-                        // 事件/包模式没有入站接管方，0 字节按断开处理。
-                        Disconnect();
+                        // 事件/包模式没有入站接管方，0 字节按断开处理；
+                        // 已由发送失败等路径收口时不再重复触发 OnDisconnected
+                        if (Connected)
+                            Disconnect();
+                        else
+                            LogHelper.Debug($"接收结束时连接已断开:{_userToken?.ID}");
                         return;
                     }
 
@@ -984,15 +997,23 @@ namespace SAEA.Sockets.Core.Tcp
                     {
                         ProcessReceive(readArgs);
                     }
-                    else
+                    else if (Connected)
                     {
                         Disconnect();
+                    }
+                    else
+                    {
+                        // 断开可能已由发送失败等路径通知，这里不再重复触发 OnDisconnected
+                        LogHelper.Debug($"接收完成时连接已断开:{_userToken?.ID}");
                     }
                 }
                 else
                 {
                     Interlocked.Exchange(ref _receiving, 0);
-                    Disconnect(new Exception("SAEA SocketError:远程服务器关闭连接"));
+                    if (Connected)
+                        Disconnect(new Exception("SAEA SocketError:远程服务器关闭连接"));
+                    else
+                        LogHelper.Debug($"接收错误时连接已断开:{_userToken?.ID}");
                 }
             }
             catch (Exception ex)
@@ -1074,9 +1095,13 @@ namespace SAEA.Sockets.Core.Tcp
             bool acquired = false;
             try
             {
-                if (userToken.Socket == null || !userToken.Socket.Connected)
+                if (userToken.Socket == null)
                 {
-                    operation.TryCompleteException(new KernelException("SAEA SocketError:发送失败,当前连接已断开"));
+                    // 只剩令牌已回收这一种放弃条件：写方向随令牌一起失效，属预期收尾，
+                    // 调用方仍收到失败，但不该按错误级别上报
+                    var recycledEx = new KernelException("SAEA SocketError:发送失败,当前连接已回收");
+                    operation.TryCompleteException(recycledEx);
+                    LogHelper.Debug($"发送时连接已回收:{userToken.ID}", recycledEx);
                     return operation.Task;
                 }
 
@@ -1118,14 +1143,24 @@ namespace SAEA.Sockets.Core.Tcp
                 catch (Exception ex)
                 {
                     // SendAsync 抛异常表示本次发送未被内核排队，完成回调不会再来。
+                    // 入池会清空 ID，日志与上报都用快照
+                    var tokenId = userToken.ID;
                     userToken.IsSending = false;
                     if (associated) baseToken.TakePendingSend();
                     associated = false;
                     try { userToken.ReleaseWrite(); } catch { }
                     acquired = false;
                     operation.TryCompleteException(ex);
-                    OnError?.Invoke(userToken.ID ?? "", ex);
-                    try { Disconnect(); } catch { }
+                    if (SendTeardownClassifier.IsExpectedSendTeardown(ex))
+                        LogHelper.Debug($"发送时连接已收尾:{tokenId}", ex);
+                    else
+                        OnError?.Invoke(tokenId ?? "", ex);
+
+                    // 已断开时 Disconnect 会再触发一次 OnDisconnected，只在仍标记连接时收口
+                    if (Connected)
+                    {
+                        try { Disconnect(); } catch { }
+                    }
                     return operation.Task;
                 }
 
@@ -1136,6 +1171,24 @@ namespace SAEA.Sockets.Core.Tcp
                 if (!asyncPending)
                 {
                     ProcessSended(writeArgs);
+
+                    // SendAsync 返回 false 表示已完成：失败时没有异常可捕获，需在这里按收尾分级补上断开与上报
+                    if (writeArgs.SocketError != SocketError.Success)
+                    {
+                        var completedEx = new SocketException((int)writeArgs.SocketError);
+                        if (SendTeardownClassifier.IsExpectedSendTeardown(completedEx))
+                        {
+                            LogHelper.Debug($"发送完成时连接已收尾:{userToken?.ID}", completedEx);
+                            if (Connected)
+                            {
+                                try { Disconnect(completedEx); } catch { }
+                            }
+                        }
+                        else
+                        {
+                            OnError?.Invoke(userToken?.ID ?? "", completedEx);
+                        }
+                    }
                 }
                 else
                 {
@@ -1148,8 +1201,16 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (associated) baseToken.TakePendingSend();
                 operation.TryCompleteException(ex);
-                OnError?.Invoke(userToken.ID ?? "", ex);
-                try { Disconnect(); } catch { }
+                if (SendTeardownClassifier.IsExpectedSendTeardown(ex))
+                    LogHelper.Debug($"发送时连接已收尾:{userToken?.ID}", ex);
+                else
+                    OnError?.Invoke(userToken?.ID ?? "", ex);
+
+                // 已断开时 Disconnect 会再触发一次 OnDisconnected，只在仍标记连接时收口
+                if (Connected)
+                {
+                    try { Disconnect(); } catch { }
+                }
                 return operation.Task;
             }
             finally
@@ -1191,18 +1252,14 @@ namespace SAEA.Sockets.Core.Tcp
         }
 
         /// <summary>
-        /// 同步发送：TLS 激活时走 TLS 通道，否则用 BeginSend/EndSend 循环发送入参副本；连接断开或超时经 OnError 报告
+        /// 同步发送：TLS 激活时走 TLS 通道，否则用 BeginSend/EndSend 循环发送入参副本；
+        /// 连接断开经 OnDisconnected 报告，发送超时仍经 OnError 报告
         /// </summary>
         /// <param name="data">待发送数据，为空时直接返回</param>
         public void Send(ReadOnlySpan<byte> data)
         {
             if (data.Length == 0) return;
             if (TrySendViaTls(data)) return;
-            if (!Connected)
-            {
-                OnError?.Invoke("", new Exception("SAEA SocketError:发送失败,当前连接已断开"));
-                return;
-            }
             var userToken = _userToken;
             if (userToken == null) return;
             if (!userToken.WaitWrite(SocketOption.ActionTimeout))
@@ -1224,7 +1281,15 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (Exception ex)
             {
-                Disconnect(ex);
+                // 首次失败由 Disconnect 触发一次 OnDisconnected；已断开后重复发送只留调试日志
+                if (Connected)
+                {
+                    Disconnect(ex);
+                }
+                else
+                {
+                    LogHelper.Debug($"发送时连接已断开:{userToken?.ID}", ex);
+                }
             }
             finally
             {
@@ -1234,6 +1299,9 @@ namespace SAEA.Sockets.Core.Tcp
 
         /// <summary>
         /// 异步发送：能直接取到底层数组时零拷贝直发，否则复制进池化缓冲；TLS 激活时走 TLS 通道
+        /// <para>
+        /// 收尾类失败只记调试日志；需要可观察失败请用带 owner 参数的 Task 重载。
+        /// </para>
         /// </summary>
         /// <param name="data">待发送数据，为空时直接返回</param>
         public void SendAsync(ReadOnlyMemory<byte> data)
@@ -1254,7 +1322,7 @@ namespace SAEA.Sockets.Core.Tcp
 
         /// <summary>
         /// 异步发送并转移缓冲所有权：返回的 Task 在底层交接完成后完成，失败可观察；
-        /// 未连接时先释放 owner 再同步抛出，调用方不得再次释放 owner。
+        /// 连接未建立时先释放 owner 再同步抛出，调用方不得再次释放 owner。
         /// </summary>
         /// <param name="data">待发送数据</param>
         /// <param name="owner">data 所占缓冲的所有权对象，可为 null</param>
@@ -1268,10 +1336,10 @@ namespace SAEA.Sockets.Core.Tcp
             }
 
             var userToken = _userToken;
-            if (userToken == null || !Connected || _socket == null || !_socket.Connected)
+            if (userToken == null || _socket == null)
             {
                 owner?.Dispose();
-                throw new KernelException("SAEA SocketError:发送失败,当前连接未建立或已断开");
+                throw new KernelException("SAEA SocketError:发送失败,当前连接未建立");
             }
 
             return SendAsyncCore(userToken, data, owner);
