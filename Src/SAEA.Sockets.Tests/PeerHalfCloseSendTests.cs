@@ -24,10 +24,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/28 06:39:07
+*修改时间：2026/11/28 12:58:24
 *修改人： yswenli
 *版本号： net10.0
-*描述：新增，覆盖对端 FIN 后仍能发出响应、发送方向关闭时不按错误级别上报
+*描述：发送窗口内收集全部上报并注明本用例不覆盖同步分级分支
 *
  *****************************************************************************/
 using System;
@@ -57,6 +57,10 @@ namespace SAEA.Sockets.Tests
 
         /// <summary>
         /// 客户端发完请求就半关写方向，服务端读到 EOF 后仍应把响应完整发出且不报异常。
+        /// <para>
+        /// Windows 上对端 FIN 不会把 <see cref="Socket.Connected"/> 置为 false，本用例只锁定
+        /// 「半关后仍能完整发出响应」的行为，不作为本次改动的判别依据。
+        /// </para>
         /// </summary>
         /// <returns>该用例的异步执行任务。</returns>
         [TestMethod]
@@ -151,6 +155,10 @@ namespace SAEA.Sockets.Tests
 
         /// <summary>
         /// 本端发送方向已关闭（Connected 为 false）时，发送应以异常结束，但属于预期收尾，不得触发 OnError。
+        /// <para>
+        /// 本用例锁定的是「发送方向关闭时异步完成路径不上报」的行为，不覆盖
+        /// <c>IsExpectedSendTeardown</c> 的同步分级分支（后者由 SendTeardownClassificationTests 覆盖）。
+        /// </para>
         /// </summary>
         /// <returns>该用例的异步执行任务。</returns>
         [TestMethod]
@@ -162,8 +170,11 @@ namespace SAEA.Sockets.Tests
 
             var opened = new TaskCompletionSource<IUserToken>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            // 只统计发送失败的上报，接收与断开路径的错误不影响本用例结论
+            // 发送窗口内收集全部上报，不做文案过滤
             var sendErrors = new ConcurrentBag<string>();
+
+            // 只在发送调用前后限窗，避免连接收口阶段的上报干扰结论
+            var collecting = 0;
 
             IServerSocket server = null;
 
@@ -194,9 +205,8 @@ namespace SAEA.Sockets.Tests
 
                 server.OnError += (id, ex) =>
                 {
-                    // 发送失败的上报把描述放在第一个参数里，异常本身不带这段文字
-                    if (id != null && id.IndexOf("message is sending", StringComparison.Ordinal) >= 0)
-                        sendErrors.Add(id);
+                    if (Volatile.Read(ref collecting) == 1)
+                        sendErrors.Add((id ?? "") + " | " + ex.GetType().Name + " | " + ex.Message);
                 };
 
                 server.Start();
@@ -213,6 +223,8 @@ namespace SAEA.Sockets.Tests
 
                     Assert.IsFalse(userToken.Socket.Connected, "前置条件：发送方向关闭后 Connected 应为 false。");
 
+                    Interlocked.Exchange(ref collecting, 1);
+
                     Exception sendError = null;
 
                     try
@@ -224,9 +236,11 @@ namespace SAEA.Sockets.Tests
                         sendError = ex;
                     }
 
+                    Interlocked.Exchange(ref collecting, 0);
+
                     Assert.IsNotNull(sendError, "发送方向关闭后发送应以异常结束。");
 
-                    Assert.AreEqual(0, sendErrors.Count, "连接收尾类发送失败不应触发 OnError 上报。");
+                    Assert.AreEqual(0, sendErrors.Count, "连接收尾类发送失败不应触发 OnError 上报，实际：" + string.Join(" || ", sendErrors));
                 }
             }
             finally

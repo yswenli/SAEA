@@ -17,7 +17,7 @@
 | [📐 架构设计](#架构设计) | 组件关系与工作流程 |
 | [💡 应用场景](#应用场景) | 何时选择 SAEA.Sockets |
 | [📊 实现模式对比](#实现模式对比) | 两种收发实现与选型 |
-| [⚠️ 破坏性变更（P0）](#破坏性变更p0) | 本版本必须核对的 11 条公开变化 |
+| [⚠️ 破坏性变更（P0）](#破坏性变更p0) | 本版本必须核对的 12 条公开变化 |
 | [❓ 常见问题](#常见问题) | FAQ 快速解答 |
 | [🔧 核心类](#核心类) | 主要类一览 |
 | [📝 使用示例](#使用示例) | 详细代码示例 |
@@ -230,7 +230,7 @@ TCP 只有一套底层引擎，`UsePacket()` 与 `UseStream()` 只决定数据�
 
 ## 破坏性变更（P0）⚠️
 
-本版本同时发布 `SAEA.Sockets` 与 `SAEA.Sockets.Pipeline`，以下 11 条影响升级，逐条核对：
+本版本同时发布 `SAEA.Sockets` 与 `SAEA.Sockets.Pipeline`，以下 12 条影响升级，逐条核对：
 
 1. **Pipeline 4 个接口共新增 6 个成员**：`IChannelHandler.HandlerAdded` / `HandlerRemoved`、`IChannelInboundHandler.ChannelActiveAsync` / `ChannelInactiveAsync`、`IChannelHandlerContext.CloseAfterWriteAsync`、`IChannelPipeline.WriteAsync`。外部直接实现这些接口会编译失败；继承适配器不受影响。
 2. **`ctx.WriteAsync` 仅在出站回调内合法**：回调外调用抛 `InvalidOperationException`；业务发消息用 `ctx.Pipeline.WriteAsync(entity)`。
@@ -252,6 +252,7 @@ TCP 只有一套底层引擎，`UsePacket()` 与 `UseStream()` 只决定数据�
 9. **`CloseAfterWriteAsync` 只保证已提交传输层**：不表示对端已收到；`DrainTimeout <= 0` 在该入口按 5 秒处理。
 10. **内存只承诺两项有界**：`MaxBufferedBytes` 约束输入残余字节，`MaxPendingWrites` 约束出站待写项数；其余排队帧、在途帧、TLS 复制与 socket 缓冲等没有固定总上界。
 11. **装配位置与限制**：`OutboundSerializingHandler` 必须恰好一个且位于出站前缀最右侧；`SwitchableSplitter` 每连接一个实例，`SwitchTo` 是解除 `StopAfterCurrent` 屏障的唯一方式，切换目标 `MaxFrameLength` 不得超过创建时固定的上限，`SplitterSwitchTimeout` 默认 10 秒；`TakeAvailableSplitter` 以一次读取为消息边界、`MaxFrameLength` 为单帧硬上界（可用缓冲超出时按上限切块，不抛异常），且不豁免 `ChannelPipeline.Create` 的缓冲下限校验。
+12. **发送失败的上报级别与异常类型变化**：同步发送不再按 `Socket.Connected` 预判拒发，连接已断开时的异常由 `KernelException` 变为底层 `SocketException` / `ObjectDisposedException`；连接关闭、重置、回收等收尾类发送失败不再触发 `OnError`，改记调试日志，明文与 TLS 发送路径口径一致。`SendAsync(...)` 返回的 `Task` 仍以异常结束，调用方应按 `Task` 判断失败，不要依赖 `OnError`。
 
 ---
 

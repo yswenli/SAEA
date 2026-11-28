@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/28 06:29:42
+*修改时间：2026/11/28 12:58:24
 *修改人： yswenli
 *版本号： v26.11.27.1
-*描述：发送侧不再按 Socket.Connected 拒发；连接收尾类发送失败降级为调试日志
+*描述：TLS 发送与 End 的收尾类失败纳入同一分级；End 写方向不可写时记录跳过原因
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -536,10 +536,14 @@ namespace SAEA.Sockets.Core.Tcp
 
         /// <summary>
         /// 判断发送失败是否属于连接收尾阶段的预期结果。
+        /// <para>
+        /// <see cref="SocketError.NetworkDown"/>、<see cref="SocketError.NetworkUnreachable"/>、
+        /// <see cref="SocketError.HostUnreachable"/> 未列入降级集合：它们是真实网络故障，不能吞成收尾。
+        /// </para>
         /// </summary>
         /// <param name="exception">发送路径上抛出的异常</param>
         /// <returns>属于连接关闭、重置或回收等预期收尾失败时返回 true</returns>
-        private static bool IsExpectedSendTeardown(Exception exception)
+        internal static bool IsExpectedSendTeardown(Exception exception)
         {
             for (var current = exception; current != null; current = current.InnerException)
             {
@@ -685,7 +689,25 @@ namespace SAEA.Sockets.Core.Tcp
             }
 
             connection.SendApplicationData(data).ContinueWith(
-                t => OnError?.Invoke(userToken?.ID ?? "", t.Exception.GetBaseException()),
+                t =>
+                {
+                    var tokenId = userToken?.ID ?? "";
+                    try
+                    {
+                        var ex = t.Exception?.GetBaseException();
+                        if (ex == null) return;
+
+                        // 关闭/重置/回收类失败属预期收尾，不该按错误级别上报
+                        if (IsExpectedSendTeardown(ex))
+                            LogHelper.Debug($"TLS 发送时连接已收尾:{tokenId}", ex);
+                        else
+                            OnError?.Invoke(tokenId, ex);
+                    }
+                    catch
+                    {
+                        // 续体里再抛异常会变成未观察异常，这里吞掉
+                    }
+                },
                 CancellationToken.None,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
                 TaskScheduler.Default);
@@ -1267,6 +1289,16 @@ namespace SAEA.Sockets.Core.Tcp
                     // SendApplicationData 内部先复制，Task 完成点覆盖本次应用数据拆出的全部 TLS 记录。
                     await connection.SendApplicationData(data.Span).ConfigureAwait(false);
                 }
+                catch (Exception ex)
+                {
+                    // 与明文发送同口径分级，但必须重新抛出：调用方拿到的 Task 仍要失败
+                    var tokenId = userToken?.ID ?? "";
+                    if (IsExpectedSendTeardown(ex))
+                        LogHelper.Debug($"TLS 发送时连接已收尾:{tokenId}", ex);
+                    else
+                        OnError?.Invoke(tokenId, ex);
+                    throw;
+                }
                 finally
                 {
                     owner?.Dispose();
@@ -1378,7 +1410,10 @@ namespace SAEA.Sockets.Core.Tcp
                     }
                     catch (Exception ex)
                     {
-                        OnError?.Invoke(sessionId ?? "", ex);
+                        if (IsExpectedSendTeardown(ex))
+                            LogHelper.Debug($"TLS 收尾发送时连接已收尾:{sessionId ?? ""}", ex);
+                        else
+                            OnError?.Invoke(sessionId ?? "", ex);
                     }
                     finally
                     {
@@ -1391,41 +1426,52 @@ namespace SAEA.Sockets.Core.Tcp
             }
             try
             {
-                if (userToken.Socket != null && userToken.Socket.Connected && data.Length > 0)
+                if (userToken.Socket != null && data.Length > 0)
                 {
-                    var copy = data.ToArray();
-                    var writeArgs = userToken.WriteArgs;
-                    if (writeArgs != null && userToken.WaitWrite(SocketOption.ActionTimeout))
+                    if (!userToken.Socket.Connected)
                     {
-                        writeArgs.SetBuffer(copy, 0, copy.Length);
-                        userToken.IsSending = true;
-                        if (userToken is BaseUserToken endToken && !endToken.TryBeginOperation())
+                        // 写方向已随本端关闭/释放或致命 IO 错误失效，跳过发送但留下原因
+                        LogHelper.Debug($"收尾发送时连接已不可写:{userToken.ID}");
+                    }
+                    else
+                    {
+                        var copy = data.ToArray();
+                        var writeArgs = userToken.WriteArgs;
+                        if (writeArgs != null && userToken.WaitWrite(SocketOption.ActionTimeout))
                         {
-                            // 连接已在回收：不再提交，交给随后的 Disconnect 收口
-                            userToken.IsSending = false;
-                            userToken.ReleaseWrite();
-                        }
-                        else
-                        {
-                            try
+                            writeArgs.SetBuffer(copy, 0, copy.Length);
+                            userToken.IsSending = true;
+                            if (userToken is BaseUserToken endToken && !endToken.TryBeginOperation())
                             {
-                                if (!userToken.Socket.SendAsync(writeArgs)) ProcessSended(writeArgs);
+                                // 连接已在回收：不再提交，交给随后的 Disconnect 收口
+                                userToken.IsSending = false;
+                                userToken.ReleaseWrite();
                             }
-                            catch (Exception ex)
+                            else
                             {
-                                // 入池会清空 ID：日志用快照；先在令牌仍归属本连接时断开，
-                                // 再由 CompleteOperation 作为本方法对令牌的最后一次访问。
-                                var tokenId = userToken.ID;
                                 try
                                 {
-                                    OnError?.Invoke(tokenId ?? "", ex);
+                                    if (!userToken.Socket.SendAsync(writeArgs)) ProcessSended(writeArgs);
                                 }
-                                finally
+                                catch (Exception ex)
                                 {
-                                    try { Disconnect(userToken); } catch { }
-                                    _sessionManager.CompleteOperation(userToken);
+                                    // 入池会清空 ID：日志用快照；先在令牌仍归属本连接时断开，
+                                    // 再由 CompleteOperation 作为本方法对令牌的最后一次访问。
+                                    var tokenId = userToken.ID;
+                                    try
+                                    {
+                                        if (IsExpectedSendTeardown(ex))
+                                            LogHelper.Debug($"收尾发送时连接已收尾:{tokenId}", ex);
+                                        else
+                                            OnError?.Invoke(tokenId ?? "", ex);
+                                    }
+                                    finally
+                                    {
+                                        try { Disconnect(userToken); } catch { }
+                                        _sessionManager.CompleteOperation(userToken);
+                                    }
+                                    return;
                                 }
-                                return;
                             }
                         }
                     }
@@ -1433,7 +1479,10 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (Exception ex)
             {
-                OnError?.Invoke(userToken?.ID ?? "", ex);
+                if (IsExpectedSendTeardown(ex))
+                    LogHelper.Debug($"收尾发送时连接已收尾:{userToken?.ID}", ex);
+                else
+                    OnError?.Invoke(userToken?.ID ?? "", ex);
             }
 
             // 同步完成的发送可能已是该令牌最后一个在途操作，令牌随即入池并被新连接取走；

@@ -17,7 +17,7 @@
 | [📐 Architecture Design](#architecture-design) | Component relationships and workflow |
 | [💡 Use Cases](#use-cases) | When to choose SAEA.Sockets |
 | [📊 Implementation Modes](#implementation-modes) | The two transports and how to choose |
-| [⚠️ Breaking Changes (P0)](#breaking-changes-p0) | The 11 public changes you must check before upgrading |
+| [⚠️ Breaking Changes (P0)](#breaking-changes-p0) | The 12 public changes you must check before upgrading |
 | [❓ FAQ](#faq) | Quick answers |
 | [🔧 Core Classes](#core-classes) | Overview of main classes |
 | [📝 Usage Examples](#usage-examples) | Detailed code examples |
@@ -230,7 +230,7 @@ This README does not publish cross-framework performance numbers (for comparison
 
 ## Breaking Changes (P0) ⚠️
 
-This release ships `SAEA.Sockets` and `SAEA.Sockets.Pipeline` together. The following 11 items affect upgrades; check them one by one:
+This release ships `SAEA.Sockets` and `SAEA.Sockets.Pipeline` together. The following 12 items affect upgrades; check them one by one:
 
 1. **The 4 Pipeline interfaces gained 6 members in total**: `IChannelHandler.HandlerAdded` / `HandlerRemoved`, `IChannelInboundHandler.ChannelActiveAsync` / `ChannelInactiveAsync`, `IChannelHandlerContext.CloseAfterWriteAsync`, `IChannelPipeline.WriteAsync`. Code that implements these interfaces directly will fail to compile; adapter subclasses are unaffected.
 2. **`ctx.WriteAsync` is only legal inside an outbound callback**: calling it elsewhere throws `InvalidOperationException`; business code sends messages with `ctx.Pipeline.WriteAsync(entity)`.
@@ -252,6 +252,7 @@ This release ships `SAEA.Sockets` and `SAEA.Sockets.Pipeline` together. The foll
 9. **`CloseAfterWriteAsync` only guarantees submission to the transport layer**: it does not mean the peer has received the data; `DrainTimeout <= 0` is treated as 5 seconds at that entry point.
 10. **Memory guarantees only two bounds**: `MaxBufferedBytes` bounds residual inbound bytes and `MaxPendingWrites` bounds pending outbound items; other queued frames, in-flight frames, TLS copies and socket buffers have no fixed total upper bound.
 11. **Placement rules and limits**: `OutboundSerializingHandler` must appear exactly once and at the far right of the outbound prefix; `SwitchableSplitter` is one instance per connection, `SwitchTo` is the only way to lift the `StopAfterCurrent` barrier, the switch target's `MaxFrameLength` must not exceed the cap fixed at creation, and `SplitterSwitchTimeout` defaults to 10 seconds; `TakeAvailableSplitter` treats one read as one message boundary, its `MaxFrameLength` is the hard per-frame upper bound (buffered bytes beyond it are split at the limit instead of throwing), and it does not waive the buffer lower-bound check in `ChannelPipeline.Create`.
+12. **Send-failure reporting level and exception types changed**: synchronous sends no longer pre-check `Socket.Connected` to refuse sending; when the connection is already closed the exception changes from `KernelException` to the underlying `SocketException` / `ObjectDisposedException`; teardown-class send failures such as connection close, reset and reclamation no longer raise `OnError` and are logged at debug level instead, with the plaintext and TLS send paths using the same rules. The `Task` returned by `SendAsync(...)` still ends with an exception; callers should judge failure by the `Task`, not by `OnError`.
 
 ---
 
