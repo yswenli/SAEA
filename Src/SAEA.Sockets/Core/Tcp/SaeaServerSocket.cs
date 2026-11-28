@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/24 18:28:01
+*修改时间：2026/11/28 06:29:42
 *修改人： yswenli
-*版本号： v26.11.24.2
-*描述：接收守卫改为负载处理完再释放，避免续投覆盖正在读取的缓冲区
+*版本号： v26.11.27.1
+*描述：发送侧不再按 Socket.Connected 拒发；连接收尾类发送失败降级为调试日志
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -534,6 +534,36 @@ namespace SAEA.Sockets.Core.Tcp
             return exception?.GetBaseException() ?? new SaeaTlsException("TLS 握手失败。");
         }
 
+        /// <summary>
+        /// 判断发送失败是否属于连接收尾阶段的预期结果。
+        /// </summary>
+        /// <param name="exception">发送路径上抛出的异常</param>
+        /// <returns>属于连接关闭、重置或回收等预期收尾失败时返回 true</returns>
+        private static bool IsExpectedSendTeardown(Exception exception)
+        {
+            for (var current = exception; current != null; current = current.InnerException)
+            {
+                if (current is ObjectDisposedException) return true;
+
+                var socketException = current as SocketException;
+                if (socketException == null) continue;
+
+                switch (socketException.SocketErrorCode)
+                {
+                    case SocketError.NotConnected:
+                    case SocketError.ConnectionReset:
+                    case SocketError.ConnectionAborted:
+                    case SocketError.NetworkReset:
+                    case SocketError.Shutdown:
+                    case SocketError.Disconnecting:
+                    case SocketError.OperationAborted:
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
         private SaeaConnection GetConnection(IUserToken userToken)
         {
             if (userToken == null) return null;
@@ -997,10 +1027,13 @@ namespace SAEA.Sockets.Core.Tcp
                     return operation.Task;
                 }
 
-                if (userToken.Socket == null || !userToken.Socket.Connected)
+                if (userToken.Socket == null)
                 {
-                    operation.TryCompleteException(new KernelException("发送失败，当前连接已断开。"));
-                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken.ID}", new KernelException("发送失败，当前连接已断开。"));
+                    // 只剩令牌已回收这一种放弃条件：写方向随令牌一起失效，属预期收尾，
+                    // 调用方仍收到失败，但不该按错误级别上报
+                    var recycledEx = new KernelException("发送失败，当前连接已回收。");
+                    operation.TryCompleteException(recycledEx);
+                    LogHelper.Debug($"An exception occurs when a message is sending:{userToken.ID}", recycledEx);
                     return operation.Task;
                 }
 
@@ -1039,7 +1072,7 @@ namespace SAEA.Sockets.Core.Tcp
                     acquired = false;
                     var closedEx = new KernelException("连接正在回收，发送已取消。");
                     operation.TryCompleteException(closedEx);
-                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken.ID}", closedEx);
+                    LogHelper.Debug($"发送时连接正在回收:{userToken.ID}", closedEx);
                     try { Disconnect(userToken, closedEx); } catch { }
                     return operation.Task;
                 }
@@ -1063,7 +1096,10 @@ namespace SAEA.Sockets.Core.Tcp
                         try { userToken.ReleaseWrite(); } catch { }
                         acquired = false;
                         operation.TryCompleteException(ex);
-                        OnError?.Invoke($"An exception occurs when a message is sending:{tokenId}", ex);
+                        if (IsExpectedSendTeardown(ex))
+                            LogHelper.Debug($"发送时连接已收尾:{tokenId}", ex);
+                        else
+                            OnError?.Invoke($"An exception occurs when a message is sending:{tokenId}", ex);
                     }
                     finally
                     {
@@ -1092,7 +1128,10 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (associated) baseToken.TakePendingSend();
                 operation.TryCompleteException(ex);
-                OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
+                if (IsExpectedSendTeardown(ex))
+                    LogHelper.Debug($"发送时连接已收尾:{userToken?.ID}", ex);
+                else
+                    OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
                 if (userToken.Socket == null || !userToken.Socket.Connected)
                     Disconnect(userToken, ex);
                 return operation.Task;
