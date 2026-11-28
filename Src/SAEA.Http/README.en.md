@@ -124,6 +124,7 @@ The three business entry points live on `WebConfig`; there are no receive or lif
 | Body spool threshold | 1MB | `WebConfig.LargeBodyThreshold`; above it the body is written to a temp file, `0` disables spooling |
 | Temp directory | `saea-http` under the system temp directory | `WebConfig.TempDirectory`; ensured to exist at startup |
 | 413 drain timeout | 2000ms | `WebConfig.RequestDrainTimeout`; how long to keep reading and discarding the remaining body after a 413; `0` disables draining |
+| Half-close drain timeout | 30000ms | `WebConfig.RemoteEofDrainTimeout`; how long to wait for in-flight requests and submitted responses when the client half-closes only its write direction; `0` or a negative value reuses the pipeline-level `DrainTimeout` |
 | Request header | 64KB | Separate limit; exceeding it returns 431 |
 | Framing buffer | `MaxFrameLength + 9 + ReadBufferSize` | Derived by the executor; do not set a smaller value |
 | Concurrent messages | 1 | HTTP is half-duplex; one request at a time per connection |
@@ -137,6 +138,8 @@ A request body above 16MB exceeds the pool's per-array limit, so each request al
 The spool threshold does not change the per-connection peak during framing: the whole frame must still be addressable, so spooling only removes the extra "frame → body array" copy and the post-request residency.
 
 An oversized body first gets a 413; the server then half-closes the write side and drains the remaining body within a bounded budget: `Content-Length` is parsed as a 64-bit integer, and for fixed-length requests the unread bytes are that value minus what has arrived; chunked requests, or lengths beyond the `long` range, fall back to `MaxRequestBodySize` because the remainder cannot be inferred; `400` and `431` do no draining. Bytes that arrive during draining are discarded and never reach the application (counted as decrypted plaintext on TLS connections), and `WebConfig.RequestDrainTimeout` bounds the drain; the connection closes once the byte budget, the timeout, or an early client half-close is reached, so unread data cannot trigger a RST that hides the 413 from the client.
+
+When a client half-closes only its write direction after sending a request (`shutdown(SHUT_WR)`), the server treats the peer EOF as the end of inbound data only: the connection chain enables `ChannelPipelineOptions.DrainOnRemoteEof`, waits for in-flight requests to finish and submitted responses to complete handoff, and then closes with `remote-eof`, so the response body (including streamed large-file responses) is still written in full. The wait limit defaults to `WebConfig.RemoteEofDrainTimeout` (30000 milliseconds); setting it to 0 or a negative value falls back to the pipeline-level `DrainTimeout` (5 seconds by default, and zero is treated as 5 seconds). Raising it prevents the drain limit from truncating the body on a slow link or when application processing takes longer. A timeout only logs a warning before closing continues, so a half-closed peer that stops reading cannot pin the connection. If a write to the transport fails during the drain, the write direction counts as unusable and the wait ends immediately in favor of shutdown instead of waiting for the application to finish.
 
 100 Continue is written directly to the raw socket, bypassing the response encoding chain. Header-phase malformation and fixed-length overflow are decided before the 100 is sent, so such rejected requests never receive 100 Continue first; for chunked requests the malformation or overflow may only surface in a later chunk, in which case the 100 has already been sent, which the protocol allows. When `Expect: 100-continue` is combined with chunked, the splitter first confirms through the chunk state machine that the body is incomplete, sends 100 once, then keeps reading and decoding the chunks. Known limitation: 100 Continue bypasses outbound serialization, so pipelined requests carrying `Expect` on one connection may interleave with the previous response, which is a non-compliant client usage.
 
@@ -846,6 +849,7 @@ server.WebConfig.MaxRequestBodySize = 20 * 1024 * 1024; // request body limit in
 server.WebConfig.LargeBodyThreshold = 1024 * 1024; // spool threshold in bytes; 0 keeps everything in memory, must be set before Start
 server.WebConfig.TempDirectory = null; // spool directory; null means saea-http under the system temp directory
 server.WebConfig.RequestDrainTimeout = 2000; // drain timeout in ms for the remaining body after a 413; 0 disables draining
+server.WebConfig.RemoteEofDrainTimeout = 30000; // wait limit in ms for in-flight requests and submitted responses after the client half-closes its write direction; 0 or negative reuses the pipeline-level DrainTimeout
 server.WebConfig.ConfigurePipeline = (id, pipeline) => { /* ... */ };
 server.WebConfig.UseSsl(o => { /* ... */ });
 server.WebConfig.RequestDelegate = ctx => { /* ... */ };

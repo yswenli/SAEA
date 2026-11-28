@@ -317,6 +317,7 @@ public sealed class SocketStreamAdapter : IRawByteStream
 - `ChannelPipelineExecutor.Attach(pipeline)` 必须在 `Start()` 之前完成，否则 `Start()` 抛 `InvalidOperationException`。
 - `CloseAsync(reason)` 只表示“已进入收口”：调用立即返回，后台收口继续执行，资源是否回收完要看 `ChannelPipelineExecutor.Completion`。
 - 关闭状态机为 `Open → DrainingWrites → Closing`。`CloseAfterWriteAsync` 先停止接纳，再在同一同步边界内等待已提交写归零；`DrainTimeout` 为零时按 5 秒。超时只强制完成仍处于 `Queued` 的写并补偿 `RawFrame`，已移交写不伪造完成、不释放。draining 期间普通 `CloseAsync` 加入同一等待，重复调用复用同一完成源。
+- `DrainOnRemoteEof` 默认 `false`：泵读到对端 EOF 时立即收口，适合对端断开即放弃的场景。置 `true` 时先等队列清空、在途消息跑完，再交给 `CloseAfterWriteAsync` 等已提交写交接，最后按 `remote-eof` 收口；等待上限优先取 `RemoteEofDrainTimeout`（大于 0 时直接作为上限），未配置或非正数时沿用 `DrainTimeout`，两者都为零或负数时按 5 秒，超时只记录告警后继续收口。排空期间链头写出失败时，写方向视为已失效，立即结束等待转入收口，不再等业务跑完或超时。请求/响应类协议（如 HTTP）置 `true`，对端只半关写方向时仍能把完整响应写完再关闭。
 - 进入收口后再调用 `IChannelPipeline.WriteAsync` 抛 `ChannelClosedException`；连接已关闭时 `IRawByteStream.SendAsync` 也必须立即抛同一异常。该判定先于消息类型判定：即使持有的是已摘链节点的旧 `ctx`、传出的也不是 `TransportFrame`，只要连接在收口就按关闭上报。
 - 配置 `UseInputHandler` 后，该连接的 `PipeReader` 由泵独占，运行时会把入站标记为“已接管”：此后再调 `GetStream()`、`ReceiveAsync()` 或 `ChannelInfo.Stream.ReadAsync` 会立刻抛 `InvalidOperationException`（信息里带接管者与可用替代入口），不会再出现两个读者互相抢数据。出站 `Stream.WriteAsync` 不受影响。
 - 钩子启用后，该连接的事件泵不再启动：服务端 `OnServerReceiveSpan`、客户端 `OnClientReceiveSpan` 都不再触发。

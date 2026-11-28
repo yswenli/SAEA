@@ -22,10 +22,10 @@
  *
  *=====================================================================
  *修改标记
- *修改时间：2026/11/24 21:10:00
+ *修改时间：2026/11/28 11:56:11
  *修改人： yswenli
- *版本号： v26.11.24.1
- *描述：协议处理器装配时传入请求体上限与 RequestDrainTimeout，支持 413 后有序排空
+ *版本号： v26.11.27.1
+ *描述：把 WebConfig.RemoteEofDrainTimeout 接到管线的对端 EOF 排空上限
  *
  *****************************************************************************/
 using System;
@@ -222,6 +222,11 @@ namespace SAEA.Http.Base.Net
                 ReadBufferSize = _bufferSize,
                 // HTTP 是单工请求/响应：同一连接必须串行处理，否则保活连接的响应会乱序。
                 MaxConcurrentMessages = 1,
+                // 客户端发完请求后可能立刻半关写方向；那时只表示入站结束，响应仍要完整写回，
+                // 不能像纯网关那样读到 EOF 就收口，否则在途业务写会被连接失活拒绝。
+                DrainOnRemoteEof = true,
+                // 0 或负数表示沿用管线层 DrainTimeout，由执行器统一兜底到 5 秒。
+                RemoteEofDrainTimeout = _webHost.WebConfig.RemoteEofDrainTimeout > 0 ? TimeSpan.FromMilliseconds(_webHost.WebConfig.RemoteEofDrainTimeout) : TimeSpan.Zero,
                 RequireTerminalHandler = true
             };
 

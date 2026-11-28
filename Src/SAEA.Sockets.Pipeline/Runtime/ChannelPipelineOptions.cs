@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/12 11:31:43
+*修改时间：2026/11/28 11:56:11
 *修改人： yswenli
-*版本号： v26.11.5.1
-*描述：补残帧上限检查的前置条件说明
+*版本号： v26.11.27.1
+*描述：新增 RemoteEofDrainTimeout，为对端 EOF 排空提供独立于 DrainTimeout 的等待上限
 *
 *****************************************************************************/
 using System;
@@ -63,6 +63,20 @@ namespace SAEA.Sockets.Pipeline
         /// 避免一个卡住的写永久挂住收口；超时后强制完成未移交的写。
         /// </summary>
         public TimeSpan DrainTimeout { get; set; } = TimeSpan.FromSeconds(5);
+
+        /// <summary>
+        /// 读到对端 EOF 时是否先等在途消息与已提交的出站写排空再收口；默认 false 保持读到 EOF 立即收口。
+        /// 请求/响应类协议（如 HTTP）置 true，保证对端只关闭写方向时仍能收到完整响应；
+        /// 等待上限优先取 <see cref="RemoteEofDrainTimeout"/>，未单独配置时沿用 <see cref="DrainTimeout"/>。
+        /// </summary>
+        public bool DrainOnRemoteEof { get; set; } = false;
+
+        /// <summary>
+        /// 读到对端 EOF 后等待在途消息与已提交写排空的上限；只作用于 <see cref="DrainOnRemoteEof"/> 为 true 的场景。
+        /// 大于零时直接作为等待上限；零或负数表示沿用 <see cref="DrainTimeout"/>，
+        /// 两者都为零或负数时按 5 秒处理。
+        /// </summary>
+        public TimeSpan RemoteEofDrainTimeout { get; set; } = TimeSpan.Zero;
 
         /// <summary>
         /// 单连接未成帧残余字节上限；0 表示按分帧器最大帧长与读缓冲推导。

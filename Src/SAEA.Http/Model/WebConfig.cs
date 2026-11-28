@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/24 16:56:10
+*修改时间：2026/11/28 11:56:11
 *修改人： yswenli
-*版本号： v26.11.24.1
-*描述：新增 RequestDrainTimeout，控制 413 后请求体有界排空的超时
+*版本号： v26.11.27.1
+*描述：新增 RemoteEofDrainTimeout，控制客户端半关写方向后等待在途请求与响应写完的上限
 *
 *****************************************************************************/
 using System;
@@ -155,6 +155,12 @@ namespace SAEA.Http.Model
         /// 读完或超时后关闭连接，避免带着未读字节关闭触发 RST。
         /// </summary>
         public int RequestDrainTimeout { get; set; } = 2000;
+
+        /// <summary>
+        /// 客户端发完请求后只半关写方向时，服务端先等在途请求与已提交响应写完再收口，本值是这段等待的上限，单位毫秒，默认 30000。
+        /// 取值 0 或负数表示沿用管线层 <see cref="ChannelPipelineOptions.DrainTimeout"/>；必须在 WebHost.Start 之前设置。
+        /// </summary>
+        public int RemoteEofDrainTimeout { get; set; } = 30000;
 
         /// <summary>
         /// 请求体落盘阈值，单位字节，默认 1MB；取值 0 表示禁用落盘，请求体始终留在内存。

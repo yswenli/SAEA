@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/24 18:21:25
+*修改时间：2026/11/28 11:56:11
 *修改人： yswenli
-*版本号： v26.11.24.2
-*描述：排空字节数改为长整型，与连接层签名保持一致
+*版本号： v26.11.27.1
+*描述：对端 EOF 排空优先使用 RemoteEofDrainTimeout，未配置时沿用 DrainTimeout 与 5 秒兜底
 *
 *****************************************************************************/
 using System;
@@ -77,6 +77,11 @@ namespace SAEA.Sockets.Pipeline
         private readonly ConcurrentDictionary<int, Task> _inFlight = new ConcurrentDictionary<int, Task>();
         private readonly object _drainGate = new object();
 
+        // 写方向失效信号：传输层发送失败后，半关排空不能再等业务把剩余内容读完，
+        // 否则客户端已断开时读循环仍会继续产出数据。
+        private readonly TaskCompletionSource<bool> _writeFailure =
+            new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
         private ChannelPipeline _pipeline;
         private int _queued;
         private int _queuePaused;
@@ -94,6 +99,7 @@ namespace SAEA.Sockets.Pipeline
         private int _state;
         private bool _activeDispatched;
         private bool _inactiveDispatched;
+        private int _writeFailed;
 
         /// <summary>
         /// 创建执行器。传输层令牌取消表示连接已断开，是消息令牌的兜底来源；
@@ -622,10 +628,16 @@ namespace SAEA.Sockets.Pipeline
                         _pendingComplete = false;
                     }
 
-                    // 8. 对端 EOF：本轮已处理完，直接收口，不把完成态当空读自旋。
+                    // 8. 对端 EOF：本轮已处理完，不把完成态当空读自旋。
                     if (result.IsCompleted)
                     {
-                        _ = BeginShutdown("remote-eof", true);
+                        // 只结束入站方向：请求/响应类协议还要把在途响应写完，
+                        // 直接收口会让业务写在连接失活后失败；已进入收口时交给既有状态机，不重复排队。
+                        if (_options.DrainOnRemoteEof && _pipeline.IsOpen)
+                            _ = DrainOnRemoteEofAsync("remote-eof");
+                        else
+                            _ = BeginShutdown("remote-eof", true);
+
                         break;
                     }
 
@@ -1034,7 +1046,55 @@ namespace SAEA.Sockets.Pipeline
             return tasks.ToArray();
         }
 
-        private async Task<bool> WaitForInFlightAsync(TimeSpan timeout)
+        /// <summary>
+        /// 传输层发送失败时由链头通知：写方向已不可用，半关排空不再等待在途业务。
+        /// </summary>
+        internal void NotifyWriteFailure()
+        {
+            if (Interlocked.Exchange(ref _writeFailed, 1) == 0)
+                _writeFailure.TrySetResult(true);
+        }
+
+        /// <summary>
+        /// 对端只关闭写方向时的收口序列：先等在途消息跑完并清空队列，再等已提交的出站写交接完成。
+        /// 等待超时只记录告警并继续收口，避免半关且不读的对端把连接永久挂住。
+        /// </summary>
+        /// <param name="reason">关闭原因，写入日志用于区分收口来源。</param>
+        private async Task DrainOnRemoteEofAsync(string reason)
+        {
+            try
+            {
+                // 排空上限与 DrainTimeout 分开：慢链路读大响应或业务处理耗时可能超过断开收口的上限，
+                // 继续共用 DrainTimeout 会在正文写完前强制收口，因此优先取 RemoteEofDrainTimeout。
+                var timeout = _options.RemoteEofDrainTimeout;
+                if (timeout <= TimeSpan.Zero)
+                    timeout = _options.DrainTimeout;
+
+                // 两者都未配置时不能按「无限等待」处理：半关后对端不再读时必须有一次有界收口，
+                // 否则连接会一直留在在途消息上。
+                if (timeout <= TimeSpan.Zero)
+                    timeout = TimeSpan.FromSeconds(5);
+
+                var drained = await WaitForInFlightAsync(timeout, true).ConfigureAwait(false);
+                if (!drained)
+                {
+                    // 写方向已失效时没有可排空的对象：继续等只会让业务把剩余内容白读完。
+                    if (Volatile.Read(ref _writeFailed) != 0)
+                        LogHelper.Warn("对端半关后写方向已失效，跳过剩余排空直接收口:" + _stream.ChannelId, null);
+                    else
+                        LogHelper.Warn("对端半关后在途消息排空超时，继续收口:" + _stream.ChannelId, null);
+                }
+
+                await _pipeline.CloseAfterWriteAsync(reason).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Warn("对端半关排空失败，降级为立即收口:" + _stream.ChannelId, ex);
+                _ = BeginShutdown(reason, false);
+            }
+        }
+
+        private async Task<bool> WaitForInFlightAsync(TimeSpan timeout, bool requireQueueEmpty = false)
         {
             var infinite = timeout == TimeSpan.Zero;
             var elapsed = System.Diagnostics.Stopwatch.StartNew();
@@ -1057,7 +1117,9 @@ namespace SAEA.Sockets.Pipeline
                             return false;
 
                         var delay = Task.Delay(remaining);
-                        var winner = await Task.WhenAny(all, delay).ConfigureAwait(false);
+                        var winner = requireQueueEmpty
+                            ? await Task.WhenAny(all, delay, _writeFailure.Task).ConfigureAwait(false)
+                            : await Task.WhenAny(all, delay).ConfigureAwait(false);
                         if (winner != all)
                             return false;
 
@@ -1065,7 +1127,12 @@ namespace SAEA.Sockets.Pipeline
                     }
                 }
 
+                // 写方向已失效时排空没有意义：业务再写也只会继续失败，立即交给收口。
+                if (requireQueueEmpty && Volatile.Read(ref _writeFailed) != 0)
+                    return false;
+
                 if (Volatile.Read(ref _inFlightCount) == 0
+                    && (!requireQueueEmpty || Volatile.Read(ref _queued) == 0)
                     && _concurrency.CurrentCount >= _options.MaxConcurrentMessages)
                 {
                     return true;

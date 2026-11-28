@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/20 14:30:00
+*修改时间：2026/11/28 11:56:11
 *修改人： yswenli
-*版本号： v26.11.16.1
-*描述：节点单槽复用调用视图，出站守卫改为全链共享
+*版本号： v26.11.27.1
+*描述：配置快照同步 RemoteEofDrainTimeout，供执行器按独立上限控制对端 EOF 排空
 *
 *****************************************************************************/
 using System;
@@ -232,7 +232,9 @@ namespace SAEA.Sockets.Pipeline
                 Guard = guard,
                 RequireTerminalHandler = options.RequireTerminalHandler,
                 SplitterSwitchTimeout = options.SplitterSwitchTimeout,
-                MaxPendingWrites = options.MaxPendingWrites
+                MaxPendingWrites = options.MaxPendingWrites,
+                DrainOnRemoteEof = options.DrainOnRemoteEof,
+                RemoteEofDrainTimeout = options.RemoteEofDrainTimeout
             };
 
             return new ChannelPipeline(snapshot, maxBufferedBytes, resumeWatermark, guard);
@@ -1090,7 +1092,17 @@ namespace SAEA.Sockets.Pipeline
                         "同一个 RawFrame 只能移交给传输层一次；重复移交会产生重复帧或重复释放。");
                 }
 
-                await stream.SendAsync(raw.Bytes, raw.Owner).ConfigureAwait(false);
+                try
+                {
+                    await stream.SendAsync(raw.Bytes, raw.Owner).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // 所有权已移交传输层，这里只通知执行器写方向失效，不做帧补偿。
+                    executor.NotifyWriteFailure();
+                    throw;
+                }
+
                 return;
             }
 
@@ -1105,7 +1117,16 @@ namespace SAEA.Sockets.Pipeline
             if (stream == null || executor == null)
                 throw new InvalidOperationException("pipeline 尚未 Attach 到传输层。");
 
-            await stream.SendAsync(frame.Data, frame.Owner).ConfigureAwait(false);
+            try
+            {
+                await stream.SendAsync(frame.Data, frame.Owner).ConfigureAwait(false);
+            }
+            catch
+            {
+                // 所有权已移交传输层，这里只通知执行器写方向失效，不做帧补偿。
+                executor.NotifyWriteFailure();
+                throw;
+            }
         }
 
         private void EnsureNotDisposed()

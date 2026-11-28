@@ -124,6 +124,7 @@ server.Start();
 | 请求体落盘阈值 | 1MB | `WebConfig.LargeBodyThreshold`，超过即写临时文件，`0` 表示禁用落盘 |
 | 请求体临时目录 | 系统临时目录下 `saea-http` | `WebConfig.TempDirectory`，启动期确保存在 |
 | 413 排空超时 | 2000ms | `WebConfig.RequestDrainTimeout`，413 后等待并丢弃剩余请求体的最长时间，`0` 表示不排空 |
+| 半关排空超时 | 30000ms | `WebConfig.RemoteEofDrainTimeout`，客户端只半关写方向时等待在途请求与已提交响应写完的上限，`0` 或负数沿用管线层 `DrainTimeout` |
 | 请求头长度 | 64KB | 独立上限，超限回 431 |
 | 分帧缓冲 | `MaxFrameLength + 9 + ReadBufferSize` | 由执行器推导，不要手动填小于该值 |
 | 并发消息数 | 1 | HTTP 单工请求/响应，同连接串行处理 |
@@ -137,6 +138,8 @@ server.Start();
 请求体落盘阈值不改变分帧期的单连接峰值：整帧仍需可寻址，落盘只去掉「整帧 → body 数组」的重复复制以及请求结束后的整段驻留。
 
 请求体超限时先写出 413，再半关写方向并按有界预算排空剩余请求体：`Content-Length` 按 64 位整数解析，定长请求按它与已到达字节之差计算；chunked 或数值超出 `long` 上限时无法推断剩余长度，按 `MaxRequestBodySize` 兜底；`400`/`431` 不做排空。排空期间到达的字节直接丢弃、不进入业务（TLS 下按解密后的明文计数），上限由 `WebConfig.RequestDrainTimeout` 控制；达到字节上限、超时或对端提前半关后关闭连接，避免未读数据触发 RST 让客户端读不到 413。
+
+客户端发完请求后只半关写方向（`shutdown(SHUT_WR)`）时，服务端把对端 EOF 仅当作入站结束：连接链启用 `ChannelPipelineOptions.DrainOnRemoteEof`，先等在途请求处理完、已提交响应交接完成，再按 `remote-eof` 收口，因此响应体（包括大文件流式响应）仍会完整写出。等待上限默认由 `WebConfig.RemoteEofDrainTimeout` 控制（默认 30000 毫秒），取值 0 或负数时沿用管线层 `DrainTimeout`（默认 5 秒，零值按 5 秒处理）；调大该值可避免慢链路读取大响应或业务处理较慢时在正文写完前被排空上限截断。超时只记录告警并继续收口，避免半关且不读的对端把连接挂住。排空期间若链头写出失败，写方向视为已失效，立即结束等待转入收口，不再等业务把剩余内容跑完。
 
 100 Continue 通过裸套接字直发，不经过响应编码链。报头阶段的畸形与定长请求的超限在回 100 之前判定，这类被拒绝的请求不会先收到 100 Continue；chunked 请求的畸形与超限可能要到后续分块才被发现，此时 100 已经发出，属协议允许的行为。`Expect: 100-continue` 与 chunked 组合时，分帧器先按 chunk 状态机确认请求体未到齐，再回一次 100，随后继续按块收齐并解码。已知限制：100 Continue 绕过出站串行化，同一连接上「流水发送 + `Expect`」时可能与上一条响应交错，属非合规客户端用法。
 
@@ -867,6 +870,7 @@ server.WebConfig.MaxRequestBodySize = 20 * 1024 * 1024; // 请求体上限（字
 server.WebConfig.LargeBodyThreshold = 1024 * 1024; // 请求体落盘阈值（字节），0 表示始终留在内存，必须在 Start 之前设置
 server.WebConfig.TempDirectory = null; // 请求体临时目录，null 表示系统临时目录下的 saea-http
 server.WebConfig.RequestDrainTimeout = 2000; // 413 后等待并丢弃剩余请求体的超时（毫秒），0 表示不排空
+server.WebConfig.RemoteEofDrainTimeout = 30000; // 客户端半关写方向后等待在途请求与已提交响应写完的上限（毫秒），0 或负数沿用管线层 DrainTimeout
 server.WebConfig.ConfigurePipeline = (id, pipeline) => { /* ... */ };
 server.WebConfig.UseSsl(o => { /* ... */ });
 server.WebConfig.RequestDelegate = ctx => { /* ... */ };
