@@ -36,6 +36,10 @@ https://github.com/yswenli/SAEA</PackageReleaseNotes>
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SAEA.Sockets.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\..\favicon.png">
       <Pack>True</Pack>
       <PackagePath></PackagePath>

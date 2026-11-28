@@ -23,10 +23,10 @@
 *
 *=====================================================================
 *修改标记
-*修改时间：2026/11/28 12:58:24
+*修改时间：2026/11/28 14:01:10
 *修改人： yswenli
 *版本号： v26.11.27.1
-*描述：TLS 发送与 End 的收尾类失败纳入同一分级；End 写方向不可写时记录跳过原因
+*描述：抽取发送失败收尾分级为 SendTeardownClassifier；End 明文分支改用套接字快照并在同步抛出时归还写闸门
 *
 *****************************************************************************/
 using SAEA.Common;
@@ -534,40 +534,6 @@ namespace SAEA.Sockets.Core.Tcp
             return exception?.GetBaseException() ?? new SaeaTlsException("TLS 握手失败。");
         }
 
-        /// <summary>
-        /// 判断发送失败是否属于连接收尾阶段的预期结果。
-        /// <para>
-        /// <see cref="SocketError.NetworkDown"/>、<see cref="SocketError.NetworkUnreachable"/>、
-        /// <see cref="SocketError.HostUnreachable"/> 未列入降级集合：它们是真实网络故障，不能吞成收尾。
-        /// </para>
-        /// </summary>
-        /// <param name="exception">发送路径上抛出的异常</param>
-        /// <returns>属于连接关闭、重置或回收等预期收尾失败时返回 true</returns>
-        internal static bool IsExpectedSendTeardown(Exception exception)
-        {
-            for (var current = exception; current != null; current = current.InnerException)
-            {
-                if (current is ObjectDisposedException) return true;
-
-                var socketException = current as SocketException;
-                if (socketException == null) continue;
-
-                switch (socketException.SocketErrorCode)
-                {
-                    case SocketError.NotConnected:
-                    case SocketError.ConnectionReset:
-                    case SocketError.ConnectionAborted:
-                    case SocketError.NetworkReset:
-                    case SocketError.Shutdown:
-                    case SocketError.Disconnecting:
-                    case SocketError.OperationAborted:
-                        return true;
-                }
-            }
-
-            return false;
-        }
-
         private SaeaConnection GetConnection(IUserToken userToken)
         {
             if (userToken == null) return null;
@@ -698,7 +664,7 @@ namespace SAEA.Sockets.Core.Tcp
                         if (ex == null) return;
 
                         // 关闭/重置/回收类失败属预期收尾，不该按错误级别上报
-                        if (IsExpectedSendTeardown(ex))
+                        if (SendTeardownClassifier.IsExpectedSendTeardown(ex))
                             LogHelper.Debug($"TLS 发送时连接已收尾:{tokenId}", ex);
                         else
                             OnError?.Invoke(tokenId, ex);
@@ -1118,7 +1084,7 @@ namespace SAEA.Sockets.Core.Tcp
                         try { userToken.ReleaseWrite(); } catch { }
                         acquired = false;
                         operation.TryCompleteException(ex);
-                        if (IsExpectedSendTeardown(ex))
+                        if (SendTeardownClassifier.IsExpectedSendTeardown(ex))
                             LogHelper.Debug($"发送时连接已收尾:{tokenId}", ex);
                         else
                             OnError?.Invoke($"An exception occurs when a message is sending:{tokenId}", ex);
@@ -1150,7 +1116,7 @@ namespace SAEA.Sockets.Core.Tcp
             {
                 if (associated) baseToken.TakePendingSend();
                 operation.TryCompleteException(ex);
-                if (IsExpectedSendTeardown(ex))
+                if (SendTeardownClassifier.IsExpectedSendTeardown(ex))
                     LogHelper.Debug($"发送时连接已收尾:{userToken?.ID}", ex);
                 else
                     OnError?.Invoke($"An exception occurs when a message is sending:{userToken?.ID}", ex);
@@ -1224,6 +1190,9 @@ namespace SAEA.Sockets.Core.Tcp
 
         /// <summary>
         /// 向指定会话异步发送：能直接取到底层数组时零拷贝直发，否则复制进池化缓冲；TLS 激活时走 TLS 通道
+        /// <para>
+        /// 收尾类失败只记调试日志；需要可观察失败请用带 owner 参数的 Task 重载。
+        /// </para>
         /// </summary>
         /// <param name="sessionID">会话标识</param>
         /// <param name="data">待发送数据，为空或会话不存在时直接返回</param>
@@ -1293,7 +1262,7 @@ namespace SAEA.Sockets.Core.Tcp
                 {
                     // 与明文发送同口径分级，但必须重新抛出：调用方拿到的 Task 仍要失败
                     var tokenId = userToken?.ID ?? "";
-                    if (IsExpectedSendTeardown(ex))
+                    if (SendTeardownClassifier.IsExpectedSendTeardown(ex))
                         LogHelper.Debug($"TLS 发送时连接已收尾:{tokenId}", ex);
                     else
                         OnError?.Invoke(tokenId, ex);
@@ -1410,7 +1379,7 @@ namespace SAEA.Sockets.Core.Tcp
                     }
                     catch (Exception ex)
                     {
-                        if (IsExpectedSendTeardown(ex))
+                        if (SendTeardownClassifier.IsExpectedSendTeardown(ex))
                             LogHelper.Debug($"TLS 收尾发送时连接已收尾:{sessionId ?? ""}", ex);
                         else
                             OnError?.Invoke(sessionId ?? "", ex);
@@ -1424,11 +1393,15 @@ namespace SAEA.Sockets.Core.Tcp
                 });
                 return;
             }
+            // SendAsync 抛异常表示本次发送未被内核排队，不会有完成回调来归还写闸门，必须由本方法收回。
+            var writeHeld = false;
             try
             {
-                if (userToken.Socket != null && data.Length > 0)
+                // Socket 会被并发收口路径置空，只读一次快照：空判断与后续发送看到同一个引用，避免二次读取拿到 null。
+                var socket = userToken.Socket;
+                if (socket != null && data.Length > 0)
                 {
-                    if (!userToken.Socket.Connected)
+                    if (!socket.Connected)
                     {
                         // 写方向已随本端关闭/释放或致命 IO 错误失效，跳过发送但留下原因
                         LogHelper.Debug($"收尾发送时连接已不可写:{userToken.ID}");
@@ -1439,28 +1412,41 @@ namespace SAEA.Sockets.Core.Tcp
                         var writeArgs = userToken.WriteArgs;
                         if (writeArgs != null && userToken.WaitWrite(SocketOption.ActionTimeout))
                         {
+                            writeHeld = true;
                             writeArgs.SetBuffer(copy, 0, copy.Length);
                             userToken.IsSending = true;
                             if (userToken is BaseUserToken endToken && !endToken.TryBeginOperation())
                             {
                                 // 连接已在回收：不再提交，交给随后的 Disconnect 收口
                                 userToken.IsSending = false;
-                                userToken.ReleaseWrite();
+                                try { userToken.ReleaseWrite(); } catch { }
+                                writeHeld = false;
                             }
                             else
                             {
                                 try
                                 {
-                                    if (!userToken.Socket.SendAsync(writeArgs)) ProcessSended(writeArgs);
+                                    // 提交成功后闸门归完成回调或 ProcessSended 释放，本方法不再持有
+                                    var queued = socket.SendAsync(writeArgs);
+                                    writeHeld = false;
+                                    if (!queued) ProcessSended(writeArgs);
                                 }
                                 catch (Exception ex)
                                 {
+                                    // 未被内核排队就不会有完成回调，这里必须自行归还写闸门，否则连接收口后闸门永久占用
+                                    if (writeHeld)
+                                    {
+                                        userToken.IsSending = false;
+                                        try { userToken.ReleaseWrite(); } catch { }
+                                        writeHeld = false;
+                                    }
+
                                     // 入池会清空 ID：日志用快照；先在令牌仍归属本连接时断开，
                                     // 再由 CompleteOperation 作为本方法对令牌的最后一次访问。
                                     var tokenId = userToken.ID;
                                     try
                                     {
-                                        if (IsExpectedSendTeardown(ex))
+                                        if (SendTeardownClassifier.IsExpectedSendTeardown(ex))
                                             LogHelper.Debug($"收尾发送时连接已收尾:{tokenId}", ex);
                                         else
                                             OnError?.Invoke(tokenId ?? "", ex);
@@ -1479,7 +1465,14 @@ namespace SAEA.Sockets.Core.Tcp
             }
             catch (Exception ex)
             {
-                if (IsExpectedSendTeardown(ex))
+                if (writeHeld)
+                {
+                    userToken.IsSending = false;
+                    try { userToken.ReleaseWrite(); } catch { }
+                    writeHeld = false;
+                }
+
+                if (SendTeardownClassifier.IsExpectedSendTeardown(ex))
                     LogHelper.Debug($"收尾发送时连接已收尾:{userToken?.ID}", ex);
                 else
                     OnError?.Invoke(userToken?.ID ?? "", ex);
