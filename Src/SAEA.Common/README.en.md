@@ -710,6 +710,9 @@ ConsoleHelper.WriteLineError("Error message", ConsoleColor.Red);
 ConsoleHelper.Flush();
 ```
 
+> ⚠️ **Note**: `LogHelper.Debug` has no level switch — every call writes to both the console and the log file.
+> The first call carrying an exception in the process pays a one-off JSON contract initialization cost (tens of milliseconds); later calls cost about 0.1 ms. On hot paths, throttle the calls or avoid passing exception arguments.
+
 ### Configuration Persistence
 
 ```csharp

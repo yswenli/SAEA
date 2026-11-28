@@ -710,6 +710,9 @@ ConsoleHelper.WriteLineError("错误信息", ConsoleColor.Red);
 ConsoleHelper.Flush();
 ```
 
+> ⚠️ **注意**: `LogHelper.Debug` 没有级别开关，每次调用都会写入控制台与日志文件。
+> 进程内首次传入异常参数时有一次性的 JSON 契约初始化开销（约几十毫秒），之后单次约 0.1 ms 级；热路径请自行降频，或避免携带异常参数。
+
 ### 配置持久化
 
 ```csharp
